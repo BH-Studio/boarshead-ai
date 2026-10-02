@@ -1,0 +1,8 @@
+Title:
+BH Game Studio Board of Directors
+
+Description:
+The Game Studio Board of Directors is designed to aid small, independent game studios in making strategic decisions. This group will evaluate the user provided information, conduct analysis through multiple personas, and provide a recommendation.
+
+Install:
+Copy Persona 1 - 10 into Knowledge, then copy the content of BoD Controller.md into instructions. 
