@@ -1,0 +1,537 @@
+AI KNOWLEDGE REFERENCE — Machinations / Resource-Flow Modeling
+Source: text-forward conversion of the AI-processing framework knowledge pack created 25 Aug 2026.
+Use: reference material for the BH Game Systems Design & Engineering Team.
+Authority: framework guidance; it does not override approved project decisions or the GPT controller instructions.
+
+
+GAME SYSTEMS FRAMEWORK KNOWLEDGE PACK
+
+Machinations and Resource-Flow
+Modeling
+Executable models for economies, progression, crafting, scarcity, and probabilistic systems
+
+Purpose for the custom GPT
+Give designer personas a disciplined way to translate a game economy or progression system into resources,
+nodes, connections, formulas, and simulations before implementation, while keeping the model focused on a
+concrete design question.
+
+Document
+
+Use
+
+Knowledge-pack ID
+
+GSF-04-MACHINATIONS
+
+Audience
+
+Game-design personas working as a coordinated design team
+
+Primary mode
+
+Reasoning framework + review gate + prompt-pattern library
+
+Version
+
+1.0 - 25 Aug 2026
+
+Source policy
+
+Synthesis and operational guidance; consult original sources for full context
+
+Important: These documents operationalize public design frameworks for AI-assisted design. They intentionally add multi-persona
+workflow rules, prompt patterns, review gates, and implementation handoff practices that are not claims made by the original authors.
+
+Contents and retrieval map
+The headings below are intentionally explicit so a custom GPT can retrieve a focused section without needing to
+ingest the entire document.
+1. Custom GPT operating directive
+2. What Machinations is
+3. Core nodes and connections
+4. Resources, states, and trigger logic
+5. Steps and simulation modes
+6. Modeling workflow
+7. Design patterns and common structures
+8. AI persona integration
+9. Prompt patterns
+10. Worked example
+11. Interpreting results
+12. Failure modes
+13. Review gate
+14. Integration
+15. Sources
+
+Framework invocation rule
+Use this framework when its triggering conditions match the design problem. Do not force every problem
+through every framework. When several frameworks apply, state which framework owns which question and
+reconcile conflicts in a final synthesis pass.
+
+Custom GPT operating directive
+When to invoke Machinations-style modeling
+Invoke when the system contains resources, accumulation, conversion, spending, production, probability,
+progression, attrition, crafting, loot, or feedback relationships that would benefit from being simulated before
+implementation.
+
+• Begin with a design question. Do not model the whole game merely because it can be modeled.
+• Define what one simulation Step means before assigning rates or formulas.
+• Treat resources broadly: money, XP, health, items, population, time tokens, progress, reputation, or abstract state can
+all be modeled when appropriate.
+• Separate resource movement from state modification. Resource Connections move resources; State Connections
+modify behavior or activation based on system state. [MACH-1]
+• Use simulation to test a hypothesis. A model that runs is not automatically a valid model of player behavior or a fun
+game.
+
+What Machinations is
+Machinations is a visual language and browser-based systems simulation tool for modeling resource flows and
+dynamic systems. Its modern documentation describes it as a way to map systems, define parameters, simulate
+outcomes, compare scenarios, and inspect distributions before implementation. Adams and Dormans introduced the
+framework to game designers as a formal visual language for documenting, simulating, and testing internal game
+economies. [MACH-1] [MACH-5]
+
+Game question
+
+Resource-flow
+model
+
+Simulation
+
+Observed
+distribution
+
+Design
+decision
+
+The diagram is a hypothesis that can be executed and challenged.
+
+Core nodes and connections
+The current Machinations framework documents six basic node types and two connection types. [MACH-1]
+Element
+
+Function
+
+Typical game interpretation
+
+Source
+
+Creates resources
+
+Income, spawn, XP generation, resource harvest
+
+Pool
+
+Stores / accumulates resources
+
+Wallet, inventory, HP, XP, population, progress
+
+Drain
+
+Consumes / destroys resources
+
+Cost, decay, ammo use, death, maintenance, taxes
+
+Converter
+
+Transforms input resources into
+other resources
+
+Crafting, upgrades, refining, production
+
+Trader
+
+Exchanges resource sets
+
+Market trade, barter, bidirectional exchange
+
+Gate
+
+Distributes or routes resources; can
+be deterministic or random
+
+Loot table, branching outcome, routing rule
+
+Resource Connection
+
+Moves resources and defines flow
+amount/rate
+
+Transfer, income rate, consumption rate
+
+Element
+
+Function
+
+Typical game interpretation
+
+State Connection
+
+Changes node/connection behavior
+based on state
+
+Scaling cost, unlock condition, rate modifier, activation
+
+Resources, states, and trigger logic
+The framework treats resource flow as the internal economy of a system. State Connections make the model more
+than a static flowchart by allowing accumulated state to modify rates, activation, and formulas. Gates can represent
+deterministic or probabilistic distribution. Trigger modes determine when nodes act during simulation. [MACH-1]
+[MACH-2]
+• Resource identity: define what a token represents and whether different resource types can substitute, convert, or
+coexist.
+• Capacity: identify storage caps, throughput limits, or overflow behavior when they matter to the design.
+• Activation: specify whether an action is player-triggered, automatic, conditional, or enabled by state.
+• Randomness: model probability explicitly rather than hiding it in prose; inspect distributions, not only averages.
+• State dependence: use state-driven formulas for escalating costs, diminishing returns, unlocks, adaptive difficulty, or
+feedback strength.
+
+Steps and simulation modes
+Machinations lets the designer define the meaning of a Step. The official documentation gives examples such as one
+player action, one core loop, or one game played. This choice is foundational because every rate and delay depends
+on the time/decision unit. [MACH-3]
+Mode
+
+Use
+
+Step
+
+Advance one step at a time to debug flow and inspect where the diagram breaks.
+
+Interactive Play
+
+Simulate real-time interaction and manually trigger interactive nodes.
+
+Predictions
+
+Run one or many executions and inspect outcomes across repeated simulations; useful for
+stochastic systems and distributions.
+
+The current tool can run many prediction executions and visualize results, which is particularly valuable for
+progression, random rewards, attrition, and economies where tail behavior matters. [MACH-3]
+
+Modeling workflow
+Step
+
+Action
+
+1. State the design
+question
+
+Examples: How long does level 20 take? What percentage of players exhaust currency? How
+volatile is crafting output?
+
+2. Define scope
+
+Include only variables and flows needed to answer the question. Document exclusions.
+
+3. Define one Step
+
+Player action, encounter, minute, day, mission, match, etc.
+
+4. Inventory resources
+
+List accumulations, currencies, progress, health, inventory, or abstract tokens.
+
+5. Map sources and drains
+
+Where does each resource enter and leave the economy? Missing sinks are a common inflation
+cause.
+
+6. Map conversions and
+trades
+
+How do players transform resources or exchange opportunity cost?
+
+7. Add routing and
+probability
+
+Use gates or equivalent logic for branching, randomness, and distribution.
+
+8. Add state feedback
+
+Scale rates, costs, unlocks, and activation based on accumulated state.
+
+9. Calibrate from evidence
+
+Use design targets, prototype data, telemetry, or bounded assumptions.
+
+10. Run scenarios
+
+Test typical, skilled, unlucky, risk-averse, optimizing, and exploit-seeking behavior.
+
+11. Inspect distributions
+
+Look at variance, tails, thresholds, failure rates, not only the mean.
+
+12. Translate findings
+
+Turn the model insight into concrete game rules, parameter ranges, instrumentation, and
+implementation tests.
+
+Scope discipline
+The official loot-box/card-pack tutorial explicitly recommends deciding what question the model should answer
+and what parts of the system are in or out before modeling; otherwise designers can fall into a "model
+everything" trap. [MACH-4]
+
+Design patterns and common structures
+Adams and Dormans use Machinations not only as notation but as a way to recognize reusable economic structures.
+Their broader design-pattern library includes structures such as engines, friction/attrition, escalating challenge, arms
+races, multiple feedback, trade, and slow cycles. These patterns are useful as diagnostic vocabulary even when the
+team does not recreate the exact diagrams. [MACH-5]
+Pattern family
+
+Design question
+
+Engine building
+
+Does investing current resources increase future production strongly enough to create meaningful
+acceleration without runaway growth?
+
+Friction / attrition
+
+What recurring drains keep accumulation from becoming trivial, and do they create decisions
+rather than chores?
+
+Escalating challenge
+
+Does player capability growth cause challenge requirements to rise at a sustainable rate?
+
+Arms race
+
+Do competing growth loops force escalating investment, and can a losing participant recover?
+
+Multiple feedback
+
+Which reinforcing and balancing loops dominate at different stages of progression?
+
+Slow cycle
+
+Do delayed replenishment or long conversions create pacing and anticipation, or merely waiting?
+
+AI persona integration
+Machinations is especially compatible with multi-persona AI analysis because the personas can represent different
+modeling responsibilities and different player behavior assumptions. The current Machinations documentation also
+includes artificial Agents that can simulate behavioral personas; the tool recommends creating multiple agents for
+scenario exploration even though one agent is active on a diagram at a time. [MACH-6]
+Overlay
+
+Primary contribution
+
+Model architect
+
+Chooses scope, Step meaning, resource abstractions, and node/connection structure.
+
+Economy designer
+
+Defines sources, sinks, conversions, costs, rewards, scarcity, and progression intent.
+
+Quant / balance analyst
+
+Checks formulas, expected values, variance, sensitivity, and outcome distributions.
+
+Player-behavior modeler
+
+Defines behavior scenarios: conservative, aggressive, optimizing, collector, novice, etc.
+
+Exploit red team
+
+Searches for infinite loops, arbitrage, sink bypass, reset abuse, and compounding edges.
+
+Implementation translator
+
+Maps model concepts to game state, events, formulas, telemetry, and tests without
+assuming the model is the code architecture.
+
+Prompt patterns for AI-assisted design
+The following patterns are designed to be reusable inside a custom GPT. Replace bracketed fields with project
+context. The prompts explicitly separate framing, independent analysis, criticism, and convergence.
+
+Pattern A - Framework invocation
+Use Machinations-style Resource-Flow Modeling to analyze [SYSTEM OR MECHANIC].
+Context: [PLAYER, PLATFORM, GENRE, DESIGN PILLARS, CONSTRAINTS].
+Decision to make: [EXACT DECISION].
+Known evidence: [PLAYTEST DATA / TELEMETRY / DESIGN FACTS].
+Unknowns: [UNCERTAINTIES].
+Each relevant designer persona must:
+1. Apply the framework terminology explicitly.
+2. Separate observations from assumptions.
+3. Identify at least one failure mode.
+4. Recommend the smallest design change that could test the hypothesis.
+5. State what evidence would change the recommendation.
+Do not converge until independent persona passes are complete.
+
+Pattern B - Cross-examination
+Cross-examine the current design using Machinations-style Resource-Flow Modeling.
+Ask and answer these questions:
+- What single design question must the model answer?
+- What does one Step represent, and are every rate and delay consistent with that unit?
+- Where does each resource enter, accumulate, convert, and leave the system?
+- Which state variables alter rates or unlock behavior?
+- What do the outcome distribution and worst-case tails look like for different player
+personas?
+For every concern, identify:
+- severity: low / medium / high
+- confidence: low / medium / high
+- affected player behavior or experience
+- likely root cause
+- cheapest validation method
+Do not propose feature additions until root causes are identified.
+
+Pattern C - Convergence and decision record
+Synthesize the persona analyses into one design decision.
+Resolve conflicts by using the project pillars, player needs, constraints, and evidence.
+Do not average incompatible recommendations.
+Return exactly this structure:
+1. Design question
+2. Model scope and exclusions
+3. Definition of one Step
+4. Resource inventory
+5. Node specification: sources / pools / drains / converters / traders / gates
+6. Resource connections and formulas
+7. State connections / conditions
+8. Randomness assumptions
+9. Player-behavior scenarios
+10. Metrics to record
+11. Expected risks / exploits
+12. Simulation plan and decision criteria
+13. Implementation handoff notes
+If evidence is insufficient, mark the decision PROVISIONAL and specify the experiment
+needed.
+
+Worked example - crafting economy
+Model element
+
+Example
+
+Sources
+
+Combat and exploration generate ore, components, and currency.
+
+Pools
+
+Inventory stores ore/components; wallet stores currency; blueprint progress stores research.
+
+Converters
+
+Refinery converts ore -> alloy; crafting converts alloy + component + currency -> item.
+
+Drains
+
+Repair costs, failed crafting loss, market tax, consumable use.
+
+Gates
+
+Loot rarity distribution and crafting-quality outcome.
+
+State connections
+
+Higher crafting skill improves quality odds; market saturation lowers sale price; level increases
+recipe cost.
+
+Design question
+
+At expected play rates, can a typical player craft a meaningful upgrade every 45-75 minutes
+without stockpiling making later tiers trivial?
+
+The model should run scenarios for a typical player, a high-efficiency optimizer, and an unlucky player. If the mean
+progression is correct but the unlucky tail experiences multi-hour droughts, the design may still need pity, alternative
+conversion paths, guaranteed rewards, or reduced variance.
+
+Interpreting results
+• Mean: useful for expected pacing, insufficient for fairness or frustration.
+• Variance: tells how different player experiences may diverge around the target.
+• Percentiles / tails: identify unlucky or extreme outcomes that averages hide.
+• Threshold crossings: reveal when progression suddenly accelerates, stalls, or becomes self-sustaining.
+• Sensitivity: identify which parameters strongly change outcomes and therefore require careful tuning or telemetry.
+• Scenario comparison: determine whether different play styles remain viable or one behavior dominates the
+economy.
+
+Model validation has two stages: verification asks whether the diagram behaves as intended; validation asks
+whether the assumptions and behavior resemble the real game and real players closely enough to support the
+decision. A mathematically correct model can still answer the wrong question.
+
+Failure modes and misuse
+• Model everything. Scope expands until the model becomes expensive, opaque, and impossible to validate.
+• Undefined Step. Rates mix actions, minutes, missions, and days, producing meaningless simulation results.
+• No sinks or weak sinks. Resources only accumulate, causing inevitable inflation or trivialization.
+• Average-only balance. Mean outcomes look correct while unlucky tails or exploit paths are unacceptable.
+• Hidden behavior assumptions. The model assumes players spend resources as intended rather than hoard,
+optimize, or avoid systems.
+• False equivalence to implementation. A Machinations diagram represents design behavior, not necessarily the best
+software architecture.
+• Simulation = fun. A stable economy can still be boring, confusing, or thematically wrong; combine with MDA and
+loop analysis.
+
+Review gate and quality checklist
+A system should not be considered reviewed under Machinations-style Modeling until the team can answer the
+following checks with evidence or an explicit test plan.
+• Is there one explicit design question the model is intended to answer?
+• Is one Step defined consistently across every formula and delay?
+• Are all major sources and sinks for each modeled resource represented?
+• Are conversions, probabilities, caps, and state-dependent rates explicit?
+• Have multiple player-behavior scenarios been tested rather than one idealized path?
+• Are outcome distributions and tails inspected instead of only averages?
+• Can the team identify which assumptions come from evidence versus design targets?
+• Does the model produce a concrete decision or parameter range, rather than merely a diagram?
+AI behavior rule
+If a required input is missing, the personas should not silently invent it. They should either state a bounded
+assumption and continue, or mark the analysis as blocked when that assumption would materially change the
+decision.
+
+How this framework combines with the other four
+Framework
+
+Primary question
+
+MDA
+
+Defines intended experience and traces mechanics through emergent dynamics to player
+response.
+
+Core / Nested Loops
+
+Defines repeated player activity, time scales, feedback cadence, and how progression loops
+nest.
+
+Systems Thinking
+
+Maps causal relationships, feedback, delays, emergence, and structural leverage points.
+
+Machinations
+
+Makes resource/state flows executable so economy and progression behavior can be
+simulated.
+
+Rational Game Design
+
+Parameterizes skills, mechanics, difficulty, learning, and content variety for controlled iteration.
+
+Machinations should own the questions it is best suited to answer, while the other frameworks provide
+complementary lenses. A final design review should reconcile contradictions rather than treating all five outputs as
+independently correct.
+
+Sources and further reading
+The guidance above is a synthesis. The sources below are the recommended references for full context and original
+terminology. URLs were verified during preparation of this knowledge pack.
+MACH-1. Framework Basics
+Machinations official documentation. Current definitions of the six basic node types, resource connections, state connections, and
+resource-flow concepts.
+https://machinations.io/docs/framework-basics
+MACH-2. Gates and State Connections
+Machinations official documentation. Distribution, deterministic/random routing, triggers, and connection behavior.
+https://machinations.io/docs/gates
+MACH-3. Play Modes
+Machinations official documentation. Defines Step, Interactive Play, Predictions, repeated executions, and charted simulation output.
+https://machinations.io/docs/play-modes
+MACH-4. Guided Tutorials / Loot and Craft
+Machinations official documentation. Hands-on examples for level progression, loot/crafting, stats, difficulty/score, battle pass, and resource
+management.
+https://machinations.io/docs/guided-tutorials
+MACH-5. Game Mechanics: Advanced Game Design / Machinations
+Ernest Adams and Joris Dormans (2012). Original book treatment of Machinations as a formal language for internal economies, simulation,
+game-mechanic patterns, and balance.
+https://www.oreilly.com/library/view/game-mechanics-advanced/9780132946728/ch05.html
+MACH-6. Agentic Triggers
+Machinations official documentation. Current artificial-agent feature for defining behavioral personas and exploring player-behavior scenarios.
+https://machinations.io/docs/what-are-agentic-simulations
+MACH-7. Machinations, A New Way to Design Game Mechanics
+Ernest Adams / Joris Dormans, Game Developer (2012). Practitioner introduction to the visual language and simulation approach.
+https://www.gamedeveloper.com/design/the-designer-s-notebook-machinations-a-new-way-to-design-game-mechanics
+

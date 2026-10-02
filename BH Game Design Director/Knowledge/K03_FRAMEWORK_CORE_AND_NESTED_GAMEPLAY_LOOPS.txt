@@ -1,0 +1,564 @@
+AI KNOWLEDGE REFERENCE — Core and Nested Gameplay Loops
+Source: text-forward conversion of the AI-processing framework knowledge pack created 25 Aug 2026.
+Use: reference material for the BH Game Systems Design & Engineering Team.
+Authority: framework guidance; it does not override approved project decisions or the GPT controller instructions.
+
+
+GAME SYSTEMS FRAMEWORK KNOWLEDGE PACK
+
+Core Gameplay Loops and Nested
+Loops
+Designing repeatable player activity across seconds, sessions, and long-term progression
+
+Purpose for the custom GPT
+Give designer personas a common language for identifying the activities players repeat, the feedback that
+updates their decisions, and the way short loops feed larger progression and strategic loops.
+
+Document
+
+Use
+
+Knowledge-pack ID
+
+GSF-02-LOOPS
+
+Audience
+
+Game-design personas working as a coordinated design team
+
+Primary mode
+
+Reasoning framework + review gate + prompt-pattern library
+
+Version
+
+1.0 - 25 Aug 2026
+
+Source policy
+
+Synthesis and operational guidance; consult original sources for full context
+
+Important: These documents operationalize public design frameworks for AI-assisted design. They intentionally add multi-persona
+workflow rules, prompt patterns, review gates, and implementation handoff practices that are not claims made by the original authors.
+
+Contents and retrieval map
+The headings below are intentionally explicit so a custom GPT can retrieve a focused section without needing to
+ingest the entire document.
+1. Custom GPT operating directive
+2. What a gameplay loop is
+3. Mental model-action-feedback loop
+4. Nested loops and time scales
+5. Objective-Challenge-Reward mapping
+6. Loop architecture and handoffs
+7. Step-by-step loop design workflow
+8. Multi-persona team operating pattern
+9. Prompt patterns
+10. Worked example
+11. Metrics and validation
+12. Failure modes
+13. Review gate
+14. Integration
+15. Sources
+
+Framework invocation rule
+Use this framework when its triggering conditions match the design problem. Do not force every problem
+through every framework. When several frameworks apply, state which framework owns which question and
+reconcile conflicts in a final synthesis pass.
+
+Custom GPT operating directive
+When to invoke loop analysis
+Invoke this framework when the team is defining what players repeatedly do, diagnosing repetitive or
+disconnected progression, evaluating pacing, connecting moment-to-moment play to meta progression, or
+deciding whether a new system belongs in the game at all.
+
+• A loop must describe repeated player activity plus system response. Do not confuse a gameplay loop with the
+engine update/render loop.
+• Start with the smallest meaningful interaction loop and then map the larger loops that contain it.
+• Every outer loop should give meaning, variation, stakes, or new decision context to inner loops. If it only increases a
+number, challenge its value.
+• Feedback latency should match the decision being taught. Short-loop actions need fast, legible feedback; long-term
+strategic choices can tolerate delayed consequences if causality remains understandable.
+• Treat reward as broader than currency. Information, mastery, access, expression, world change, social status, and
+new possibilities are all potential loop outputs.
+
+What a gameplay loop is
+Daniel Cook describes loops as a recurring cycle in which a player acts from a mental model, the game system
+responds, feedback is received, and the player updates the mental model before acting again. He also emphasizes
+that loops exist at multiple frequencies and can nest, producing complex feedback and dynamics. [LOOP-1]
+
+Mental model
+
+Player action
+
+Game system
+
+Feedback
+
+Updated model
+
+The player learns the game by repeatedly cycling through prediction, action, and feedback.
+
+This definition is more useful than the common shorthand "fight -> loot -> upgrade" because it identifies the cognitive
+engine inside the visible activity. A loop is not merely a circular flowchart; it is a repeated opportunity for the player to
+perceive state, choose an action, receive a consequence, and adapt.
+
+Mental model, action, feedback, update
+Element
+
+Design responsibility
+
+Mental model
+
+What the player currently believes about goals, rules, risks, opportunities, and likely outcomes.
+
+Action
+
+A player verb or decision that meaningfully changes state or tests a prediction.
+
+System response
+
+The deterministic, probabilistic, systemic, or authored consequence produced by the game.
+
+Feedback
+
+Information that lets the player perceive what happened and why.
+
+Model update
+
+Learning: the player changes expectations, strategy, timing, priorities, or confidence.
+
+A satisfying loop usually contains both instrumental progress and learning or mastery. If repeated actions produce
+rewards but do not change the player's understanding or decisions, repetition can collapse into grind. Conversely, a
+loop can be compelling with minimal extrinsic reward if the act of improving judgment or execution is intrinsically
+satisfying.
+
+Nested loops and time scales
+Modern games typically contain nested loops operating at different frequencies. Alexander Brazie recommends
+examining loop structures from moment-to-moment activity outward into minute-to-minute, hour-to-hour, and
+longer-term play. The exact labels are less important than making the time scales explicit. [LOOP-2]
+Time scale
+
+Typical questions
+
+Examples of outputs
+
+Seconds
+
+What do I perceive and do right now?
+
+Position, hit, evade, timing information, local state
+
+Minutes
+
+What encounter or objective am I trying to
+complete?
+
+Loot, safety, objective completion, route choice
+
+Session
+
+What meaningful progress do I make this play
+session?
+
+Mission outcome, build change,
+relationship/world state
+
+Multi-session
+
+Why does returning matter?
+
+Capability growth, mastery, collection, strategic
+plan
+
+Campaign / world
+
+What changes because of sustained play?
+
+Faction state, territory, narrative resolution,
+systemic transformation
+
+Nested-loop rule
+The reward or state change from an inner loop should usually become an input, constraint, opportunity, or
+decision in an outer loop. That coupling is what makes repeated moment-to-moment play feel consequential
+rather than disposable.
+
+Objective-Challenge-Reward mapping
+Alexis Jolis-Desautels describes Objective-Challenge-Reward (OCR) loops as a practical way to map short-, medium-,
+and long-term player motivation inside Rational Design. This is especially useful as a compact specification format for
+nested loops. [LOOP-3]
+Component
+
+Question
+
+Objective
+
+What is the player trying to accomplish, and how clearly is that goal perceived?
+
+Challenge
+
+Which player skill, decision, resource constraint, uncertainty, opponent, or execution burden stands
+between player and goal?
+
+Reward
+
+What changes if the player succeeds, and how does that change affect another loop?
+
+OCR does not replace the action-feedback model. Use them together: OCR identifies the motivational unit, while the
+action-feedback loop identifies the repeated interaction and learning cycle inside that unit.
+
+Loop architecture and handoffs
+For every nested loop, document the handoff to the next loop. The important question is not only "what reward do I
+get?" but "what new decision does that reward create?" A new weapon that merely increases damage may shorten
+combat without increasing decision depth. A new weapon that changes range, heat, mobility, or target priority can
+reshape the combat loop and therefore meaningfully feed progression.
+Loop field
+
+What to record
+
+Entry condition
+
+What state or decision begins the loop?
+
+Player objective
+
+What the player is trying to accomplish during this cycle.
+
+Loop field
+
+What to record
+
+Repeated verbs
+
+What the player does repeatedly.
+
+State observed
+
+What information the player uses to decide.
+
+Feedback latency
+
+How quickly cause and effect become legible.
+
+Failure / recovery
+
+How the loop handles mistakes and re-entry.
+
+Output
+
+Reward, information, loss, world change, unlock, mastery.
+
+Outer-loop handoff
+
+How the output changes the next larger loop.
+
+Variation source
+
+What prevents repetition from becoming solved routine.
+
+Step-by-step loop design workflow
+Step
+
+Action
+
+1. Name the player
+promise
+
+What repeated activity is supposed to deliver the core fantasy or mastery?
+
+2. Identify the atomic
+interaction loop
+
+Describe perception -> decision/action -> system response -> feedback -> updated model.
+
+3. Define its
+objective/challenge/reward
+
+Make the motivational structure explicit.
+
+4. Measure the cycle
+
+Estimate cycle duration, decision density, feedback latency, and likely repetition count.
+
+5. Map outer loops
+
+Encounter, mission, session, progression, strategic/world loops.
+
+6. Connect outputs to
+inputs
+
+Show how one loop changes options, stakes, resources, difficulty, or information in another.
+
+7. Add variation
+
+Use changing state, opponents, goals, constraints, combinations, or player expression - not just
+larger numbers.
+
+8. Define failure and
+recovery
+
+Failure should create learning, cost, adaptation, or reset appropriate to the loop scale.
+
+9. Prototype the shortest
+loop first
+
+The game should reveal its core activity quickly enough to evaluate before heavy meta
+progression is built.
+
+10. Validate nesting
+
+Check whether long-term progression enriches the core loop or merely asks the player to repeat
+it for access.
+
+Multi-persona team operating pattern
+This section describes how to apply Core and Nested Gameplay Loops inside an existing multi-persona design
+committee. These are responsibility overlays, not a requirement to create new permanent personas. Map each
+responsibility onto the personas already present in the team.
+• Independent first pass. Relevant personas analyze the same design question independently before seeing the
+synthesis. This reduces premature consensus.
+• Evidence/assumption separation. Every persona labels what is known, inferred, assumed, or proposed. Numerical
+claims without evidence are treated as hypotheses.
+
+• Constructive disagreement. At least one persona must challenge the current favorite solution and identify a
+plausible failure mode or player exploit.
+• Framework vocabulary. Personas use the framework terms precisely. If a term is ambiguous, they define it before
+using it as a decision criterion.
+• Convergence pass. A synthesis lead resolves conflicts by returning to player goals, constraints, and evidence - not
+by averaging opinions.
+• Traceable output. Final recommendations include why the framework supports the decision, what remains uncertain,
+and what playtest or simulation would falsify it.
+
+Recommended round structure
+
+Frame problem
+
+Independent
+persona
+
+Crosscritique
+
+Synthesis
+
+Validation
+plan
+
+Use the team as a reasoning system, not a chorus.
+
+A good AI team pattern deliberately creates different kinds of pressure on the design: player experience, system
+coherence, balance, exploit resistance, production feasibility, and creative possibility. The synthesis lead should
+preserve useful disagreement in the record when the evidence is insufficient to resolve it.
+
+Loop responsibility overlays
+Overlay
+
+Primary contribution
+
+Interaction designer
+
+Defines the moment-to-moment perception, action, response, and feedback cycle.
+
+Progression designer
+
+Defines outer loops and how accumulated outputs change future decisions.
+
+Economy / systems designer
+
+Checks resource handoffs, sinks, costs, and cross-loop coupling.
+
+UX / player advocate
+
+Checks goal clarity, feedback latency, onboarding, cognitive load, and failure readability.
+
+Red-team designer
+
+Searches for grind, solved loops, degenerate optimization, idle waiting, and reward-only
+engagement.
+
+Synthesis lead
+
+Ensures every loop serves the player promise and that loop hierarchy remains coherent.
+
+Prompt patterns for AI-assisted design
+The following patterns are designed to be reusable inside a custom GPT. Replace bracketed fields with project
+context. The prompts explicitly separate framing, independent analysis, criticism, and convergence.
+
+Pattern A - Framework invocation
+Use Core and Nested Gameplay Loops to analyze [SYSTEM OR MECHANIC].
+Context: [PLAYER, PLATFORM, GENRE, DESIGN PILLARS, CONSTRAINTS].
+Decision to make: [EXACT DECISION].
+Known evidence: [PLAYTEST DATA / TELEMETRY / DESIGN FACTS].
+Unknowns: [UNCERTAINTIES].
+Each relevant designer persona must:
+1. Apply the framework terminology explicitly.
+2. Separate observations from assumptions.
+3. Identify at least one failure mode.
+4. Recommend the smallest design change that could test the hypothesis.
+5. State what evidence would change the recommendation.
+Do not converge until independent persona passes are complete.
+
+Pattern B - Cross-examination
+Cross-examine the current design using Core and Nested Gameplay Loops.
+Ask and answer these questions:
+- What is the smallest repeated perception-decision-action-feedback cycle?
+- What does the player learn or become better at each time the loop repeats?
+- What is the Objective-Challenge-Reward structure at each important time scale?
+- How does the output of each inner loop change decisions in an outer loop?
+- Which loop would become grind if rewards were removed, and why?
+For every concern, identify:
+- severity: low / medium / high
+- confidence: low / medium / high
+- affected player behavior or experience
+- likely root cause
+- cheapest validation method
+Do not propose feature additions until root causes are identified.
+
+Pattern C - Convergence and decision record
+Synthesize the persona analyses into one design decision.
+Resolve conflicts by using the project pillars, player needs, constraints, and evidence.
+Do not average incompatible recommendations.
+Return exactly this structure:
+1. Player promise
+2. Atomic loop: perception -> action -> response -> feedback -> update
+3. Short / medium / long OCR loops
+4. Loop durations and feedback latency
+5. Loop handoffs and dependencies
+6. Variation sources
+7. Failure / recovery structure
+8. Grind or degenerate-loop risks
+9. Recommended changes
+10. Prototype and validation plan
+If evidence is insufficient, mark the decision PROVISIONAL and specify the experiment
+needed.
+
+Worked example - exploration and salvage game
+Scale
+
+Loop
+
+Meaningful handoff
+
+Seconds
+
+Scan -> identify hazard/value -> maneuver -> interact
+-> feedback
+
+Improves player knowledge of signals and
+navigation risk.
+
+Minutes
+
+Enter site -> choose route -> manage risk -> recover
+salvage -> escape
+
+Produces cargo, damage, discoveries, and
+route knowledge.
+
+Session
+
+Select contract -> travel -> complete sites -> return ->
+repair/sell/choose next objective
+
+Converts local outcomes into strategic
+resource and reputation choices.
+
+Multi-session
+
+Specialize equipment -> access harder regions ->
+discover new resource relationships
+
+Changes which risks and opportunities are
+viable, altering the inner exploration loop.
+
+The key review question is whether progression changes how the player explores. If higher tiers only multiply cargo
+value and enemy health, the meta loop may increase time investment without deepening the core loop.
+
+Metrics and validation
+• Cycle time: median time to complete one repetition of the loop.
+• Decision density: meaningful decisions per unit time, not raw inputs.
+• Feedback latency: delay between action and perceivable consequence.
+• Repetition before variation: how many cycles occur before state, goal, constraint, or strategy meaningfully changes.
+• Recovery time: how long a mistake suppresses meaningful play.
+• Outer-loop coupling: percentage of rewards or consequences that create a new decision versus merely increase a
+scalar.
+• Strategy diversity: number of viable approaches players actually use, not merely options listed in the design
+document.
+
+Failure modes and misuse
+• Circular diagram fallacy. A flowchart that returns to its start is not automatically a useful gameplay loop.
+• Reward-only repetition. The player repeats an unchanging task solely to receive extrinsic progression.
+• Disconnected meta. Outer-loop rewards do not alter moment-to-moment decisions, so progression feels bolted on.
+• Slow feedback. Players cannot connect actions to consequences and therefore cannot build an accurate mental
+model.
+• Solved loop. Once the optimal sequence is learned, state variation is too weak to require adaptation.
+• Overlong core loop. The supposed core activity takes so long to reveal itself that prototypes cannot validate the
+game's foundation quickly.
+• Engine-loop confusion. Input/update/render architecture is a technical loop, not the player activity framework
+discussed here.
+
+Review gate and quality checklist
+A system should not be considered reviewed under Core and Nested Gameplay Loops until the team can answer
+the following checks with evidence or an explicit test plan.
+
+• Can the team draw the atomic player loop without using progression currency as the main verb?
+• Does every important action receive feedback quickly enough for the player to learn from it?
+• Can the team identify short-, medium-, and long-term objectives, challenges, and rewards?
+• Do outer-loop rewards create new decisions, strategies, access, or context in inner loops?
+• Is there a source of variation before the repeated activity becomes solved routine?
+• Does failure create an appropriate learning/recovery cycle rather than dead time?
+• Would the core activity still be intrinsically interesting if progression rewards were temporarily removed?
+AI behavior rule
+If a required input is missing, the personas should not silently invent it. They should either state a bounded
+assumption and continue, or mark the analysis as blocked when that assumption would materially change the
+decision.
+
+How this framework combines with the other four
+Framework
+
+Primary question
+
+MDA
+
+Defines intended experience and traces mechanics through emergent dynamics to player
+response.
+
+Core / Nested Loops
+
+Defines repeated player activity, time scales, feedback cadence, and how progression loops
+nest.
+
+Systems Thinking
+
+Maps causal relationships, feedback, delays, emergence, and structural leverage points.
+
+Machinations
+
+Makes resource/state flows executable so economy and progression behavior can be
+simulated.
+
+Rational Game Design
+
+Parameterizes skills, mechanics, difficulty, learning, and content variety for controlled iteration.
+
+Core and Nested Loops should own the questions it is best suited to answer, while the other frameworks provide
+complementary lenses. A final design review should reconcile contradictions rather than treating all five outputs as
+independently correct.
+
+Sources and further reading
+The guidance above is a synthesis. The sources below are the recommended references for full context and original
+terminology. URLs were verified during preparation of this knowledge pack.
+LOOP-1. Loops and Arcs
+Daniel Cook / Lostgarden (2012). Foundational practitioner essay describing mental model -> action -> system -> feedback loops, multiple
+frequencies, nesting, and the contrast with arcs.
+https://lostgarden.com/2012/04/30/loops-and-arcs/
+LOOP-2. Designing the Core Gameplay Loop: A Beginner's Guide
+Alexander Brazie / Game Design Skills. Practical treatment of core and nested loops across different time scales, with production-oriented
+examples.
+https://gamedesignskills.com/game-design/core-loops-in-gameplay/
+LOOP-3. Rational design, Part 1 - The player
+Alexis Jolis-Desautels / Game Developer (2021). Includes short/medium/long Objective-Challenge-Reward loop mapping and micro/macro
+flow guidance.
+https://www.gamedeveloper.com/game-platforms/rational-design-part-1-the-player
+LOOP-4. Why the Core Gameplay Loop is Critical for Game Design
+Josh Bycer / Game Developer (2019). Practitioner discussion of the core loop as the organizing center of a game and the risk of feature
+accumulation without a coherent core.
+https://www.gamedeveloper.com/business/why-the-core-gameplay-loop-is-critical-for-game-design
+

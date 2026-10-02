@@ -1,0 +1,570 @@
+AI KNOWLEDGE REFERENCE — Systems Thinking and Feedback Loops
+Source: text-forward conversion of the AI-processing framework knowledge pack created 25 Aug 2026.
+Use: reference material for the BH Game Systems Design & Engineering Team.
+Authority: framework guidance; it does not override approved project decisions or the GPT controller instructions.
+
+
+GAME SYSTEMS FRAMEWORK KNOWLEDGE PACK
+
+Systems Thinking and Feedback Loops
+Causal structure, emergence, delays, leverage points, and systemic balance
+
+Purpose for the custom GPT
+Teach designer personas to reason about games as interacting systems whose behavior emerges from
+causal relationships, reinforcing and balancing loops, stocks, flows, delays, information, and rules.
+
+Document
+
+Use
+
+Knowledge-pack ID
+
+GSF-03-SYSTEMS
+
+Audience
+
+Game-design personas working as a coordinated design team
+
+Primary mode
+
+Reasoning framework + review gate + prompt-pattern library
+
+Version
+
+1.0 - 25 Aug 2026
+
+Source policy
+
+Synthesis and operational guidance; consult original sources for full context
+
+Important: These documents operationalize public design frameworks for AI-assisted design. They intentionally add multi-persona
+workflow rules, prompt patterns, review gates, and implementation handoff practices that are not claims made by the original authors.
+
+Contents and retrieval map
+The headings below are intentionally explicit so a custom GPT can retrieve a focused section without needing to
+ingest the entire document.
+1. Custom GPT operating directive
+2. Systemic thinking
+3. Causal links and loop polarity
+4. Reinforcing and balancing feedback
+5. Stocks, flows, and delays
+6. Emergence and behavior over time
+7. Leverage points for design changes
+8. Step-by-step systems workflow
+9. Multi-persona team pattern
+10. Prompt patterns
+11. Worked example
+12. Failure modes
+13. Review gate
+14. Integration
+15. Sources
+
+Framework invocation rule
+Use this framework when its triggering conditions match the design problem. Do not force every problem
+through every framework. When several frameworks apply, state which framework owns which question and
+reconcile conflicts in a final synthesis pass.
+
+Custom GPT operating directive
+When to invoke systems thinking
+Invoke this framework when multiple mechanics interact, a balance problem keeps reappearing after number
+tuning, player behavior creates second-order effects, the game contains economies/factions/ecologies/AI
+populations, or the team needs to predict unintended consequences before implementation.
+
+• Define the system boundary before analyzing causality. Include enough context to capture the behavior, but not
+every feature in the game.
+• Represent variables as things that can increase, decrease, accumulate, deplete, activate, or change state.
+• Distinguish reinforcing loops from balancing loops. Reinforcing does not mean good; balancing does not mean bad.
+• Look for delays between cause and effect. Delays are a major source of overshoot, oscillation, instability, and player
+confusion.
+• Prefer structural explanations over parameter explanations when a problem returns across many tuning passes.
+
+Systemic thinking
+Michael Sellers defines systemic thinking as an approach between reductionist and purely holistic thinking: identify the
+parts of a system while also understanding how those parts affect one another in operational context. He emphasizes
+that loops formed by these interactions are central to systemic game design. [SYS-1]
+Part A
+
+Part D
+
+Part B
+
+Behavior emerges from relationships
+
+Part C
+
+A systems designer therefore asks two questions at once: what are the parts? and what behavior does their
+relationship produce over time? A combat economy, for example, is not just ammunition, health, enemies, and
+rewards. It is the way pressure changes resource use, resource use changes survival, survival changes reward, and
+reward changes future power.
+
+Causal links and loop polarity
+A causal loop diagram uses arrows to show the direction of influence between variables. A positive link means the
+variables move in the same direction relative to what they otherwise would have done; a negative link means they
+move in opposite directions. The sign describes the relationship, not whether the outcome is desirable. [SYS-4]
+Notation
+
+Interpretation
+
+Game example
+
+A +-> B
+
+If A increases, B tends to increase; if A decreases,
+B tends to decrease.
+
+More weapon power -> faster enemy defeat.
+
+A --> B
+
+If A increases, B tends to decrease; if A decreases,
+B tends to increase.
+
+More armor -> less incoming damage.
+
+Notation
+
+Interpretation
+
+Game example
+
+R loop
+
+Change is amplified as effects travel around the
+loop.
+
+More territory -> more income -> more forces ->
+more territory.
+
+B loop
+
+Change is opposed or driven toward a
+target/bound.
+
+More heat -> stronger cooling -> lower heat.
+
+The safer way to determine loop type is to trace a small change all the way around the loop. If the original change
+comes back amplified, the loop is reinforcing. If the result opposes the original change, the loop is balancing. [SYS-4]
+
+Reinforcing and balancing feedback
+
+Resources
+
+R: Reinforcing
+
+B: Balancing
+
+Success
+
+Goal gap
+
+Power
+
+Correction
+
+State
+
+Loop labels describe behavior, not whether the effect is morally good or bad.
+
+Reinforcing loops generate growth or decline: success can create resources that create more success, or damage can
+reduce capability and cause more damage. Balancing loops resist change, pursue a target, or constrain growth. Ian
+Schreiber and Ernest Adams both discuss how feedback structure shapes competitive balance: snowballing can make
+leads self-strengthening, while catch-up or regulatory mechanics can counteract runaway advantage. [SYS-2] [SYS-3]
+• Useful reinforcing behavior: mastery acceleration, engine building, escalating commitment, economic growth, risk
+escalation.
+• Dangerous reinforcing behavior: irreversible early leads, poverty traps, death spirals, dominant-strategy
+compounding.
+• Useful balancing behavior: heat regulation, diminishing returns, scarcity responses, catch-up pressure, capacity
+limits.
+• Dangerous balancing behavior: rubber-banding so strong that earlier decisions feel meaningless, hard caps that
+erase strategy, auto-correction that removes agency.
+
+Stocks, flows, and delays
+Donella Meadows describes stocks as accumulations and flows as the rates that increase or decrease them. In game
+terms, health, money, ammo reserves, reputation, threat, population, inventory, and political influence can all behave
+as stocks. Income, damage, regeneration, production, spending, attrition, and decay are flows. [SYS-5]
+
+Inflow
+
+Stock / state
+
+Outflow
+
+Feedback
+signal
+
+Flow
+adjustment
+
+Stock-flow thinking reveals accumulation, depletion, and control.
+
+Delays matter because the system may react to old information or because an intervention takes time to affect the
+stock. A delayed market response can cause price oscillation; delayed reinforcements can cause strategic overshoot;
+delayed feedback to the player can make a fair rule feel arbitrary. Meadows identifies feedback strength, information
+flows, rules, goals, and delays as potential leverage points in system behavior. [SYS-5]
+
+Emergence and behavior over time
+System behavior should be described over time, not only at a single snapshot. Useful questions include: Does the
+value converge, oscillate, explode, collapse, plateau, or settle into cycles? Does the player learn to manipulate the
+loop? Does the system produce multiple stable strategies or one attractor that dominates? Does adding content
+change the system or merely feed an existing loop?
+Behavior pattern
+
+Likely structural cause
+
+Design concern
+
+Exponential growth
+
+Strong reinforcing loop with weak constraints
+
+Runaway economy or power creep
+
+Collapse / death spiral
+
+Reinforcing decline
+
+Loss of agency after early failure
+
+Oscillation
+
+Balancing loop with delay or overcorrection
+
+Boom-bust economy; confusing difficulty swings
+
+Plateau
+
+Balancing limit or capacity constraint
+
+Healthy ceiling or stalled progression
+
+Persistent inequality
+
+Unequal reinforcing loops / asymmetric
+access
+
+Dominant faction/player cannot be challenged
+
+Stable diversity
+
+Multiple counteracting loops and local
+advantages
+
+Potentially rich strategic ecosystem
+
+Leverage points for design changes
+A common tuning failure is changing parameters when the real problem is structural. Meadows' leverage-point work
+provides a useful hierarchy: parameters and constants are relatively shallow interventions; deeper leverage can come
+from buffers, flow structure, delays, feedback strength, information access, rules, self-organization, and system goals.
+[SYS-5]
+• Parameter: change damage from 10 to 8. Fast and cheap, but often shallow.
+• Flow: change when or how resources enter/leave the system.
+• Delay: shorten or lengthen response time so players can adapt before overshoot.
+• Feedback strength: alter how strongly success or failure compounds.
+• Information: reveal a hidden state so players can respond before the system crosses a threshold.
+• Rule: change eligibility, ownership, conversion, caps, transfer, or interaction logic.
+• Goal: change what the system is optimizing or what the player is rewarded for optimizing.
+Diagnosis rule
+If repeated number tuning keeps recreating the same unwanted player behavior, stop tuning coefficients and
+redraw the causal structure. The lever may be a connection, delay, information rule, or objective rather than a
+value.
+
+Step-by-step systems workflow
+Step
+
+Action
+
+1. Define the design
+question
+
+State the behavior to explain or predict, not merely the feature to document.
+
+2. Set the system
+boundary
+
+List what is inside the analysis and what is intentionally excluded.
+
+3. Identify variables /
+stocks
+
+Use measurable or directionally meaningful nouns such as wealth, threat, population,
+confidence, demand.
+
+4. Add causal links
+
+For each link, state why A changes B and assign polarity only after defining both variables.
+
+5. Close loops
+
+Find reinforcing and balancing cycles. Trace each loop to verify its type.
+
+6. Mark delays and
+thresholds
+
+Identify where information or action arrives late and where behavior changes nonlinearly.
+
+7. Predict behavior over
+time
+
+State whether the structure should grow, shrink, oscillate, stabilize, or switch regimes.
+
+8. Red-team the system
+
+Look for exploits, runaway accumulation, death spirals, lock-in, griefing, and edge cases.
+
+9. Choose leverage points
+
+Prefer the smallest structural intervention that changes the unwanted behavior while preserving
+the target experience.
+
+10. Validate
+
+Prototype, simulate, or instrument the system and compare observed behavior to the causal
+hypothesis.
+
+Multi-persona team operating pattern
+This section describes how to apply Systems Thinking and Feedback Loops inside an existing multi-persona design
+committee. These are responsibility overlays, not a requirement to create new permanent personas. Map each
+responsibility onto the personas already present in the team.
+• Independent first pass. Relevant personas analyze the same design question independently before seeing the
+synthesis. This reduces premature consensus.
+• Evidence/assumption separation. Every persona labels what is known, inferred, assumed, or proposed. Numerical
+claims without evidence are treated as hypotheses.
+• Constructive disagreement. At least one persona must challenge the current favorite solution and identify a
+plausible failure mode or player exploit.
+• Framework vocabulary. Personas use the framework terms precisely. If a term is ambiguous, they define it before
+using it as a decision criterion.
+• Convergence pass. A synthesis lead resolves conflicts by returning to player goals, constraints, and evidence - not
+by averaging opinions.
+• Traceable output. Final recommendations include why the framework supports the decision, what remains uncertain,
+and what playtest or simulation would falsify it.
+
+Recommended round structure
+
+Frame problem
+
+Independent
+persona
+
+Crosscritique
+
+Synthesis
+
+Validation
+plan
+
+Use the team as a reasoning system, not a chorus.
+
+A good AI team pattern deliberately creates different kinds of pressure on the design: player experience, system
+coherence, balance, exploit resistance, production feasibility, and creative possibility. The synthesis lead should
+preserve useful disagreement in the record when the evidence is insufficient to resolve it.
+
+Systems responsibility overlays
+Overlay
+
+Primary contribution
+
+Systems modeler
+
+Defines variables, links, feedback loops, delays, thresholds, and system boundary.
+
+Player strategist
+
+Predicts how players adapt, optimize, cooperate, compete, or exploit the causal structure.
+
+Balance / economy analyst
+
+Tests accumulation, depletion, snowballing, catch-up, and sensitivity to parameter ranges.
+
+Exploit red team
+
+Searches for unintended reinforcing loops, infinite conversions, lockouts, and griefing
+paths.
+
+Experience advocate
+
+Checks whether structural interventions preserve agency, fairness perception, mastery,
+and desired tension.
+
+Synthesis lead
+
+Selects leverage points and translates causal hypotheses into testable design changes.
+
+Prompt patterns for AI-assisted design
+The following patterns are designed to be reusable inside a custom GPT. Replace bracketed fields with project
+context. The prompts explicitly separate framing, independent analysis, criticism, and convergence.
+
+Pattern A - Framework invocation
+Use Systems Thinking and Feedback Loops to analyze [SYSTEM OR MECHANIC].
+Context: [PLAYER, PLATFORM, GENRE, DESIGN PILLARS, CONSTRAINTS].
+Decision to make: [EXACT DECISION].
+Known evidence: [PLAYTEST DATA / TELEMETRY / DESIGN FACTS].
+Unknowns: [UNCERTAINTIES].
+Each relevant designer persona must:
+1. Apply the framework terminology explicitly.
+2. Separate observations from assumptions.
+3. Identify at least one failure mode.
+4. Recommend the smallest design change that could test the hypothesis.
+5. State what evidence would change the recommendation.
+Do not converge until independent persona passes are complete.
+
+Pattern B - Cross-examination
+Cross-examine the current design using Systems Thinking and Feedback Loops.
+Ask and answer these questions:
+- What system behavior are we trying to explain over time?
+- Which variables are stocks, which are flows, and which are control or information
+variables?
+- What reinforcing loops amplify change? What balancing loops resist it?
+- Where are the delays, thresholds, nonlinearities, or missing information links?
+- Is the proposed fix changing a parameter when the root cause is structural?
+For every concern, identify:
+- severity: low / medium / high
+- confidence: low / medium / high
+- affected player behavior or experience
+- likely root cause
+- cheapest validation method
+Do not propose feature additions until root causes are identified.
+
+Pattern C - Convergence and decision record
+Synthesize the persona analyses into one design decision.
+Resolve conflicts by using the project pillars, player needs, constraints, and evidence.
+Do not average incompatible recommendations.
+Return exactly this structure:
+1. Design question and system boundary
+2. Variables / stocks / flows
+3. Causal links with polarity and rationale
+4. Reinforcing loops
+5. Balancing loops
+6. Delays, thresholds, and nonlinearities
+7. Predicted behavior over time
+8. Exploits and failure modes
+9. Candidate leverage points
+10. Recommended intervention
+11. Validation / simulation plan
+If evidence is insufficient, mark the decision PROVISIONAL and specify the experiment
+needed.
+
+Worked example - territory and faction power
+Consider a strategy system where controlling territory produces income, income buys units, and units capture territory.
+That structure forms a reinforcing loop. If left unchecked, a small early lead can become an irreversible strategic
+advantage.
+Variable / link
+
+Effect
+
+Territory +-> Income
+
+More controlled territory increases economic production.
+
+Income +-> Military power
+
+More resources support more or better units.
+
+Military power +-> Territory
+
+Stronger forces increase capture and defense capability.
+
+Territory +-> Administration burden
+
+Expansion increases logistics, unrest, or control cost.
+
+Administration burden --> Effective
+power
+
+Rising burden reduces the advantage of additional territory.
+
+Variable / link
+
+Effect
+
+Enemy threat +-> Coalition pressure
+
+A dominant faction causes rivals to coordinate or receive new opportunities.
+
+Instead of immediately reducing income per territory, the team can compare leverage points: introduce logistical delay,
+add information to help weaker factions target supply lines, change capture rules, add diminishing control efficiency, or
+create coalition dynamics. Each intervention produces different player experiences even if all reduce snowballing.
+
+Failure modes and misuse
+• Positive = good / negative = bad. Feedback terminology describes amplification and correction, not value judgment.
+• Polarity by intuition. Link signs are often wrong when variable names are vague. Define variables precisely and
+trace a small change.
+• Ignoring delay. Many unstable systems appear balanced in a static spreadsheet because the time dimension is
+missing.
+• Parameter tunnel vision. Repeatedly changing constants while leaving the loop structure unchanged.
+• Model everything. Over-expanding the boundary until the diagram becomes unreadable and no decision can be
+made.
+• Missing player adaptation. A system that is stable under passive simulation may destabilize once players learn to
+manipulate it.
+• False precision. A causal diagram is a hypothesis about structure; it does not prove magnitude without data or
+simulation.
+
+Review gate and quality checklist
+A system should not be considered reviewed under Systems Thinking and Feedback Loops until the team can
+answer the following checks with evidence or an explicit test plan.
+• Is the design question expressed as behavior over time rather than a static feature description?
+• Are key accumulations identified as stocks and their inflows/outflows understood?
+• Can every causal link be explained in a complete sentence with a direction of effect?
+• Have reinforcing and balancing loops been traced rather than guessed?
+• Are important delays, thresholds, caps, or regime changes visible in the model?
+• Has at least one optimizing or adversarial player strategy been applied to the system?
+• Does the proposed intervention target a plausible leverage point rather than only a convenient number?
+• Is there a plan to observe, simulate, or instrument the predicted behavior over time?
+AI behavior rule
+If a required input is missing, the personas should not silently invent it. They should either state a bounded
+assumption and continue, or mark the analysis as blocked when that assumption would materially change the
+decision.
+
+How this framework combines with the other four
+Framework
+
+Primary question
+
+MDA
+
+Defines intended experience and traces mechanics through emergent dynamics to player
+response.
+
+Core / Nested Loops
+
+Defines repeated player activity, time scales, feedback cadence, and how progression loops
+nest.
+
+Systems Thinking
+
+Maps causal relationships, feedback, delays, emergence, and structural leverage points.
+
+Machinations
+
+Makes resource/state flows executable so economy and progression behavior can be
+simulated.
+
+Rational Game Design
+
+Parameterizes skills, mechanics, difficulty, learning, and content variety for controlled iteration.
+
+Systems Thinking should own the questions it is best suited to answer, while the other frameworks provide
+complementary lenses. A final design review should reconcile contradictions rather than treating all five outputs as
+independently correct.
+
+Sources and further reading
+The guidance above is a synthesis. The sources below are the recommended references for full context and original
+terminology. URLs were verified during preparation of this knowledge pack.
+SYS-1. Advanced Game Design: A Systems Approach
+Michael Sellers / Pearson (2018). Publisher preview containing the systemic-thinking foundation and loop examples; full book expands game
+loops, parts, balance, and practice.
+https://api.pageplace.de/preview/DT0400.9780134668239_A31487176/preview-9780134668239_A31487176.pdf
+SYS-2. Game Balance Concepts
+Ian Schreiber (2010). Free course notes discussing game balance, player power, progression, and positive/negative feedback structures.
+https://gamebalanceconcepts.wordpress.com/
+SYS-3. Preventing the Downward Spiral
+Ernest Adams / Game Developer (2010). Practitioner treatment of positive feedback, negative feedback, Monopoly-style snowballing, and
+corrective mechanisms.
+https://www.gamedeveloper.com/design/the-designer-s-notebook-preventing-the-downward-spiral
+SYS-4. Fine-Tuning Your Causal Loop Diagrams - Part I
+The Systems Thinker. Practical causal-loop notation, polarity checking, reinforcing vs balancing identification, and explicit goals.
+https://thesystemsthinker.com/fine-tuning-your-causal-loop-diagrams-part-i/
+SYS-5. Leverage Points: Places to Intervene in a System
+Donella Meadows Project. Stocks, flows, delays, feedback strength, information, rules, goals, and leverage-point hierarchy for changing
+system behavior.
+https://donellameadows.org/archives/leverage-points-places-to-intervene-in-a-system/
+
