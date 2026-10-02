@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boarshead.studio/schemas/bh-narrative-package-1.0.schema.json",
+  "title": "BH Narrative Package v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "packageId",
+    "projectKey",
+    "createdUtc",
+    "source",
+    "requiredArticyProfile",
+    "objects",
+    "variables",
+    "flows"
+  ],
+  "properties": {
+    "schema": {
+      "const": "bh-narrative-package"
+    },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "packageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projectKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system"
+      ],
+      "properties": {
+        "system": {
+          "type": "string"
+        },
+        "conversationRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "requiredArticyProfile": {
+      "const": "BH_NARRATIVE_V1"
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/object"
+      }
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/flow"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^BH_[A-Z0-9_]{3,120}$"
+    },
+    "props": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "semanticType",
+        "displayName",
+        "canonStatus",
+        "properties"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "entity",
+            "location"
+          ]
+        },
+        "semanticType": {
+          "enum": [
+            "character",
+            "faction",
+            "quest",
+            "scene",
+            "lore",
+            "storyArc",
+            "item",
+            "event",
+            "location"
+          ]
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "technicalName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "folder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canonStatus": {
+          "type": "string"
+        },
+        "properties": {
+          "$ref": "#/$defs/props"
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "qualifiedName",
+        "type",
+        "defaultValue"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "qualifiedName": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "enum": [
+            "boolean",
+            "integer",
+            "string"
+          ]
+        },
+        "defaultValue": {},
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "parentId",
+        "x",
+        "y",
+        "properties"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "dialogue",
+            "dialogueFragment",
+            "hub",
+            "condition",
+            "instruction"
+          ]
+        },
+        "parentId": {
+          "$ref": "#/$defs/id"
+        },
+        "displayName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "menuText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stageDirections": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speakerId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expression": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "properties": {
+          "$ref": "#/$defs/props"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fromNodeId",
+        "fromPin",
+        "toNodeId",
+        "toPin"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "fromNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "fromPin": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "toPin": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "displayName",
+        "canonStatus",
+        "properties",
+        "nodes",
+        "edges"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "technicalName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canonStatus": {
+          "type": "string"
+        },
+        "properties": {
+          "$ref": "#/$defs/props"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        }
+      }
+    }
+  }
+}
