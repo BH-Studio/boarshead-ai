@@ -1,38 +1,41 @@
-# Same-author assurance review — candidate, not independent certification
+# Same-author assurance — game-agnostic candidate
 
-This is a separate adversarial inspection of the recovered implementation and producer/consumer interface by the same assistant, with the same workspace permissions. It is not an externally independent audit, signed attestation or security boundary.
+This is an adversarial review by the same assistant with the same workspace permissions, not externally independent certification, human-approval authentication or a security sandbox. Baseline sources and the completed review batches are linked in SOURCE_INVENTORY.json. Functional changes are pinned at `72bf50263b39f9ccd236fb54ecae341c97f80125`.
 
-## Remediated observations
+## Findings resolved in the candidate
+| ID | Severity | Evidence and correction |
+|---|---|---|
+| A-01 | Major | Recovered build fixture and parser disagreed on the result field. Explicit failed builds now FAIL; missing, malformed, cancelled, wrong-target and stale-output cases cannot pass. Actual parser regression tests retained. |
+| A-02 | Major | Interrupted work left prose checkpoints ahead of implementation publication. The actual recovered code is now readable in GitHub, checked by exact directory identities; progress/evidence are committed in bounded batches. Old archive receipts remain historical. |
+| A-03 | Major | An empty real-project targets seed violated its schema. It now explicitly remains UNCONFIGURED; preflight blocks unreconciled project facts. No synthetic approval enters a real project. |
+| A-04 | Major | Regenerated common policy could drift across design and execution. The producer uses one pinned distribution, thin project artifacts, shared schema and distinct design/plan/acceptance subjects. |
+| A-05 | Major | Personal-account GPT creation cannot be assumed. Deployment is separate from game installation; use an authorized existing test GPT or optional isolated Project pilot without replacing the live host. |
+| A-06 | Major | Retaining a real-game overlay conflicted with the clarified game-agnostic goal. Removed it; moved source-named lessons outside deployed knowledge; supplied generic lessons and two explicitly synthetic contrasting profiles. |
+| A-07 | Major | Preflight only recognized one old game's skill prefix. Replaced the special case with generic registry/review checks; unreviewed foreign skills and malformed registry block, explicitly reviewed extras survive. |
+| A-08 | Major | The package checker could skip a missing new knowledge file not listed as a preserved reference. A negative test reproduced the false PASS; the corrected checker rejects it even in allow-unassembled mode. |
+| A-09 | Moderate | Test receipts omitted Markdown inputs from their source map. The runner now hashes all source/document/manifest bytes outside generated evidence and caches; all six final maps agree. |
+| A-10 | Moderate | Framework references use independent-persona and ACCEPT wording. Official instructions clarify lenses in one model and recommendations, never human approval. A duplicate authored evaluation ID was corrected before the final rerun. |
 
-**A-01 — Build failure classification (major).** The recovered synthetic producer used `result` while the parser expected `build_result`, and known unsuccessful builds were being raised as infrastructure ERROR. Fixed the field mismatch; explicit Failed/error-count results now FAIL, unknown/cancelled/malformed results cannot pass, target and fresh nonempty output hashes are checked. Added focused tests for success/failure/missing field/wrong target/empty output/digest mismatch/old output. Preserve the original failed test log.
+## Construction review disposition
+All twenty-one design-source files and sixty legacy files have full recorded coverage; the large historical narrative remains selectively reviewed and is intentionally excluded from operational authority. All seven named external sources have bounded selected-source/current-notice dispositions. This is not an exhaustive vendor/transitive-dependency audit; no external runtime or catalog was adopted.
 
-**A-02 — Incomplete recoverable delivery (major).** Prior checkpoints described artifacts and test totals that were not all present after interruption. Reconstructed missing actual documents/manifests/tests from the surviving runtime; do not reuse 103/115 historical pass counts as current evidence. The additions package intentionally excludes thirteen exact refs already on the branch. Its assembler validates Git blob identity, and package checks report PARTIAL_UNASSEMBLED instead of a false complete pass.
+The functional package has 148 passing offline tests and strict 85-check validation after actual original-reference assembly. All eight functional directory identities matched the tested local bytes. Current artifact manifests distinguish this candidate from the old ZIP receipt. These results close the previous missing-reference and checkpoint-only-publication findings, not the separate live integration gates.
 
-**A-03 — Invalid/unconfigured seed (major).** The recovered project seed had an empty targets list contrary to its schema. Seed now contains an explicit UNCONFIGURED target; production preflight blocks unreconciled editor/pipeline/target/adoption. Fixtures use explicit synthetic identities, never real project approval.
-
-**A-04 — Mutable common policy regenerated by producer (major design risk).** Revised K12/official instructions require a pinned standard plus thin overlay, exact manifest and bidirectional contract; missing standard/resources block. Preserve original full method and all K01–K11 references. No source/live GPT was edited.
-
-**A-05 — Host pilot assumption (major deployment risk).** Do not presume a personal account can create a new custom GPT. Official documentation currently disallows creation while retaining eligible existing editing. Separate ordinary Project pilot documented; no new subscription or live-GPT replacement performed.
-
-## Residual findings / adoption gates
-
-| ID | Severity | Remaining risk / evidence | Required action |
+## Residual findings and pilot requirements
+| ID | Severity | Remaining risk | Required action |
 |---|---|---|---|
-| R-01 | Major | Windows, PowerShell launcher, actual Unity patch, optional C# producer, Codex and configured design host have not been executed here | Run LOCAL_INTEGRATION_TEST.md. No production adoption claim before observed results. |
-| R-02 | Major | Same account/agent can alter policy, code, receipts, baselines and alleged approval records; Markdown and hashes are not authentication | Human verifies approval origins, exact plan and diff. Use actual host permissions and a genuinely separate reviewer where needed. |
-| R-03 | Major | Full nested legacy/reference reread and seven-source current license/content comparison were not reconstructed completely | See SOURCE_INVENTORY and EXTERNAL_SOURCES. Retrieve remaining unique baseline constraints before migrating a live game; keep optional catalogs inactive. |
-| R-04 | Major | GitHub publication and local delivery can diverge if only checkpoint/doc files are committed | Publish/check every manifest path; distinguish real commit contents from local ZIP. Never describe checkpoint-only branch as install-ready. |
-| R-05 | Moderate | Snapshot hashes all relevant input files; large Unity assets may cause high disk I/O despite constant-memory hashing | Measure on real project. Optimize declared dependency inventory only with coverage tests; do not silently omit assets for speed. |
-| R-06 | Moderate | Windows child processes may survive parent cancellation; no Windows Job Object containment implemented | Inspect owned children after timeout/interruption. Never kill existing user Editor. Do not claim process-tree isolation. |
-| R-07 | Moderate | Native global/ancestor/ignored instructions may be outside Git inventory, and direct Codex calls bypass wrapper checks | Session-level instruction/permission audit remains manual; wrapper only controls its own entry points. |
-| R-08 | Moderate | Release scan is filename-based; renamed/embedded assemblies, reflection, network/runtime settings are not proven absent | Review build assembly inclusion/defines and actual runtime capabilities separately; configure meaningful forbidden patterns per integration. |
-| R-09 | Moderate | GPT Instructions/Knowledge retrieval and all persona behaviors have only static/source review, not configured-host trials | Execute D01–D15; especially missing resource, alternatives, refusal, cross-game isolation and human-pending return. |
-| R-10 | Moderate | Structured change requests describe approval invalidation, but there is no automatic cross-task migration engine | Follow documented cancel/archive/new task + explicit review. Do not mutate active approval subjects silently. |
-| R-11 | Moderate | Local files referenced in receipts are not visible in a remote design chat; transport can omit evidence | Upload/retrieve a bounded evidence bundle and validate identities/hashes. Missing data remains unavailable, not inferred. |
-| R-12 | Moderate | Runtime and installer are same-user concurrent-safe best efforts, not resistant to a hostile process racing filesystem changes | Use trusted local checkouts; do not claim adversarial filesystem containment or independent attestation. |
+| R-01 | Major | Windows, launcher, Unity/C# helper, Codex and configured design host have not run here | Execute LOCAL_INTEGRATION_TEST.md and the 20 live method scenarios before production adoption. |
+| R-02 | Major | The same account can edit code, hashes, baselines and claimed approvals | Human checks genuine approval sources and exact subjects/diffs; host permissions and separate review where warranted. |
+| R-05 | Moderate | Full input hashing may create substantial disk I/O on a large Unity project | Measure first; narrow dependencies only with explicit coverage review. No token/latency savings percentage is claimed. |
+| R-06 | Moderate | Windows child processes may survive parent cancellation; no Job Object containment | Inspect wrapper-owned children after interruption, never kill an existing user Editor. |
+| R-07 | Moderate | Global/ancestor/ignored instructions and direct agent actions can bypass wrapper policy | Perform host instruction/permission review; wrapper controls only its own entry points. Registry review is not tamper-proof attestation. |
+| R-08 | Moderate | Filename-based release scanning misses renamed/embedded capabilities | Inspect actual build assemblies, defines, runtime/network configuration and shipped artifacts. |
+| R-09 | Moderate | Lexical neutrality and static prompt checks cannot prove live model behavior | Exercise cross-project, missing-resource, refusal, alternatives, reference-ACCEPT and human-pending cases. |
+| R-10 | Moderate | No automatic cross-task migration service exists | Preserve old history; use explicit cancel/archive/new task and separate approval. |
+| R-11 | Moderate | Remote design review cannot see local paths without transport | Upload or retrieve the bounded evidence bundle; missing evidence remains unavailable. |
+| R-12 | Moderate | Same-user filesystem concurrency is not hostile-process containment | Use reviewed local checkouts; do not claim adversarial sandboxing or independent signatures. |
 
-## Deliberately excluded
-No automatic API gateway, remote orchestration service, vector memory, model fleet, paid dependencies, quota evasion, always-on external skill catalogs, speculative Unreal/enterprise adapters or copied purchased assets. No automatic dependency upgrades, render-pipeline conversion, game-code edits, live GPT updates, merge, release or deployment. No claim that code-test success proves game feel or human acceptance.
+## Explicit exclusions and retained controls
+No paid/API gateway, model fleet, vector service, automatic quota retries, whole external catalogs, automatic dependencies, speculative engine adapters, copied purchased assets, real-game defaults, live-GPT edit, merge or release. Approvals, required quality checks, Unity identity/lifecycle/serialization safety and human-only judgments are not relaxed to save tokens. Root guidance remains small; detailed design analysis stays upstream; Codex reads the approved slice and only relevant procedures/evidence.
 
-## Evidence review discipline
-Separate source inspection, static validation, actual fixture-process tests, actual installer tests, live integration and human acceptance. Final run totals and source hashes belong to VERIFICATION_REPORT and raw logs. The synthetic exporter must leave positive auto checks PASS and human acceptance PENDING, and contrary behavior must not become ready. Retain failed and interrupted attempts. These conditions challenge false success rather than merely verifying documentation phrases.
+R-03 (incomplete requested review) and R-04 (unpublished functional artifacts) from the historical report are closed within the bounded scope above; their old records remain available in Git history. Live compatibility and human adoption remain open, not waived.
