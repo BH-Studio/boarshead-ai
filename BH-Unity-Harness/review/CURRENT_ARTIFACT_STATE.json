@@ -1,0 +1,98 @@
+{
+  "kind": "pinned-artifact-reconciliation",
+  "repository": "BH-Studio/boarshead-ai",
+  "branch": "harness/bh-standard-v1-20261004",
+  "verified_commit": "7c0859db6b94f5142ca018e0635e0dccb28bd537",
+  "candidate_tree": "c10e4db3ce1ec569719b3dfbf2863a7ea766c700",
+  "source_baseline": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "scope": "Exact snapshot of the candidate before this evidence file and subsequent checkpoint/index metadata. Not a self-referential manifest or human approval.",
+  "functional_subtrees": {
+    "contracts": "4dac938d7b7c768dab512773023d40462006c26b",
+    "design-gpt": "ee0611aed23092dbea9aca279e1d6d6e0cd42671",
+    "examples": "e36c5c23fbf6db401944ded5f16d919eebeae789",
+    "installer": "4db995d7fce4428bcbea1f67508aec33c411cbf3",
+    "optional": "374b290338b88eec887d53449f3fb8c945174e79",
+    "project-template": "857a71570e56362252f4c1cf681730263e970233",
+    "tests": "4bbc31e45e2ec148a823b58ed76093c6d9b3e6c9",
+    "tools": "a4298822651a5d5e8ed4ce1336539331923a9dd5"
+  },
+  "functional_subtree_validation": "All eight exact Git tree identities were recomputed from local actual files plus thirteen recorded preserved Git blob identities and matched the current GitHub tree. Preserved identities are not materialized local bytes.",
+  "review_snapshot_tree": "9cbcc92617b0f2235e88a2f448ab8eddaad9b730",
+  "root_file_git_blobs": {
+    "CHANGELOG.md": "ed6fbc662a28c7590c1fa40de582a069a97c3fa6",
+    "DELIVERY_AND_CONTINUATION.md": "a11ffff05ab809aca9587681be9833acf46404b3",
+    "DELIVERY_MANIFEST.json": "3a67cd2a61201f8cf2572d714588b408ed0710c0",
+    "PACKAGE_FILES.json": "aa2cc0ccdc594af8b52a12d45b059cc6bbb3a63a",
+    "PRESERVED_REFERENCES.json": "7936c401888cd4a01c99519400ee03da76202373",
+    "QUICKSTART.md": "cfe3a0c203b5f3bfc08b23837e089fabbcdc7816",
+    "Readme.md": "df10f4364219edd7ae4edcf8652215c868ee9da3"
+  },
+  "historical_archive": {
+    "filename": "BH_Unity_Harness_v1.0.0_Recovery_Additions.zip",
+    "bytes": 339472,
+    "sha256": "be4fab9c97ad9661f4b8dfe06095ae946af2bce1abd6f7e8a766b783efb5fa42",
+    "entries": 176,
+    "manifest": "DELIVERY_MANIFEST.json",
+    "status": "Historical recovery receipt; do not overwrite current files with this archive. Current code is already published."
+  },
+  "changed_existing_functional_files_since_archive": [
+    {
+      "path": "tools/assemble_candidate.py",
+      "sha256": "f74ba5e677c44fdbf06e8b02f63025e2c1c2f9bb1c95b362b37da18cca059aa2",
+      "git_blob_sha": "4d71817e0d313ef87130384dc80331864171b228",
+      "reason": "Preserved contributor correction: CRLF checkout representation of exact original source accepted and canonicalized."
+    },
+    {
+      "path": "tests/test_package.py",
+      "sha256": "ba72a28655cb3ea5ff46e4d0ef6c6312fa10882ebee0d8ce7388787d79134fa0",
+      "git_blob_sha": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+      "reason": "Two preserved contributor tests for CRLF and substantive source conflicts."
+    },
+    {
+      "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+      "sha256": "f2a7c65fbfc6b4d5e3fb6c043667ded840ef14eb72bbadc4d75d700a20feed10",
+      "git_blob_sha": "c29753b6b3e8ff1144b94f36ef1b3158da19d86c",
+      "reason": "Appended source-retained checklist; previous sections 1-10 byte-preserved."
+    },
+    {
+      "path": "design-gpt/KNOWLEDGE_MANIFEST.json",
+      "sha256": "0a4a302635bf6e5b7658f8fed7a5289ca2fc9ff00010f4a4a0ec3c01e1eacbb9",
+      "git_blob_sha": "9e0686d7c775dd72bab6647398925e7bb6961226",
+      "reason": "K12 digest updated; fifteen knowledge selections unchanged."
+    },
+    {
+      "path": "examples/profiles/breach-one.unreconciled.json",
+      "sha256": "cb7ad046d6f13dd8f1293bd091c2b4754d34a0f8cb74d2176fa3e89056a21fa2",
+      "git_blob_sha": "315dc13fd631a0c8a73dd61244170af5a63bf6b5",
+      "reason": "Retained significant game-specific source constraints, still unreconciled and no capabilities enabled."
+    }
+  ],
+  "new_functional_files_since_archive": [
+    {
+      "path": "tests/test_review_amendments.py",
+      "sha256": "e658cb19cd851ad2bb3c6f4fbffb053cc0c71d929e9b38940ad7f5c71c49a151",
+      "git_blob_sha": "959fe0697c13ede9009ada7b7c7dc870f5e160fc",
+      "reason": "Six actual static source-retention/overlay/schema/knowledge tests."
+    }
+  ],
+  "manifest_checks": {
+    "game_installable": "22 exact files, no omitted/extra installable paths, all PACKAGE_FILES hashes match local files and exact published project-template tree.",
+    "knowledge": "15 unique basenames and selections; present edited-file hashes match; preserved entries match the thirteen reference identities and published design tree.",
+    "preserved_references": "13 exact original Git identities present in published design tree. Full local source-byte assembly has not executed.",
+    "shared_contract": "Canonical schema and interface match both producer and consumer copies byte-for-byte.",
+    "official_instructions": "7713 characters, 287 below user budget, digest/metrics match.",
+    "historical_delivery": "Archive receipt preserved; five existing functional deviations and one new functional file recorded here. Added review/evidence documents are represented by the pinned review tree, not a regenerated ZIP receipt."
+  },
+  "fresh_static_result": {
+    "invocation": "tools/check_package.py check(allow_unassembled=True), actual module invoked locally",
+    "status": "PARTIAL_UNASSEMBLED",
+    "checks": 60,
+    "problems": [],
+    "missing_preserved_local_files": 13,
+    "meaning": "Available-file checks succeeded; not a complete assembled-package pass."
+  },
+  "diff_scope": "Complete changed-path comparison baseline...verified_commit contains only additions under BH-Unity-Harness. Original root subtree identities and existing Readme.md unchanged. This is path/snapshot verification, not a fresh line-by-line audit of every historical implementation line.",
+  "offline_suite": "133 actual tests, six nonoverlapping partitions, identical tested sources, no failures/errors/skips. See evidence/source-retention-20261004.json and evidence/source-retention-20261004-cases.txt.",
+  "not_run": ["full original-reference local assembly/static check", "Windows/PowerShell", "Unity/C# helper", "Codex", "MCP/diagnostics", "configured GPT/Project", "player validation", "usage benchmarks"],
+  "human_adoption": "PENDING; no merge, installation or live GPT update"
+}
