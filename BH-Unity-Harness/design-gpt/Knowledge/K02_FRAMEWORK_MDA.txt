@@ -1,0 +1,510 @@
+AI KNOWLEDGE REFERENCE — MDA — Mechanics, Dynamics, Aesthetics
+Source: text-forward conversion of the AI-processing framework knowledge pack created 25 Aug 2026.
+Use: reference material for the BH Game Systems Design & Engineering Team.
+Authority: framework guidance; it does not override approved project decisions or the GPT controller instructions.
+
+
+GAME SYSTEMS FRAMEWORK KNOWLEDGE PACK
+
+MDA: Mechanics, Dynamics, Aesthetics
+Experience-driven system design for a multi-persona game-design team
+
+Purpose for the custom GPT
+Give designer personas a shared method for reasoning from desired player experience to system behavior
+and mechanics, then checking whether implemented mechanics actually generate the intended dynamics.
+
+Document
+
+Use
+
+Knowledge-pack ID
+
+GSF-01-MDA
+
+Audience
+
+Game-design personas working as a coordinated design team
+
+Primary mode
+
+Reasoning framework + review gate + prompt-pattern library
+
+Version
+
+1.0 - 25 Aug 2026
+
+Source policy
+
+Synthesis and operational guidance; consult original sources for full context
+
+Important: These documents operationalize public design frameworks for AI-assisted design. They intentionally add multi-persona
+workflow rules, prompt patterns, review gates, and implementation handoff practices that are not claims made by the original authors.
+
+Contents and retrieval map
+The headings below are intentionally explicit so a custom GPT can retrieve a focused section without needing to
+ingest the entire document.
+1. Custom GPT operating directive
+2. Framework model and vocabulary
+3. Aesthetic targets
+4. Dynamics and emergence
+5. Mechanics and tuning
+6. Step-by-step MDA workflow
+7. Multi-persona team operating pattern
+8. Prompt patterns for AI-assisted design
+9. Worked example
+10. Failure modes and misuse
+11. Review gate and quality checklist
+12. Integration with the other frameworks
+13. Sources and further reading
+
+Framework invocation rule
+Use this framework when its triggering conditions match the design problem. Do not force every problem
+through every framework. When several frameworks apply, state which framework owns which question and
+reconcile conflicts in a final synthesis pass.
+
+Custom GPT operating directive
+When to invoke MDA
+Invoke MDA when the team is deciding what a mechanic should accomplish experientially, diagnosing why a
+feature feels wrong, comparing alternative mechanics that aim at the same experience, or translating a
+high-level design pillar into implementable behavior.
+
+• Begin with the desired player experience whenever the goal is known. Work backward through dynamics to
+mechanics before proposing implementation details.
+• When reviewing an existing mechanic, work forward from mechanics to observed or predicted dynamics, then
+compare the resulting experience to the target aesthetics.
+• Treat dynamics as run-time behavior created by mechanics, player inputs, system state, and interactions among
+subsystems. Do not reduce dynamics to a feature list.
+• Treat aesthetics as desired emotional or experiential responses. In MDA, aesthetics does not mean visual art
+style.
+• Every significant mechanic should have an explicit experience rationale. Mechanics with no defensible trace to
+intended dynamics or aesthetics are candidates for removal, simplification, or redesign.
+
+Framework model and vocabulary
+Mechanics
+
+Dynamics
+
+Aesthetics
+
+Designer view: rules and components produce behavior, which produces experience.
+
+The original MDA paper formalizes three causally linked views of a game. Mechanics are the concrete components,
+rules, data representations, control mechanisms, and algorithms. Dynamics are the run-time behaviors that emerge
+when those mechanics interact with player inputs and with each other over time. Aesthetics are the desirable
+emotional responses and experiential qualities evoked in the player. [MDA-1]
+The framework becomes more powerful when the team consciously changes direction. Designers commonly move
+forward from mechanics toward aesthetics, while players encounter the experience in the opposite direction: they first
+perceive an experience, infer the system behavior that produces it, and only gradually learn the underlying rules. This
+is why a technically elegant mechanic can still fail if the player-facing dynamics are unreadable or produce the wrong
+feeling. [MDA-1]
+Layer
+
+Designer question
+
+AI persona evidence
+
+Aesthetics
+
+What should the player feel or value?
+
+Experience goals, player fantasy, emotional cadence,
+playtest language
+
+Dynamics
+
+What repeated or emergent behavior must
+occur to create that experience?
+
+Strategies, incentives, interaction patterns, pacing,
+feedback loops
+
+Mechanics
+
+What rules, state, verbs, probabilities,
+constraints, and content produce those
+dynamics?
+
+Rules, formulas, timers, resource costs, data,
+controls, AI logic
+
+Aesthetic targets
+Hunicke, LeBlanc, and Zubek recommend replacing vague claims such as "make it fun" with a more directed
+vocabulary. Their illustrative taxonomy includes the following eight aesthetic categories. The categories are not an
+exhaustive personality test and should not be treated as mutually exclusive. [MDA-1]
+Aesthetic
+
+Operational interpretation
+
+Sensation
+
+Sense pleasure; satisfying audiovisual, tactile, or embodied response.
+
+Fantasy
+
+Make-believe; inhabiting a role, world, identity, or imagined situation.
+
+Narrative
+
+Drama; tension, development, resolution, and story-like meaning.
+
+Challenge
+
+Obstacles that invite skill, planning, mastery, or problem solving.
+
+Fellowship
+
+Social framework; cooperation, belonging, rivalry, shared activity.
+
+Discovery
+
+Uncharted territory; learning, exploration, surprise, uncovering systems.
+
+Expression
+
+Leaving a personal mark; style, building, customization, self-directed choices.
+
+Submission
+
+Pastime; willingly entering a structured activity or habitual play state.
+
+Persona rule
+For a specific system, choose a small number of primary aesthetic targets and rank them. A system that tries
+to maximize every aesthetic simultaneously usually loses clarity. Secondary aesthetics can be supported, but
+the team should know what wins when goals conflict.
+
+Dynamics and emergence
+Dynamics are where much of the actual game lives. The paper emphasizes that computer games are especially
+difficult because interacting coded subsystems can produce complex and unpredictable behavior. A dynamic is
+therefore not merely "the player uses the crafting menu." Useful dynamic statements describe behavior over time:
+players hoard rare components until a breakpoint, squads split roles because information is asymmetric, a winning
+player snowballs, or a stealth player waits for patrol cycles to align. [MDA-1]
+• Observe incentives. What behavior is made safer, faster, cheaper, more powerful, or more legible by the
+mechanics?
+• Observe emergent strategy. What patterns will rational or experimental players discover that were not explicitly
+authored?
+• Observe feedback. Does success make future success easier, does the system self-correct, or does it oscillate?
+• Observe social dynamics. Do the rules create cooperation, dominance, specialization, exclusion, signaling, or
+griefing?
+• Observe pacing. Where do pressure, release, repetition, and surprise arise from system behavior rather than
+scripted content?
+
+MDA is particularly useful for identifying a mismatch between intended and actual dynamics. If the desired aesthetic is
+tense tactical decision-making but the dominant dynamic is resource hoarding followed by one optimal burst, the
+correct question is not "how do we polish the burst?" but "which mechanics make hoarding dominant, and what
+dynamic would better produce the target tension?"
+
+Mechanics and tuning
+Mechanics are the manipulable design levers. The original paper notes that changing fundamental rules can alter
+overall system behavior, and that tuning should be iterative. MDA is therefore not a one-time decomposition exercise;
+it is a loop between hypothesis, implementation, play, observation, and adjustment. [MDA-1]
+
+Target
+experience
+
+Dynamic
+hypothesis
+
+Mechanic
+change
+
+Playtest
+evidence
+
+Retune
+
+MDA is strongest as an iterative tuning loop.
+
+• Prefer the smallest mechanic change that tests a dynamic hypothesis before expanding scope.
+• Tune numbers only after confirming that the structural relationship is correct. A bad loop rarely becomes good merely
+by changing a coefficient.
+• Measure what the player can actually perceive. A dynamic that exists mathematically but is not legible may not
+contribute to the intended aesthetic.
+• When a mechanic creates multiple dynamics, rank which are desired, tolerated, or harmful. Do not assume one
+mechanic has one consequence.
+
+Step-by-step MDA workflow
+Step
+
+Action
+
+1. Frame the experience
+
+Write the player, context, target aesthetic(s), intensity, and the moment or time scale in which
+they should occur.
+
+2. Define observable
+evidence
+
+State what player behavior, language, decision pattern, or telemetry would indicate the aesthetic
+is being achieved.
+
+3. Specify dynamic
+hypotheses
+
+Describe the run-time behaviors that should create the target experience. Use verbs and
+relationships, not feature names.
+
+4. Trace enabling
+mechanics
+
+List the minimum rules, variables, affordances, AI behaviors, content, and constraints required
+for those dynamics.
+
+5. Stress-test interactions
+
+Ask how skilled, risk-averse, optimizing, social, or exploit-seeking players may bend the
+mechanics into different dynamics.
+
+6. Prototype the smallest
+lever
+
+Change or prototype the smallest mechanic that can validate the causal chain.
+
+7. Observe actual
+dynamics
+
+Record what players do, not just what they say they intended to do.
+
+8. Compare to aesthetics
+
+Determine whether the resulting experience matches the target, conflicts with another aesthetic,
+or creates an unintended experience.
+
+9. Tune or restructure
+
+Tune values when the structure is sound; change mechanics or relationships when the structure
+produces the wrong dynamic.
+
+10. Record the trace
+
+Maintain an M-D-A rationale so later feature changes can be evaluated against the original
+experience goal.
+
+Multi-persona team operating pattern
+This section describes how to apply MDA inside an existing multi-persona design committee. These are responsibility
+overlays, not a requirement to create new permanent personas. Map each responsibility onto the personas already
+present in the team.
+• Independent first pass. Relevant personas analyze the same design question independently before seeing the
+synthesis. This reduces premature consensus.
+• Evidence/assumption separation. Every persona labels what is known, inferred, assumed, or proposed. Numerical
+claims without evidence are treated as hypotheses.
+• Constructive disagreement. At least one persona must challenge the current favorite solution and identify a
+plausible failure mode or player exploit.
+• Framework vocabulary. Personas use the framework terms precisely. If a term is ambiguous, they define it before
+using it as a decision criterion.
+• Convergence pass. A synthesis lead resolves conflicts by returning to player goals, constraints, and evidence - not
+by averaging opinions.
+• Traceable output. Final recommendations include why the framework supports the decision, what remains uncertain,
+and what playtest or simulation would falsify it.
+
+Recommended round structure
+
+Frame problem
+
+Independent
+persona
+
+Crosscritique
+
+Synthesis
+
+Validation
+plan
+
+Use the team as a reasoning system, not a chorus.
+
+A good AI team pattern deliberately creates different kinds of pressure on the design: player experience, system
+coherence, balance, exploit resistance, production feasibility, and creative possibility. The synthesis lead should
+preserve useful disagreement in the record when the evidence is insufficient to resolve it.
+
+MDA responsibility overlays
+Responsibility overlay
+
+Primary contribution
+
+Experience advocate
+
+Defines and prioritizes aesthetic targets; identifies player-facing success evidence.
+
+Systems designer
+
+Predicts run-time dynamics and cross-system interactions.
+
+Player advocate / red team
+
+Explores optimization, confusion, avoidance, exploitation, and alternate play styles.
+
+Technical / implementation
+reviewer
+
+Checks whether proposed mechanics are measurable, implementable, debuggable,
+and tunable.
+
+Synthesis lead
+
+Maintains the trace from experience to dynamics to mechanics and resolves conflicts
+against design pillars.
+
+Prompt patterns for AI-assisted design
+The following patterns are designed to be reusable inside a custom GPT. Replace bracketed fields with project
+context. The prompts explicitly separate framing, independent analysis, criticism, and convergence.
+
+Pattern A - Framework invocation
+Use MDA to analyze [SYSTEM OR MECHANIC].
+Context: [PLAYER, PLATFORM, GENRE, DESIGN PILLARS, CONSTRAINTS].
+Decision to make: [EXACT DECISION].
+Known evidence: [PLAYTEST DATA / TELEMETRY / DESIGN FACTS].
+Unknowns: [UNCERTAINTIES].
+Each relevant designer persona must:
+1. Apply the framework terminology explicitly.
+2. Separate observations from assumptions.
+3. Identify at least one failure mode.
+4. Recommend the smallest design change that could test the hypothesis.
+5. State what evidence would change the recommendation.
+Do not converge until independent persona passes are complete.
+
+Pattern B - Cross-examination
+Cross-examine the current design using MDA.
+Ask and answer these questions:
+- Which target aesthetic is primary, and what would a player actually do or say if we
+achieved it?
+- What run-time dynamic is supposed to create that experience?
+- Which mechanic is necessary for that dynamic, and which mechanic is merely historical
+baggage?
+- What unintended dynamic would an optimizing player discover?
+- What is the smallest playtestable change that could confirm or reject the causal chain?
+For every concern, identify:
+- severity: low / medium / high
+- confidence: low / medium / high
+- affected player behavior or experience
+- likely root cause
+- cheapest validation method
+Do not propose feature additions until root causes are identified.
+
+Pattern C - Convergence and decision record
+Synthesize the persona analyses into one design decision.
+Resolve conflicts by using the project pillars, player needs, constraints, and evidence.
+Do not average incompatible recommendations.
+Return exactly this structure:
+1. Decision status: ACCEPT / REVISE / REJECT / PROVISIONAL
+2. Target aesthetics (ranked)
+3. Expected dynamics
+4. Supporting mechanics
+5. Unintended dynamics and risks
+6. Evidence and assumptions
+7. Recommended change
+8. Validation experiment
+9. MDA trace: Mechanic -> Dynamic -> Aesthetic
+If evidence is insufficient, mark the decision PROVISIONAL and specify the experiment
+needed.
+
+Worked example - heat-based weapon system
+Suppose the team proposes a weapon heat system for a real-time action game. The feature-first description is
+"weapons build heat and stop firing when overheated." MDA forces a better design conversation.
+Layer
+
+Example analysis
+
+Aesthetics
+
+Primary: Challenge and tension. Secondary: Fantasy of operating a powerful but demanding
+machine.
+
+Desired dynamics
+
+Players alternate between aggression and restraint; choose firing windows; reposition while cooling;
+decide whether to risk an overheat to finish a target.
+
+Mechanics
+
+Heat per shot, cooling curve, overheat lockout, heat UI, alternate weapons, movement/cover
+opportunities, enemy pressure windows.
+
+Unintended dynamic
+
+If cooling while not firing is too fast, optimal play becomes repetitive burst-wait-burst. If overheat
+punishment is too severe, players stop experimenting and use only safe weapons.
+
+Validation
+
+Compare firing cadence, weapon-switch rate, time spent at high heat, player-reported tension, and
+whether players describe meaningful risk decisions.
+
+The critical insight is that the heat meter itself is not the design goal. The design succeeds only if the mechanics
+reliably generate decision behavior that produces the intended experience.
+
+Failure modes and misuse
+• Feature-first design. Starting with a favorite mechanic and inventing an aesthetic justification afterward.
+• Aesthetics = graphics. Misreading the term and discussing art direction instead of player experience.
+• Dynamics as authored events. Listing encounters or features rather than describing behavior produced during play.
+• Assuming linear causality. One mechanic often contributes to several dynamics, and one dynamic may depend on
+several mechanics.
+• Ignoring player perspective. The system can be internally coherent while the player cannot perceive cause,
+consequence, or opportunity.
+• Overusing the eight aesthetics. They are a vocabulary aid, not a complete taxonomy of motivation or emotion.
+• Tuning before diagnosis. Changing values repeatedly when the underlying mechanic-to-dynamic relationship is
+wrong.
+
+Review gate and quality checklist
+A system should not be considered reviewed under MDA until the team can answer the following checks with
+evidence or an explicit test plan.
+• Can the team state the primary intended player experience without using the words "fun," "engaging," or a feature
+name?
+• Can each major mechanic be traced to one or more intended dynamics?
+• Can each intended dynamic be described as observable behavior over time?
+• Has the team identified at least one plausible unintended dynamic created by optimization, confusion, or system
+interaction?
+• Does the player receive enough information and feedback to perceive the relevant dynamic?
+• Is there a concrete playtest or telemetry signal that would falsify the design hypothesis?
+
+• If the feature were removed, which target aesthetic would materially weaken? If none, why is the feature present?
+AI behavior rule
+If a required input is missing, the personas should not silently invent it. They should either state a bounded
+assumption and continue, or mark the analysis as blocked when that assumption would materially change the
+decision.
+
+How this framework combines with the other four
+Framework
+
+Primary question
+
+MDA
+
+Defines intended experience and traces mechanics through emergent dynamics to player
+response.
+
+Core / Nested Loops
+
+Defines repeated player activity, time scales, feedback cadence, and how progression loops
+nest.
+
+Systems Thinking
+
+Maps causal relationships, feedback, delays, emergence, and structural leverage points.
+
+Machinations
+
+Makes resource/state flows executable so economy and progression behavior can be
+simulated.
+
+Rational Game Design
+
+Parameterizes skills, mechanics, difficulty, learning, and content variety for controlled iteration.
+
+MDA should own the questions it is best suited to answer, while the other frameworks provide complementary lenses.
+A final design review should reconcile contradictions rather than treating all five outputs as independently correct.
+
+Sources and further reading
+The guidance above is a synthesis. The sources below are the recommended references for full context and original
+terminology. URLs were verified during preparation of this knowledge pack.
+MDA-1. MDA: A Formal Approach to Game Design and Game Research
+Robin Hunicke, Marc LeBlanc, Robert Zubek (2004). Original framework: definitions, designer/player perspectives, aesthetic vocabulary,
+dynamics, mechanics, and iterative tuning.
+https://www.cs.northwestern.edu/~hunicke/MDA.pdf
+MDA-2. MDA: A Formal Approach to Game Design and Game Research
+AAAI workshop archive. Archival record and abstract for the original workshop paper.
+https://aaai.org/papers/ws04-04-001-mda-a-formal-approach-to-game-design-and-game-research/
+MDA-3. Advanced Game Design: A Systems Approach
+Michael Sellers / Pearson. Complementary systems-oriented treatment of game design, loops, player interaction, and balance.
+https://www.informit.com/store/advanced-game-design-a-systems-approach-9780134667607
+

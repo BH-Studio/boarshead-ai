@@ -1,0 +1,575 @@
+AI KNOWLEDGE REFERENCE — Rational Game Design
+Source: text-forward conversion of the AI-processing framework knowledge pack created 25 Aug 2026.
+Use: reference material for the BH Game Systems Design & Engineering Team.
+Authority: framework guidance; it does not override approved project decisions or the GPT controller instructions.
+
+
+GAME SYSTEMS FRAMEWORK KNOWLEDGE PACK
+
+Rational Game Design (RGD)
+Player skills, atomic parameters, difficulty, learning, variety, and controlled design space
+
+Purpose for the custom GPT
+Give designer personas a rigorous process for translating creative intent into player skills, mechanics,
+measurable parameters, learning curves, difficulty progression, and deliberate content variety without
+mistaking numbers for proof of fun.
+
+Document
+
+Use
+
+Knowledge-pack ID
+
+GSF-05-RGD
+
+Audience
+
+Game-design personas working as a coordinated design team
+
+Primary mode
+
+Reasoning framework + review gate + prompt-pattern library
+
+Version
+
+1.0 - 25 Aug 2026
+
+Source policy
+
+Synthesis and operational guidance; consult original sources for full context
+
+Important: These documents operationalize public design frameworks for AI-assisted design. They intentionally add multi-persona
+workflow rules, prompt patterns, review gates, and implementation handoff practices that are not claims made by the original authors.
+
+Contents and retrieval map
+The headings below are intentionally explicit so a custom GPT can retrieve a focused section without needing to
+ingest the entire document.
+1. Custom GPT operating directive
+2. What Rational Design is
+3. Player skills and mechanics
+4. Atomic parameters and metrics
+5. Micro flow and macro flow
+6. Learning, signs, and readability
+7. Variety and possibility space
+8. Step-by-step RGD workflow
+9. Multi-persona team pattern
+10. Prompt patterns
+11. Worked example
+12. Limits and criticism
+13. Failure modes
+14. Review gate
+15. Integration
+16. Sources
+
+Framework invocation rule
+Use this framework when its triggering conditions match the design problem. Do not force every problem
+through every framework. When several frameworks apply, state which framework owns which question and
+reconcile conflicts in a final synthesis pass.
+
+Custom GPT operating directive
+When to invoke RGD
+Invoke Rational Game Design when the team needs to define or compare mechanics precisely, diagnose
+difficulty, plan teaching/progression, generate controlled content variety, create encounter/level metrics, or
+replace subjective "this feels harder" discussion with testable parameters.
+
+• Start from the player skill being challenged. Do not confuse player skill with an avatar stat or in-game skill tree.
+• Break each mechanic into atomic parameters that can change the challenge while preserving the mechanic's
+identity.
+• Use numbers to make assumptions explicit and comparable, not to claim objectivity where player perception remains
+uncertain.
+• Design learning and difficulty as deliberate curves. Do not solve a difficulty dip by adding content until the root
+parameter is understood.
+• Use variety matrices to explore combinations of mechanics and modifiers before adding one-off mechanics.
+
+What Rational Design is
+Chris McEntee's account of Ubisoft Montpellier's Rational Design practice describes a methodology focused on
+eliminating unnecessary information, making mechanics readable, introducing them in an orderly way, and preserving
+learning and difficulty curves or "macro flow." He emphasizes deep exploration of strong mechanics rather than using
+many one-off mechanics to imitate depth. [RGD-1]
+Alexis Jolis-Desautels later characterizes Rational Design as a set of tools, questions, and deliverables for designing
+with intention, balancing creativity with reliability, and centering the user rather than the designer's personal taste.
+[RGD-2] [RGD-3]
+
+Player skill
+
+Mechanic
+
+Atomic
+parameters
+
+Difficulty /
+learning
+
+Content
+combinations
+
+RGD makes the design space explicit so the team can explore it deliberately.
+
+Player skills and mechanics
+In McEntee's formulation, a mechanic is a challenge associated with a specific player input and skill, and its difficulty
+can be altered through atomic parameters. He distinguishes player skills - physical, mental, or social capabilities
+used by the human player - from character abilities or statistics. [RGD-1]
+Category
+
+Examples of player skill
+
+Possible mechanics
+
+Physical
+
+Timing, reaction, precision, rhythm,
+coordination
+
+Dodge timing, aim, combo execution, platforming
+
+Mental
+
+Planning, memory, spatial reasoning,
+inference, prioritization
+
+Tactical positioning, puzzle solving, target selection,
+resource planning
+
+Social
+
+Communication, negotiation, deception,
+coordination, leadership
+
+Team role coordination, trading, bluffing, alliance
+management
+
+A useful AI rule is to require the persona proposing a mechanic to finish the sentence: "This mechanic asks the
+player to use [skill] to overcome [challenge] by [input/decision], while these parameters control difficulty." If
+
+the statement cannot be completed, the mechanic may still be an action or affordance, but its challenge structure is
+not yet clear.
+
+Atomic parameters and metrics
+Atomic parameters are the smallest adjustable variables that materially change how difficult or demanding a mechanic
+is without turning it into a different mechanic. Examples include distance, speed, timing window, accuracy requirement,
+number of simultaneous threats, visibility, resource cost, enemy reaction time, or information quality. [RGD-1]
+Mechanic
+
+Player skill
+
+Possible atomic parameters
+
+Precision shot
+
+Aim / target tracking
+
+Target size, target speed, distance, weapon spread, exposure
+time
+
+Dodge
+
+Timing / prediction
+
+Telegraph duration, attack speed, safe-window width, recovery
+time
+
+Resource decision
+
+Planning / valuation
+
+Scarcity, opportunity cost, replacement time, uncertainty, storage
+cap
+
+Stealth traversal
+
+Observation / timing / route
+planning
+
+Vision range, patrol speed, cover spacing, noise radius, alert
+decay
+
+Metrics create a coordinate system for design decisions. The Level Design Book summarizes RGD/RLD as identifying
+mechanics and parameters, quantifying them, combining them across content, and iterating toward target difficulty or
+pacing. It also warns against treating quantified design as inherently objective or universally superior. [RGD-4]
+
+Micro flow and macro flow
+Jolis-Desautels describes micro flow as second-to-second conditions that keep the player engaged in the immediate
+activity and macro flow as longer-term progression in which challenge should evolve as player ability grows. He
+connects macro flow to learning, rewards, progression, and short/medium/long Objective-Challenge-Reward loops.
+[RGD-3]
+Scale
+
+Design responsibility
+
+Micro flow
+
+Clear goals, responsive feedback, skill/challenge balance, rhythmic input/decision patterns,
+reinforcing success without erasing failure.
+
+Macro flow
+
+Teach mechanics, combine them, increase parameter difficulty, vary pacing, add
+rewards/possibilities, and keep challenge aligned with growing player capability.
+
+Learning, signs, and readability
+Rational Design is not only about numerical difficulty. McEntee emphasizes readability, understandable information,
+orderly introduction of mechanics, and the relationship between learning and challenge. A mechanic cannot be fairly
+challenging if the player cannot identify the relevant object, state, rule, danger, or success condition. [RGD-1]
+• Teach one new idea against a familiar baseline. New mechanics are easier to learn when the rest of the challenge
+remains stable.
+• Use signs and feedback consistently. Visual, audio, animation, UI, and spatial cues should communicate function
+before demanding mastery.
+• Separate knowledge difficulty from execution difficulty. A player may fail because the rule is unclear, not
+because the intended skill challenge is high.
+
+• Sequence combination complexity. After individual mechanics are learned, difficulty can come from combining
+known elements under new constraints.
+
+Variety and possibility space
+McEntee argues that variety should refresh the player's rhythm and strategy without relying on endless new
+mechanics. Rational Design uses matrices and parameter combinations to explore the existing possibility space, often
+finding new challenges by changing constraints or removing familiar options. [RGD-1]
+Dimension
+
+Example values
+
+Enemy pressure
+
+Low / medium / high
+
+Visibility
+
+Clear / intermittent / obscured
+
+Mobility
+
+Open / constrained / one-way
+
+Resource state
+
+Abundant / limited / depleting
+
+Objective
+
+Survive / protect / pursue / escape / capture
+
+Mechanic availability
+
+Full kit / one tool restricted / forced specialization
+
+The matrix is a generator of candidate design spaces, not a requirement to use every combination. Personas should
+filter combinations through target experience, production cost, readability, and redundancy.
+
+Step-by-step RGD workflow
+Step
+
+Action
+
+1. Define the player and
+experience
+
+Identify target audience assumptions, desired experience, and constraints.
+
+2. Name player skills
+
+List the human skills the system should challenge or develop.
+
+3. Define mechanics
+
+For each mechanic, specify input/decision, challenge, success/failure, and feedback.
+
+4. Extract atomic
+parameters
+
+Identify variables that alter difficulty or expression without replacing the mechanic.
+
+5. Set parameter ranges
+
+Define easy-to-hard or low-to-high ranges as hypotheses, not truths.
+
+6. Build learning sequence
+
+Introduce signs, safe practice, isolated use, then combinations.
+
+7. Build variety matrix
+
+Cross mechanics, modifiers, constraints, objectives, and environments to explore possibility
+space.
+
+8. Plan macro flow
+
+Map when mechanics appear, combine, intensify, rest, and return.
+
+9. Prototype and measure
+
+Test whether difficulty comes from intended player skill rather than confusion or production
+noise.
+
+10. Calibrate
+
+Use observed completion, error patterns, timing, strategy diversity, and player confidence to
+update parameter ranges.
+
+11. Cut redundancy
+
+Remove mechanics or content combinations that do not add a new skill demand, strategy,
+rhythm, or experience.
+
+Multi-persona team operating pattern
+This section describes how to apply Rational Game Design inside an existing multi-persona design committee. These
+are responsibility overlays, not a requirement to create new permanent personas. Map each responsibility onto the
+personas already present in the team.
+• Independent first pass. Relevant personas analyze the same design question independently before seeing the
+synthesis. This reduces premature consensus.
+• Evidence/assumption separation. Every persona labels what is known, inferred, assumed, or proposed. Numerical
+claims without evidence are treated as hypotheses.
+• Constructive disagreement. At least one persona must challenge the current favorite solution and identify a
+plausible failure mode or player exploit.
+• Framework vocabulary. Personas use the framework terms precisely. If a term is ambiguous, they define it before
+using it as a decision criterion.
+• Convergence pass. A synthesis lead resolves conflicts by returning to player goals, constraints, and evidence - not
+by averaging opinions.
+• Traceable output. Final recommendations include why the framework supports the decision, what remains uncertain,
+and what playtest or simulation would falsify it.
+
+Recommended round structure
+
+Frame problem
+
+Independent
+persona
+
+Crosscritique
+
+Synthesis
+
+Validation
+plan
+
+Use the team as a reasoning system, not a chorus.
+
+A good AI team pattern deliberately creates different kinds of pressure on the design: player experience, system
+coherence, balance, exploit resistance, production feasibility, and creative possibility. The synthesis lead should
+preserve useful disagreement in the record when the evidence is insufficient to resolve it.
+
+RGD responsibility overlays
+Overlay
+
+Primary contribution
+
+Player-skill analyst
+
+Defines the human skills, learning assumptions, and likely error modes.
+
+Mechanic designer
+
+Specifies mechanic challenge structure, inputs, outcomes, and feedback.
+
+Level / encounter designer
+
+Uses parameter ranges and combinations to build paced challenges and variety.
+
+Balance analyst
+
+Calibrates parameter ranges, difficulty weights, progression, and telemetry hypotheses.
+
+UX / readability reviewer
+
+Checks signs, affordances, feedback, onboarding, and whether failure is attributable.
+
+Creative challenger
+
+Searches the possibility matrix for surprising combinations without adding unnecessary
+one-off mechanics.
+
+Synthesis lead
+
+Maintains the learning/difficulty curve and resolves when rationalization would damage the
+intended creative identity.
+
+Prompt patterns for AI-assisted design
+The following patterns are designed to be reusable inside a custom GPT. Replace bracketed fields with project
+context. The prompts explicitly separate framing, independent analysis, criticism, and convergence.
+
+Pattern A - Framework invocation
+Use Rational Game Design to analyze [SYSTEM OR MECHANIC].
+Context: [PLAYER, PLATFORM, GENRE, DESIGN PILLARS, CONSTRAINTS].
+Decision to make: [EXACT DECISION].
+Known evidence: [PLAYTEST DATA / TELEMETRY / DESIGN FACTS].
+Unknowns: [UNCERTAINTIES].
+Each relevant designer persona must:
+1. Apply the framework terminology explicitly.
+2. Separate observations from assumptions.
+3. Identify at least one failure mode.
+4. Recommend the smallest design change that could test the hypothesis.
+5. State what evidence would change the recommendation.
+Do not converge until independent persona passes are complete.
+
+Pattern B - Cross-examination
+Cross-examine the current design using Rational Game Design.
+Ask and answer these questions:
+- Which human player skill is this mechanic challenging?
+- What are the atomic parameters that control difficulty or variation?
+- Is failure caused by the intended skill challenge, or by unreadable information / unclear
+rules?
+- How is the mechanic introduced, practiced, combined, and revisited across macro flow?
+- Can variety be created by recombining existing mechanics or constraints instead of adding
+a new mechanic?
+For every concern, identify:
+- severity: low / medium / high
+- confidence: low / medium / high
+- affected player behavior or experience
+- likely root cause
+- cheapest validation method
+Do not propose feature additions until root causes are identified.
+
+Pattern C - Convergence and decision record
+Synthesize the persona analyses into one design decision.
+Resolve conflicts by using the project pillars, player needs, constraints, and evidence.
+Do not average incompatible recommendations.
+Return exactly this structure:
+1. Target player / experience
+2. Player skills
+3. Mechanic definitions
+4. Atomic parameters and proposed ranges
+5. Readability / signs / feedback requirements
+6. Learning sequence
+7. Variety matrix candidates
+8. Difficulty and macro-flow plan
+9. Redundant or one-off content to cut
+10. Playtest metrics and error taxonomy
+11. Recommended design decision
+12. Confidence and open questions
+If evidence is insufficient, mark the decision PROVISIONAL and specify the experiment
+needed.
+
+Worked example - enemy ranged attack
+Element
+
+RGD decomposition
+
+Player skill
+
+Threat recognition, timing, positioning, prioritization.
+
+Mechanic
+
+Enemy telegraphs a ranged attack; player avoids line of fire or interrupts the attacker.
+
+Atomic parameters
+
+Telegraph duration, projectile speed, projectile width, fire interval, enemy count, angle of attack,
+cover availability, interrupt window.
+
+Easy learning state
+
+One enemy, long telegraph, clear line, generous cover, slow projectile.
+
+Intermediate variation
+
+Shorter telegraph + movement pressure; two enemies from related angles.
+
+Advanced combination
+
+Ranged enemy combined with area denial that restricts safe positioning; still uses learned signs
+and rules.
+
+Bad difficulty increase
+
+Add five more enemies without knowing whether failure is recognition, timing, navigation,
+damage, or cognitive overload.
+
+The RGD value is diagnostic. Instead of "make encounter 7 harder," the team can decide whether to challenge
+recognition, reaction, spatial planning, multitasking, or resource management - and adjust the parameter that targets
+that skill.
+
+Limits and criticism
+RGD is useful precisely because it makes assumptions explicit, but that can tempt teams into false precision. The
+Level Design Book notes that public documentation is incomplete and cautions against uncritical faith in a method that
+quantifies conceptual depth. [RGD-4] Treat RGD as a tool for disciplined reasoning and controlled experiments, not an
+equation that proves quality.
+• Player perception of difficulty may not track a designer's numeric scale linearly.
+• Novelty, emotion, narrative meaning, aesthetics, and social context can change challenge perception without
+changing atomic parameters.
+
+• A beautifully quantified possibility space can still contain boring combinations.
+• Playtest evidence must recalibrate the model; the spreadsheet is a hypothesis, not ground truth.
+• Creative exceptions are allowed when deliberate. The team should document why the exception is worth its learning
+and production cost.
+
+Failure modes
+• Character skill confusion. Treating avatar stats as player skills.
+• Add-more-enemies tuning. Increasing content count when the actual difficult parameter is unknown.
+• False objectivity. Assuming a numeric score makes a subjective experience objectively correct.
+• One-off mechanic inflation. Adding new rules for variety instead of exploring existing mechanics deeply.
+• Unreadable challenge. Difficulty is produced by poor signaling rather than the intended skill demand.
+• Matrix completionism. Building every combination merely because the grid contains it.
+• Static calibration. Never updating parameter ranges after player behavior contradicts designer assumptions.
+
+Review gate and quality checklist
+A system should not be considered reviewed under Rational Game Design until the team can answer the following
+checks with evidence or an explicit test plan.
+• Is every major mechanic tied to a specific human player skill or decision demand?
+• Can the team name the atomic parameters that control difficulty and variation?
+• Are easy/hard ranges hypotheses that can be recalibrated through playtesting?
+• Can players perceive the signs, rules, goals, and feedback needed to attribute success and failure correctly?
+• Does the learning sequence isolate new concepts before combining them?
+• Does content variety primarily exploit the existing design space before adding new one-off mechanics?
+• Can the team explain which parameter caused a difficulty change instead of using aggregate labels such as "harder"?
+• Has at least one persona challenged whether the numeric model is masking an experiential problem?
+AI behavior rule
+If a required input is missing, the personas should not silently invent it. They should either state a bounded
+assumption and continue, or mark the analysis as blocked when that assumption would materially change the
+decision.
+
+How this framework combines with the other four
+Framework
+
+Primary question
+
+MDA
+
+Defines intended experience and traces mechanics through emergent dynamics to player
+response.
+
+Core / Nested Loops
+
+Defines repeated player activity, time scales, feedback cadence, and how progression loops
+nest.
+
+Systems Thinking
+
+Maps causal relationships, feedback, delays, emergence, and structural leverage points.
+
+Machinations
+
+Makes resource/state flows executable so economy and progression behavior can be
+simulated.
+
+Rational Game Design
+
+Parameterizes skills, mechanics, difficulty, learning, and content variety for controlled iteration.
+
+Rational Game Design should own the questions it is best suited to answer, while the other frameworks provide
+complementary lenses. A final design review should reconcile contradictions rather than treating all five outputs as
+independently correct.
+
+Sources and further reading
+The guidance above is a synthesis. The sources below are the recommended references for full context and original
+terminology. URLs were verified during preparation of this knowledge pack.
+RGD-1. Rational Design: The Core of Rayman Origins
+Chris McEntee / Game Developer (2012). Detailed account of Ubisoft Rational Design practice: player skills, mechanics, atomic parameters,
+readability, learning, difficulty, variety, and macro flow.
+https://www.gamedeveloper.com/design/rational-design-the-core-of-i-rayman-origins-i
+
+RGD-2. Initial Thoughts on Rational Design
+Alexis Jolis-Desautels / Game Developer (2021). Frames Rational Design as tools, questions, and deliverables for intentional design,
+creativity, and reliability.
+https://www.gamedeveloper.com/design/initial-thoughts-on-rational-design
+RGD-3. Rational design, Part 1 - The player
+Alexis Jolis-Desautels / Game Developer (2021). Player-centered analysis, micro/macro flow, motivation, and Objective-Challenge-Reward
+loop mapping.
+https://www.gamedeveloper.com/game-platforms/rational-design-part-1-the-player
+RGD-4. Metrics - The Level Design Book
+The Level Design Book. Concise RGD/RLD workflow summary plus an important critical perspective on quantification and methodology limits.
+https://book.leveldesignbook.com/process/blockout/metrics
+RGD-5. Designing Assassin's Creed 2
+Patrick Plourde / GDC Vault (2010). Ubisoft design-process talk emphasizing core mechanics, rigorous design process, documentation, and
+production alignment.
+https://www.gdcvault.com/play/1012895/Designing-Assassin-s-Creed
+
