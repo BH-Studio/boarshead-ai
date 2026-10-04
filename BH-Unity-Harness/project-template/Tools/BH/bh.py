@@ -523,6 +523,16 @@ class Harness:
                 issues.append('Instruction override requires review: ' + name)
             if Path(name).name == 'AGENTS.md' and name not in known:
                 issues.append('Unreviewed nested instructions: ' + name)
+        registry = load_json(safe(self.root, '.bh/skill-registry.json'))
+        require(isinstance(registry, dict) and registry.get('version') == VERSION,
+                'Invalid skill registry version or object')
+        rows = registry.get('skills')
+        require(isinstance(rows, list), 'Skill registry skills must be a list')
+        require(all(isinstance(row, dict) and isinstance(row.get('name'), str)
+                    and bool(row['name'].strip()) for row in rows),
+                'Skill registry entries need nonempty names')
+        managed = [row['name'] for row in rows]
+        require(len(managed) == len(set(managed)), 'Duplicate registry skill names')
         names = []
         base = safe(self.root, '.agents/skills')
         for p in sorted(base.glob('*/SKILL.md')):
@@ -532,9 +542,10 @@ class Harness:
             require(m is not None, 'Skill missing name: ' + str(p))
             names.append(m.group(1))
             skills.append(p.parent.name)
+            relative = p.relative_to(self.root).as_posix()
+            if m.group(1) not in managed and relative not in known:
+                issues.append('Unreviewed local skill requires review: ' + relative)
         require(len(names) == len(set(names)), 'Duplicate local skill names')
-        if any(x.startswith('b1-') for x in skills):
-            issues.append('Legacy B1 skills remain active; human must resolve duplicate policy before adoption')
         if not self.config['synthetic']:
             if (self.config['engine']['version'] is None or self.config['engine']['render_pipeline'] == 'UNRECONCILED'
                     or any(t.startswith('UNCONFIGURED') for t in self.config['engine']['targets'])):

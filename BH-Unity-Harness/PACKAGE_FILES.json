@@ -85,12 +85,12 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "9746e6442806355628605359623bbe13a315c2825623fc496cee39b88f5eb169",
+      "sha256": "66bc78d72b0f12b0ba68b9fa3b54a7ff1b53c85389e839b66d32dd3f04880859",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/INTERFACE.md",
-      "sha256": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "sha256": "2bb8ec57838cb4bd63a29fbec6763fe1cf4bb965e79a23e573d3505ccdeaf5cc",
       "ownership": "managed"
     },
     {
@@ -105,7 +105,7 @@
     },
     {
       "path": "Tools/BH/bh.py",
-      "sha256": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+      "sha256": "7d2ff0274972aed376935cc8ab665e0e4390cbd20dc1592b13708c8a4c722e2f",
       "ownership": "managed"
     },
     {

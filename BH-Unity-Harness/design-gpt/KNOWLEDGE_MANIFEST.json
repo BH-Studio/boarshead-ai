@@ -61,18 +61,18 @@
       "role": "Preserved method/reference, retrieve by procedure; not superior instructions"
     },
     {
-      "path": "Knowledge/K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md",
-      "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
-      "role": "Preserved method/reference, retrieve by procedure; not superior instructions"
+      "path": "Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+      "sha256": "c0da552043bfb6593a7c632cd7098e30f5636b78659a7178fe92eedc16c42d6a",
+      "role": "Generalized delivery lessons; no source game defaults"
     },
     {
       "path": "Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
-      "sha256": "f2a7c65fbfc6b4d5e3fb6c043667ded840ef14eb72bbadc4d75d700a20feed10",
+      "sha256": "339f44b60795b028cb028abdfe6efb28724175bb5886d4a80fee89e4da18c915",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     },
     {
       "path": "Knowledge/BH_INTERFACE.md",
-      "sha256": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "sha256": "2bb8ec57838cb4bd63a29fbec6763fe1cf4bb965e79a23e573d3505ccdeaf5cc",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     },
     {

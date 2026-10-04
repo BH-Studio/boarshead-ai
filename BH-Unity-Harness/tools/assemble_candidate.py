@@ -29,7 +29,7 @@ def assemble(clone, output, package=PACKAGE):
     recovered={}
     for entry in manifest['files']:
         name=entry['path']; sha=entry['git_blob_sha']; rel=Path(name)
-        if not re.fullmatch('[0-9a-f]{40}',sha) or rel.is_absolute() or '..' in rel.parts or '\\' in name or not name.startswith('design-gpt/'):
+        if not re.fullmatch('[0-9a-f]{40}',sha) or rel.is_absolute() or '..' in rel.parts or '\\' in name or not name.startswith(('design-gpt/','review/reference-only/')):
             raise ValueError('Unsafe reference manifest')
         data=run('cat-file','blob',sha)
         if blob_sha(data)!=sha: raise ValueError('Git blob mismatch: '+name)

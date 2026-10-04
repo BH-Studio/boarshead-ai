@@ -37,7 +37,10 @@ def check(allow_unassembled=False):
         else:test(blob(p)==row['git_blob_sha'],'Preserved exact Git blob: '+row['path'])
     for row in km['knowledge_files']:
         p=P/'design-gpt'/row['path']
-        if not p.exists():continue
+        if not p.is_file():
+            if p.relative_to(P).as_posix() not in missing:
+                test(False,'Missing required knowledge file: '+row['path'])
+            continue
         test(sha(p)==row['sha256'] if 'sha256' in row else blob(p)==row['git_blob_sha'],'Knowledge manifest hash: '+row['path'])
     skills=list((P/'project-template/.agents/skills').glob('*/SKILL.md'))
     test(len(skills)==5,'Five active-discovery skills only')

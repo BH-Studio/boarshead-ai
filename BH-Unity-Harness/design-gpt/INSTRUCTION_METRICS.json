@@ -1,8 +1,8 @@
 {
   "path": "01C_GPT_INSTRUCTIONS_OFFICIAL.md",
   "encoding": "UTF-8, LF, including final newline",
-  "characters": 7713,
+  "characters": 7798,
   "budget": 8000,
-  "headroom": 287,
-  "sha256": "0dcafdd1efb2610f201f5ca5902d78edad7daab9e7a59a8b9dd6276262736a1b"
+  "headroom": 202,
+  "sha256": "f0f43b2ff58d5fc843f7814c159d6535cd93e419fb8695bc3765d2b3e7a90b90"
 }

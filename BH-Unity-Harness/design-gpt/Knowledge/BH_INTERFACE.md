@@ -7,7 +7,7 @@ Owned by `contracts/schema.json`. The copies named `BH_CONTRACT_SCHEMA.json` in 
 | Producer | Interface | Execution harness | Disposition |
 |---|---|---|---|
 | BH Game Systems Design Team v3 method 3.1.0 candidate | 1.0.0 | BH Unity Harness 1.0.0 candidate | Eligible for pilot after local validation and human adoption |
-| Original v3 / B1 package | Original prose contract | B1-CODEX-OPS | Preserve current slice; migrate deliberately, never relabel old evidence |
+| Legacy project-specific package | Legacy contract | Prior harness | Preserve current slice; migrate deliberately, never relabel old evidence |
 | Any other version combination | Any | Any | Reject; review an explicit migration before compilation/execution |
 
 The design method owns proposals, specifications, requirements and design review. The human owns decisions and approvals. The harness owns execution state, verified observations and receipt freshness. Native Codex instruction precedence is not this policy's authority hierarchy and can bypass it; host permissions and genuine human review remain necessary.
@@ -28,7 +28,7 @@ For full system/foundation work retrieve `01_GPT_INSTRUCTIONS_FULL.md` and `K01_
 | Architecture / scale / reuse | K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md |
 | Validation / red team / quality gates | K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md |
 | Durable artifacts / decisions | K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md |
-| Applicable procedural / persistence lessons | K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md |
+| Applicable procedural / persistence lessons | K11_GENERALIZED_DELIVERY_LESSONS.md |
 | Milestones / compilation / return / closure | K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md |
 | Shared interface rules | BH_INTERFACE.md |
 | Exact structured contracts | BH_CONTRACT_SCHEMA.json |
@@ -43,7 +43,7 @@ Use the schema definitions `criteria`, `overlay`, `handoff`, `approval`, `propos
 
 `handoff` binds `version`, `harness_version`, `design_method_version`, `project_id`, `task_id`, `milestone_id`, `synthetic`, `status`, objectives/non-goals/assumptions, `source_commit`, artifact hashes, design/criteria/overlay paths, `read_order`, acceptance/invariant IDs, allowed/protected paths and allowed actions. It also carries architecture/data references, dependencies, migration impact, risk controls, questions, checks, required verification profile, stop conditions, startup, return format and design approval. All referenced design inputs must be in `artifacts` with actual SHA-256 hashes. `source_commit=null` explicitly means not yet pinned; actual technical reconciliation still has to establish the repository baseline.
 
-The overlay preserves project invariants with source references, protected paths, optional capabilities, known facts, open decisions and provenance. `SOURCE_DERIVED_UNRECONCILED` cannot execute; `RECONCILED` requires real repository/human review. `SYNTHETIC` is only for visibly marked disposable fixtures. Do not turn Breach One or a sample fixture into every game's defaults.
+The overlay preserves project invariants with source references, protected paths, optional capabilities, known facts, open decisions and provenance. `SOURCE_DERIVED_UNRECONCILED` cannot execute; `RECONCILED` requires real repository/human review. `SYNTHETIC` is only for visibly marked disposable fixtures. Source projects and synthetic fixtures never supply another project's defaults. The standard selects no game, genre, mechanics, lore, player count, middleware or rendering pipeline; current approved project inputs own those choices.
 
 Every acceptance criterion has stable `id`, `requirement_ids`, `expected` and `kind` (`automated` or `human`). Each criterion needs at least one required check. Every check has `id`, mapped `ac_ids`, required flag, adapter, profile, observable expectation, named tests/minimum count where applicable, and an optional N/A reason. Required checks cannot become N/A; automation cannot certify human criteria. Named NUnit tests and a positive discovery count are required. Dropping an acceptance ID, invariant, required check or artifact fails validation.
 
