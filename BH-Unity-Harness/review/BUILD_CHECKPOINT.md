@@ -1,22 +1,25 @@
 # BH Unity Harness construction checkpoint
 
-Status: RESUMED — game-agnostic scope clarification; candidate review open; NOT adopted.
+Status: Game-agnostic revision in progress; candidate NOT adopted.
 Repository: BH-Studio/boarshead-ai
 Branch: harness/bh-standard-v1-20261004; PR #1 remains draft/unmerged.
-Resume baseline: dccb03b957f6b321ed05c018a369c364c01594cf
+Parent of this batch: c27b633791ab9830c45cb68fcd94701fa5b43466
 Original source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
 
 ## Current human direction
-The user explicitly clarified that the pipeline must be game agnostic. Existing games are learning/reference inputs only. Game-specific designs and names must not become operational instructions, default configuration, shipped profiles or implied requirements. Historical review references may identify their sources when explaining a generalized instruction. This overrides the earlier request to ship a retained named-game overlay. Preserve original repository directories and the existing Readme.md.
+The standard is game agnostic. Existing games are learning/reference inputs, not shipped product designs, default mechanics, names, player counts, middleware selections or render-pipeline choices. The prior requirement to ship a named-game overlay is explicitly superseded. Source references may identify their origin in review/bibliographic material only. Preserve all original directories and existing Readme.md.
 
-## Established progress (do not repeat)
-The implementation is already published. CURRENT_REVIEW.md and CURRENT_ARTIFACT_STATE.json record the prior review and identities. Sixty legacy files and bounded selected material/notices from seven upstream repositories were reviewed. The historical 133-test run, its case index and earlier 125/127 evidence remain recorded; none is evidence for changes not yet made. Runtime, installer and shared contracts must be recovered, not rewritten.
+## Newly completed and committed
+- DESIGN_SOURCE_REVIEW.md records complete reads and dispositions for all eleven previously outstanding design files. Combined with prior coverage, all twenty-one design-source files now have supported full reads. Do not repeat this review. Earlier sixty-file legacy and seven-repository bounded reviews remain recorded.
+- This batch adds two synthetic contrasting contract profiles and generic GPT name/description/starter instructions. Neither profile approves or configures any real game; both retain open reconciliation questions and enable no optional capabilities.
+- The old named-game overlay is still present at this intermediate checkpoint and must be removed with its corresponding regression-test changes. It is withdrawn from intended delivery; do not use it.
 
-## Current batch and exact next action
-1. Finish the eleven complete design-source reads listed in CURRENT_REVIEW.md, pinned to the original source baseline.
-2. Inspect active content for game-specific leakage. Isolate named-game reference material from deployable instructions/examples; replace the named overlay with explicitly synthetic, materially different generic profiles. Add regression checks. Keep generic Unity safety and human approval rules; do not import game mechanics, genres, middleware ownership or fixed player counts.
-3. Materialize exact published bytes for full offline assembly/testing, including the thirteen original references. Compare against GitHub identities before tests; do not repeat the prior missing-reference workaround.
-4. Commit each completed source-review/change/test batch, refresh manifests and final assurance, then verify published tree/diff and update draft PR.
+## Local-only work awaiting coherent publication
+Working directory during this resume: /mnt/data/bh-agnostic/work/BH-Unity-Harness. It contains generic K11 lessons, review-only original K11, corresponding shared-interface/manifest updates, explicit neutral official instructions (7798 characters), generic K12 additions, root policy, neutralized evaluation prompts, fourteen new regression cases and generalized source-retention tests. These changes are not yet claimed committed.
+The runtime's old game-prefix-specific skill check was replaced locally with a generic registry/unreviewed-path check. Three negative tests failed against the old implementation as expected; four focused cases passed after the fix (0.175 seconds). Raw red/green logs exist locally under review/evidence/game-agnostic-red and game-agnostic-green. Full post-change suite NOT_RUN.
 
-## Boundaries and recovery
-All writes stay under BH-Unity-Harness. Use current-head/non-force updates, preserve contributor fixes, never modify original source directories, merge, release, install into a game or update the live GPT. No new paid spend. Windows/PowerShell, Unity, Codex, MCP/diagnostics, configured GPT/Project, comparative usage and human adoption remain NOT_RUN/PENDING. Retain historical evidence; any new test run must have a separate identity and actual raw logs. Read this checkpoint after interruption and continue the next unfinished bounded action rather than rebuilding the implementation.
+## Exact next action
+Finish exact-byte local materialization of the remaining original persona and source evaluation reference files (the full instructions and all five frameworks now match original Git hashes). Run strict full-package checks and the focused new tests; finish any demonstrated corrections. Publish the actual neutral candidate files, including removal of the withdrawn named-game overlay, generic preflight runtime and matching manifests. Recheck head/current files; preserve other contributors and history. Commit source/tests/evidence in coherent batches, then run/publish the full identified offline suite and final tree/diff/manifest assurance.
+
+## Limits
+Historical 125/127/133-test records are retained, not reused as proof of new changes. Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, player validation, comparative usage and human adoption remain NOT_RUN/PENDING. No paid service, merge, release, game installation, live-GPT edit or original-source change. Temporary paths are supplemental recovery locations, never the only durable record.
