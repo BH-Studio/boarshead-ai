@@ -1,28 +1,27 @@
 # BH Unity Harness construction checkpoint
 
-Status: RESUMED — actual implementation reconciled; source review in progress. Not adopted.
+Status: RESUMED; candidate review/corrections in progress, not adopted.
 Repository: BH-Studio/boarshead-ai
 Branch: harness/bh-standard-v1-20261004
-PR: #1 — keep draft and unmerged.
-Pinned source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
-Reconciled/tested branch commit: f0b602ac8aa4472765dc7f99f8ea0d166600ef70
+PR: #1, keep draft/unmerged.
+Source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
+Reconciled/tested implementation: f0b602ac8aa4472765dc7f99f8ea0d166600ef70
+Latest completed review batch: cd26a9a3f49946c927ce188fb9636eb79a8ce136
 
-## Completed this resume
-1. Committed a resume checkpoint before substantial work.
-2. Hash-checked the actual supplied recovery archive; read PACKAGE_FILES, PRESERVED_REFERENCES, SOURCE_INVENTORY, VERIFICATION_REPORT and recovery/continuation records.
-3. Recomputed archive Git object identities and compared actual branch trees. ALL archive implementation files are already published. Core, installer, contracts, design package, examples and historical evidence match. Thirteen original references are preserved. See RESUME_RECONCILIATION.md. Do not reapply the additions patch.
-4. Inspected and retained intervening CRLF-assembly fix and two added tests. Actual local copies match current Git blob identities exactly. No runtime reconstruction.
-5. Ran all 127 current offline tests in six nonoverlapping partitions, zero failures/errors/skips, identical source maps; 32.239 seconds combined. Committed summary: evidence/resume-20261004-summary.json. Six raw receipts and logs currently LOCAL_ONLY; publish them before more substantial work.
-6. Began pinned legacy source coverage: fully read docs/AI/AI_WORKFLOW.md, AUTHORITY_AND_CHANGE_CONTROL.md, CODING_PACKAGE_CONTRACT.md. Review not yet complete. Approval repetition conflict: legacy says no second plan approval; user assignment expressly requires repository reconciliation/technical-plan approval where required. Preserve user rule, allow existing exact matching approval to satisfy it; do not create redundant per-edit gates.
+## Completed and durable
+- Actual supplied recovery ZIP hash checked, all archive implementation files already found published. Thirteen exact source references preserved. See RESUME_RECONCILIATION.md. Do NOT reapply patch or rebuild the implementation.
+- Contributor CRLF assembler correction and two added tests inspected/preserved. Runtime and installable files unchanged this resume.
+- 127 current offline tests passed in six nonoverlapping partitions on identical sources, zero failures/errors/skips. Summary at evidence/resume-20261004-summary.json; all raw test outcomes are now published at evidence/resume-20261004.log (edb60c00dfda4819afce61118ee7259583414f64). Individual six JSON receipts remain temporary local files; the combined published log is the durable detailed outcome record.
+- All 12 legacy docs/AI operating policies, all 15 templates and four compact baselines fully read through GitHub at the source baseline. Exact 31-file coverage, significant requirements, conflicts and dispositions committed in LEGACY_SOURCE_REVIEW.md. No whole-file review of the 77KB narrative is claimed.
 
 ## Exact next action
-Publish the existing raw test logs/receipt information (do not rerun solely to rewrite evidence), then read remaining pinned BH-Harness-old/docs/AI policies, templates, compact baselines and relevant nested skills. Write per-file read coverage and concrete disposition. Inspect current candidate guidance before any correction. Commit that coherent batch before reviewing the seven Reference upstreams and current notices.
+Read the remaining 13 legacy skill bodies/metadata and VS Code files, record exact coverage. Apply only the justified K12 clarifications from LEGACY_SOURCE_REVIEW (semantic/authoring/experiment detail and shared-state delta authority) and expand the source-derived Breach One overlay without promoting open decisions. Update affected manifests and static tests; commit the batch before external-reference work.
 
 ## Remaining construction
-Complete legacy/design-reference coverage identified by SOURCE_INVENTORY; current external comparisons/notices; reconcile historical DELIVERY_MANIFEST against current two-file delta and later reviews; final tree/manifest/diff checks and draft PR update. RECOVERY_DELIVERY and older continuation prose describe a historical incomplete publication and are superseded by RESUME_RECONCILIATION for current file presence.
+Finish source coverage gaps identified in SOURCE_INVENTORY (including design references), bounded comparisons of all seven Reference/upstream repositories and current notices; final current-manifest reconciliation, complete diff/tree inspection and draft PR update. DELIVERY_MANIFEST describes the original archive; later two-file changes and these reviews require current delta records. Recovery delivery prose is historical and superseded by RESUME_RECONCILIATION regarding current file presence.
 
 ## Validation boundaries
-Historical 125-pass run remains preserved. Fresh 127-pass run uses actual current code but a local additions copy missing thirteen reference bytes; full original-reference assembled package execution is still NOT_RUN. Exact original identities are verified in GitHub. Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, real usage comparisons and human playtest/adoption remain NOT_RUN.
+Historical 125-pass evidence remains unchanged. Fresh 127-pass tests executed actual current code in a local additions copy without thirteen original reference bytes; full original-reference local assembly/static execution still NOT_RUN, while exact reference identities are verified in GitHub. Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, real cost/usage comparisons, human playtest and adoption remain NOT_RUN.
 
-## Durable progress rule
-Commit each completed review/implementation/test batch with actual files and evidence, then refresh this checkpoint with exact next action. Recheck branch head and use non-force updates. Never rely on temporary /mnt/data paths as the only recovery record. Preserve original directories and Readme.md. No merge, release, game installation or live-GPT modification; never install this construction checkpoint as a game's task state.
+## Progress discipline
+Commit each completed coherent batch with real artifacts/evidence and exact continuation action. Recheck head before writes; no force push. Original folders and existing Readme.md remain unchanged. No merge, release, game installation or live GPT modification. Never install this construction checkpoint as a game's task state.
