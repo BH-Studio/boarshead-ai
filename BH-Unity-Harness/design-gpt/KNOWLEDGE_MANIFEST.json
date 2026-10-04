@@ -67,7 +67,7 @@
     },
     {
       "path": "Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
-      "sha256": "405e444b81a46f283409ae94d7cf8c769c89eab87dc8b3e5f87cc15ab0ff295b",
+      "sha256": "f2a7c65fbfc6b4d5e3fb6c043667ded840ef14eb72bbadc4d75d700a20feed10",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     },
     {
