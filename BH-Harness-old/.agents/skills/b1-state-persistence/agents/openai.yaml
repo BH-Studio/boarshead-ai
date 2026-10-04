@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 State Persistence"
+  short_description: "Protect state meaning, save compatibility and migrations"
+policy:
+  allow_implicit_invocation: true

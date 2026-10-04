@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Coop Authority"
+  short_description: "Validate two-player authority, transactions and recovery"
+policy:
+  allow_implicit_invocation: true

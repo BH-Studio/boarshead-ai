@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Completion Report"
+  short_description: "Report delivered scope, real results and pending closure"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Package Preflight"
+  short_description: "Check package authority, baseline and repository bindings"
+policy:
+  allow_implicit_invocation: true

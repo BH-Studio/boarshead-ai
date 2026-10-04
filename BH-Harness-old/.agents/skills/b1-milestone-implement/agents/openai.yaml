@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Milestone Implement"
+  short_description: "Implement a bounded milestone and return actual evidence"
+policy:
+  allow_implicit_invocation: false

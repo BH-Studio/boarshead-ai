@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Performance Scale"
+  short_description: "Compare representative workloads with approved budgets"
+policy:
+  allow_implicit_invocation: true

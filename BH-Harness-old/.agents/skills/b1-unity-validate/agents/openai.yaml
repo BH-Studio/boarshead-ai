@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Unity Validate"
+  short_description: "Verify real Unity test discovery, results and target gates"
+policy:
+  allow_implicit_invocation: true

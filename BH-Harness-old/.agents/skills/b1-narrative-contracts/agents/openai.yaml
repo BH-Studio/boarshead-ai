@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Narrative Contracts"
+  short_description: "Protect reveal timing, knowledge and equal participation"
+policy:
+  allow_implicit_invocation: true

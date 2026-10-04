@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Unity Safety"
+  short_description: "Protect Unity assets, lifecycle and serialization"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Gameplay Experiment"
+  short_description: "Keep gameplay variants controlled, measurable and reversible"
+policy:
+  allow_implicit_invocation: true

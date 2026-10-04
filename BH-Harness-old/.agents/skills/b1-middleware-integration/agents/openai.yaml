@@ -1,0 +1,5 @@
+interface:
+  display_name: "B1 Middleware Integration"
+  short_description: "Check UCC and middleware ownership and supported seams"
+policy:
+  allow_implicit_invocation: true
