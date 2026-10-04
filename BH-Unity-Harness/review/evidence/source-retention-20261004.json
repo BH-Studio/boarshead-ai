@@ -1,0 +1,39 @@
+{
+  "kind": "actual-offline-suite-summary",
+  "tested_repository_commit": "043113b4103dee4333a302bad41431ab4df2d8d2",
+  "status": "PASS_OFFLINE_SUITE",
+  "command": "python -B tools/run_tests.py --part N --parts 6 --output review/evidence/source-retention-20261004",
+  "working_directory": "recovered BH-Unity-Harness authoring package, not a real game",
+  "environment": "Linux, Python 3.13.5; actual implementation and subprocess fixtures",
+  "discovered_total": 133,
+  "executed_unique": 133,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "parts": [
+    {"part":0,"tests":23,"seconds":3.491,"status":"PASS_PART"},
+    {"part":1,"tests":22,"seconds":5.849,"status":"PASS_PART"},
+    {"part":2,"tests":22,"seconds":4.667,"status":"PASS_PART"},
+    {"part":3,"tests":22,"seconds":5.562,"status":"PASS_PART"},
+    {"part":4,"tests":22,"seconds":6.551,"status":"PASS_PART"},
+    {"part":5,"tests":22,"seconds":5.783,"status":"PASS_PART"}
+  ],
+  "seconds_sum": 31.903,
+  "partition_integrity": "Programmatically asserted 133 unique IDs, no overlap, all six source maps identical, all PASS_PART.",
+  "source_map_entries": 78,
+  "source_map_canonical_sha256": "1e68a5138ff1003df696ae28fde3404f483a1899220d6b6637d18f810fda2e2b",
+  "source_map_serialization": "json.dumps(map, sort_keys=True, separators=(',', ':')).encode()",
+  "source_map_scope": "run_tests.py records .py/.json/.ps1, excluding evidence and filenames ending MANIFEST.json; this is NOT a complete documentation hash map.",
+  "separate_document_and_changed_file_sha256": {
+    "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md": "f2a7c65fbfc6b4d5e3fb6c043667ded840ef14eb72bbadc4d75d700a20feed10",
+    "design-gpt/KNOWLEDGE_MANIFEST.json": "0a4a302635bf6e5b7658f8fed7a5289ca2fc9ff00010f4a4a0ec3c01e1eacbb9",
+    "examples/profiles/breach-one.unreconciled.json": "cb7ad046d6f13dd8f1293bd091c2b4754d34a0f8cb74d2176fa3e89056a21fa2",
+    "tests/test_review_amendments.py": "e658cb19cd851ad2bb3c6f4fbffb053cc0c71d929e9b38940ad7f5c71c49a151"
+  },
+  "remote_identity_check": "All four amendment blob SHAs fetched back from tested commit and matched local bytes before branch publication.",
+  "raw_artifacts": "Six JSON receipts and six raw logs generated locally at command output; this published summary is not a claim that the twelve individual files are committed. Earlier 127-test combined raw log remains preserved separately.",
+  "original_reference_local_assembly": "NOT_RUN: local additions copy lacks thirteen preserved source byte files; exact original Git identities verified in repository. Static package tests exercise explicit PARTIAL_UNASSEMBLED path.",
+  "new_tests_scope": "Six static retention/schema/knowledge checks, not semantic design quality or configured-GPT behavior.",
+  "live_integration": "NOT_RUN: Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, player tests, usage benchmarks",
+  "adoption": "PENDING; no merge/install/live-GPT change"
+}
