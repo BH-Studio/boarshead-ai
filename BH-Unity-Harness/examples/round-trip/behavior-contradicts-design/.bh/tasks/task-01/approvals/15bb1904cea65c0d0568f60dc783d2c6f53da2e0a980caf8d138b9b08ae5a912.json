@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "task_id": "task-01",
+  "kind": "plan",
+  "actor": "human",
+  "name": "SYNTHETIC fixture actor; not authenticated",
+  "source_kind": "manual-record",
+  "source_ref": "SYNTHETIC test record, not real human approval",
+  "timestamp": "2026-10-04T18:54:08.141992Z",
+  "subject_sha256": "f8221e49ebdc487ef9bc0c424b8ecf23ccde301811a61e487b75f1f30809d9c7",
+  "scope": "Synthetic fixture scope only",
+  "limits": [],
+  "synthetic": true,
+  "human_criteria": []
+}

@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-urp",
+  "task_id": "task-01",
+  "kind": "plan",
+  "actor": "human",
+  "name": "SYNTHETIC fixture actor; not authenticated",
+  "source_kind": "manual-record",
+  "source_ref": "SYNTHETIC test record, not real human approval",
+  "timestamp": "2026-10-04T18:54:06.864021Z",
+  "subject_sha256": "cc3f5d9c4686bf4377af847678627879f4b98cf13c30e35e17aaf12093482839",
+  "scope": "Synthetic fixture scope only",
+  "limits": [],
+  "synthetic": true,
+  "human_criteria": []
+}

@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "format": "BH-RETURN-1.0.0",
+  "project_id": "synthetic-urp",
+  "task_id": "task-01",
+  "synthetic": true,
+  "created_utc": "2026-10-04T18:54:07.984392Z",
+  "handoff_sha256": "b9771bed1ff7411a5723364b149fe87ecb5975d09f037b96a4cbc21e9591d5a7",
+  "plan_sha256": "e05ec5b4f82ce3d0fdf1cede796a7a00fb92ab67ecd1ade346faf3b59fefa620",
+  "source_snapshot": {
+    "commit": "b7b03181d0fad878ff5cd0eecf1186a806fd1c78",
+    "dirty": false,
+    "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "files": {
+      ".agents/skills/bh-implement-approved-slice/SKILL.md": "941590210a2fc7748833d11dae50b12f5640434d9ed5890f518650bb11842364",
+      ".agents/skills/bh-implement-approved-slice/agents/openai.yaml": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      ".agents/skills/bh-review-handoff/SKILL.md": "58f6880b23332880826ac4e987cb51f5226972e115df9a301d21412b064fec08",
+      ".agents/skills/bh-review-handoff/agents/openai.yaml": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      ".agents/skills/bh-systematic-debug/SKILL.md": "44daa7da45a919c8196aac60cba5ee7515122099716a2ca486a9ce4088abef6c",
+      ".agents/skills/bh-systematic-debug/agents/openai.yaml": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      ".agents/skills/bh-unity-preflight/SKILL.md": "6265515cf88c0a6f6bd2e4f0ad466b0cbe7f660ae0f760cef8f832a8cff4f624",
+      ".agents/skills/bh-unity-preflight/agents/openai.yaml": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      ".agents/skills/bh-unity-verify/SKILL.md": "62dee41a3bdd349569b0f651b9b4094cf8cefe1afce17d24d86790911e8d090c",
+      ".agents/skills/bh-unity-verify/agents/openai.yaml": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      ".bh/GITIGNORE_MERGE.txt": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      ".bh/SYNTHETIC_FIXTURE": "5eb15ac733b1765f5d7c1c2c2247c63e51f84614e450426c6d2f5d584807a020",
+      ".bh/bindings.json": "01c464c0b4f4944448ad777360fc84f77e52a0ce38c18dd60d3f2d3cbfd56028",
+      ".bh/local.json": "c2a5ad45bbbb58d3b5c32b835121e89d49b18f0c46f40258a99b09a2f0e3b192",
+      ".bh/project.json": "c473372cb2fc6c0454652bb3e1627579a6ec2baf834a71a44164b43cc584a7a6",
+      ".bh/schema.json": "a781cccd0e652c73c0dff6809e0b3f72e7c292b39cc1ed1e1ae5f587703e438f",
+      ".bh/skill-registry.json": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      ".gitignore": "fe357b1b289900a1ddff54305e4ea72d69385186c0b90057477c18e9d0efd714",
+      "AGENTS.md": "9746e6442806355628605359623bbe13a315c2825623fc496cee39b88f5eb169",
+      "Docs/Harness/INTERFACE.md": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "Docs/Harness/OPERATING_GUIDE.md": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "Handoff/DESIGN.md": "383c48b7ccc0204f3f9e0de56ef8e5c43a310b073ddbc35d1518c5036126ddcf",
+      "Handoff/criteria.json": "943eff4c2ac6f8379980a02e05ab4a1e9923abb1f6566987bd842a14de68d7f7",
+      "Handoff/handoff.json": "b9771bed1ff7411a5723364b149fe87ecb5975d09f037b96a4cbc21e9591d5a7",
+      "Handoff/overlay.json": "1366448d4caf0ee4af43b1e227ee6d3fc4a52ce43995bb2025f9be177bfc7932",
+      "Source/unrelated.txt": "3b25c3775905b672b93cae3d513bab2532833fd7757c85976636975bac0cd419",
+      "Source/value.json": "6bb1b9dd0e4bc676b1627469d12c2187c08145f30f557ebed8cfc3415f7d4f9c",
+      "Tests/fixture_driver.py": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "Tools/BH/Invoke-BH.ps1": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "Tools/BH/bh.py": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+      "Tools/BH/check_release_profile.py": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5"
+    },
+    "sha256": "2840dc958338fbbda867759d61aff8779074dbe6b2425c6ef0b2ca65245a4108",
+    "file_count": 31,
+    "bytes_hashed": 181787
+  },
+  "implementation_claims": [],
+  "acceptance": [
+    {
+      "id": "AC-01",
+      "expected": "Counter value is exactly one",
+      "status": "PASS",
+      "receipt_refs": [
+        ".bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/receipt.json"
+      ],
+      "limitations": []
+    },
+    {
+      "id": "AC-HUMAN",
+      "expected": "A human can understand the first-use counter",
+      "status": "HUMAN_PENDING",
+      "receipt_refs": [],
+      "limitations": [
+        "Human observation required"
+      ]
+    }
+  ],
+  "receipts": [
+    {
+      "path": ".bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/receipt.json",
+      "sha256": "ad9d3ed4baa903b3bb0fa53f59ef8da21fd4271dc85fdf8cb067ede5f302a726"
+    }
+  ],
+  "deviations": [],
+  "design_questions": [],
+  "human_acceptance": "PENDING",
+  "evidence_transport": "LOCAL_ONLY_UNTIL_UPLOADED_OR_PUBLISHED",
+  "review_independence": "same-session-or-not-established",
+  "next_action": "Human reviews return/evidence and performs pending playtest."
+}
