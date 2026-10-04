@@ -1,26 +1,26 @@
 # BH Unity Harness construction checkpoint
 
-Status: Game-agnostic functional candidate authored and offline tested; publication assurance/evidence consolidation in progress. NOT adopted.
+Status: Game-agnostic candidate authored; final documentation/tree readback in progress. NOT adopted.
 Repository: BH-Studio/boarshead-ai
-Branch: harness/bh-standard-v1-20261004; PR #1 must remain draft/unmerged.
-Parent of this functional batch: dcc37daa54328ffdcc16149fb70464a39769fb1e
+Branch: harness/bh-standard-v1-20261004; PR #1 remains draft/unmerged.
 Original source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
+Tested functional commit: 72bf50263b39f9ccd236fb54ecae341c97f80125
+Published 148-case and assembly evidence: 78f0c7527b884853a088d8c9a46e5e4813c0e054
+Parent of this documentation batch: 7652b797f90cbcb52877f551c8ac496e43f2012c
 
-## Current direction and completed work
-The standard defines workflow, not a game. The latest human instruction supersedes delivery of the named-game overlay. This batch removes that overlay and moves the original source-named K11 into review/reference-only. Deployed knowledge uses a generic fifteen-lesson counterpart; canonical interface and both consumer copies, knowledge/installation/preserved-reference manifests and official Instructions agree. Two synthetic contrasting profiles and neutral starters are already committed. Original directories, source content and existing Readme.md stay unchanged.
+## Latest human scope
+A game-agnostic, Unity-first pipeline. Prior game names/designs are reference inputs only, not operating rules, shipped game profiles or defaults. The prior requirement to retain a named-game overlay was explicitly superseded. Preserve original directories and existing Readme.md; all candidate writes remain inside BH-Unity-Harness.
 
-All twenty-one design source files now have recorded full reads, including the eleven completed in DESIGN_SOURCE_REVIEW.md. Sixty legacy files and bounded selected content/notices from seven upstreams were reviewed earlier. Do not repeat that work or rebuild the runtime.
+## Complete and durable
+- All 21 design-source reads and 60 legacy-file reads plus legacy root AGENTS; bounded selected content/current notices for all seven upstreams. See SOURCE_INVENTORY and review records. Large old narrative remains selective and excluded from operational authority.
+- Actual recovered implementation published; contributor CRLF fix retained. Named-game overlay removed, source K11 moved to review-only, generic lessons/two synthetic profiles/neutral starters published. No runtime rebuild or new paid dependency.
+- Generic preflight registry/review fix, missing-knowledge false-PASS fix, Markdown evidence input binding and 15 new automated tests published with matching manifests.
+- 148 tests passed across six partitions on identical 175-file maps, zero failures/errors/skips, 33.271 seconds. Actual readable case logs/metadata/assembly receipts are in review/evidence/game-agnostic-publication. Full original repeated-map receipts and red/green logs are supplemental-download files, not claimed individually committed.
+- Actual assembly from 13 exact original blobs into a new non-game directory and 85 strict package checks passed; no missing references. Historical PARTIAL_UNASSEMBLED stage is resolved. Current official text 7798 characters/202 headroom; 15 knowledge files; 22 installed files; five explicit core skills.
+- Requirements/capability/setup/delivery/current-review documents reconciled; old recovery manifest and historical reports remain identifiable. The two post-test changes inside functional directories are setup/archived-example documentation only; exact current tree identities are in CURRENT_ARTIFACT_STATE.json.
 
-Changes to actual runtime are confined to generic preflight registry/review checks replacing a historical game-prefix test. New regression cases reject foreign unreviewed skills, malformed registry, lost/cross-project invariants and missing required knowledge. The package validator now rejects missing non-preserved knowledge instead of skipping it. Test receipts hash Markdown and other source inputs as well as code. Source-retention tests now preserve generic responsibilities, not a particular game's design.
+## Exact next authoring action
+Read back this documentation commit's candidate tree and verify all eight functional directory/root manifest identities against CURRENT_ARTIFACT_STATE.json. Inspect the complete branch diff for path scope and original preservation. Record actual final commit/PR identifiers and update PR #1 to the game-agnostic/current validation state, still draft. Do not repeat review or rebuild code. After publication assurance, the next work is the separately authorized local integration/design-host pilot using LOCAL_INTEGRATION_TEST.md.
 
-Official Instructions: 7798 characters including final newline, 202 below user budget. Fifteen knowledge selections; twenty-two game-installable files; five explicitly invoked core skills; no paid service or additional runtime dependency. Twenty distinct design-host evaluation IDs are authored, NOT_RUN as live GPT tests.
-
-## Actual local verification for this batch
-All thirteen original reference byte files were recovered and verified against their original Git blob identities. Strict full-package validation PASS_STATIC_PACKAGE: 85 checks, no missing preserved files, no problems. The old PARTIAL_UNASSEMBLED limitation is resolved for this current local package.
-First new full suite: 148 tests passed in six partitions, same 175-file source maps, 35.124 seconds, no failures/errors/skips. A duplicate design-evaluation label was then corrected; a second full 148-test suite passed in six partitions with no failures/errors/skips. Current actual raw logs/JSON are under local review/evidence/game-agnostic-suite-2, with earlier red/green logs and suite-1 retained. Publication of these receipts is the exact next action, not a reason to fabricate them or silently reuse historical 133 results.
-
-## Exact next action
-Read back this functional commit/tree, compare every changed file's Git identity to tested local bytes, then publish the actual test evidence. Deduplicate repeated source maps only with an explicit lossless representation and original receipt digests. Execute the offline assembler against the thirteen actual original objects into a new non-game directory and record strict validation. Refresh current source/requirements/assurance/distribution records and a current artifact manifest while retaining historical archive receipts, review the complete final diff/tree, and update PR #1. Temporary local path: /mnt/data/bh-agnostic/work/BH-Unity-Harness.
-
-## Validation/adoption boundaries
-Historical 125/127/133 results remain separate. Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, player validation and measured usage comparisons remain NOT_RUN. Human adoption PENDING. No merge, release, live GPT edit, game installation, new paid spend or source-directory modification. Commit each coherent evidence/review batch and refresh this checkpoint before further substantial work. Never use this construction checkpoint as a game's task state.
+## Limits
+Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, real player validation and usage comparisons remain NOT_RUN. Human adoption PENDING. No merge/release/live installation/live-GPT update or source-directory edit. Checkpoint every substantive future batch with actual artifacts, evidence and next action; recheck head and use non-force updates. Do not rely on temporary files or old chat summaries for recovery.

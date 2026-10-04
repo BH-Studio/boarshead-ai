@@ -1,79 +1,34 @@
-# Current review and continuation — 2026-10-04
+# Current review — game-agnostic candidate
 
-BH Unity Harness 1.0.0 / BH Game Systems Design Team v3 method 3.1.0 / interface 1.0.0: **candidate construction still open; not adopted**.
-Repository BH-Studio/boarshead-ai; branch harness/bh-standard-v1-20261004; draft PR #1.
+BH Unity Harness 1.0.0 / BH Game Systems Design Team v3 method 3.1.0 / shared interface 1.0.0. Candidate authored and published for controlled pilot; not production-approved or adopted. Repository: BH-Studio/boarshead-ai. Branch: harness/bh-standard-v1-20261004. PR #1 remains draft/unmerged.
 
-## Start here instead of reconstructing the failed conversations
+## What changed under the latest human direction
+The common pipeline defines a workflow, not a game. Removed the real-game overlay. Moved the original source-named K11 into review/reference-only and deployed its generic fifteen-lesson counterpart. Updated the official field, K12, shared interface and both consumer copies, manifests, starter instructions and evaluation cases. Two contrasting synthetic profiles exercise state/time contracts; neither configures or approves a real game. Root defaults select no game, genre, mechanic, narrative, player count, middleware, rendering pipeline or numerical game budget.
 
-Read BUILD_CHECKPOINT.md, this file and CURRENT_ARTIFACT_STATE.json, then inspect the actual current branch head. The executable candidate is published as normal files. The earlier recovery ZIP, DELIVERY_MANIFEST.json, RECOVERY_DELIVERY.md, DELIVERY_AND_CONTINUATION.md and original VERIFICATION_REPORT.md describe historical construction stages. Their publication-pending and 125-test statements must not override this current state. SOURCE_INVENTORY.json is the original coverage inventory; the completed review batches below supersede its old unread flags only for explicitly listed files.
+Historical source names, bibliographic game titles and old evidence can remain as references explaining generic lessons, never as current Instructions or inferred project decisions. Review history is not uploaded as universal knowledge. Generate each real project's overlay only from its own current approved inputs. This explicitly supersedes the earlier request to ship a retained named-game profile; nothing was silently dropped.
 
-Do not rebuild the harness, ask Codex to recreate it, reapply the additions patch, repeat the completed sixty-file legacy review or overwrite the retained contributor fixes. Temporary local files are not the authoritative resume source.
+## Actual implementation and evidence
+The existing runtime and installer were recovered, not replaced. Narrow justified fixes generalized preflight's old game-prefix check, rejected a missing non-preserved knowledge file that the checker had overlooked, and bound Markdown inputs into test-source maps. Fifteen new game-agnostic tests and six generalized retention checks preserve the required behavior. The original contributor CRLF assembly fix remains intact.
 
-## What is published and verified
+The tested functional revision is `72bf50263b39f9ccd236fb54ecae341c97f80125`. **148 tests passed** in six complete nonoverlapping partitions on identical sources, zero failures/errors/skips, 33.271 seconds combined. The exact case output ledger, partition metadata and assembly results are published at `78f0c7527b884853a088d8c9a46e5e4813c0e054` under `evidence/game-agnostic-publication/`. Full individual JSON receipts with repeated source maps and red/green attempts are supplied as a supplemental archive; they are not claimed committed as individual files.
 
-The actual runtime, installer, contracts, five explicit skills, project template, optional procedures, design candidate, examples and tests are in this branch. Eight functional subtree identities were recomputed from actual local files plus thirteen preserved source blob identities and matched GitHub at 7c0859db6b94f5142ca018e0635e0dccb28bd537. CURRENT_ARTIFACT_STATE.json records the exact snapshot, five changed existing functional files and one new test file relative to the original archive. The installed twenty-two-file package and shared contract copies are unchanged. Original source folders and existing Readme.md retain their original identities.
+All thirteen original reference byte files now match their exact Git objects locally and in the published candidate. Actual offline assembly into a new non-game directory and **85 strict package checks passed**, with no missing references or problems. The former PARTIAL_UNASSEMBLED limitation is resolved. Current deployment: **7,798 instruction characters, 202 characters headroom; 15 knowledge selections; 22 installed files; five explicit core skills**.
 
-The latest full offline run executed **133 unique tests across six completed nonoverlapping partitions**, identical tested-source maps, zero failures/errors/skips, 31.903 seconds combined. Functional candidate commit: 043113b4103dee4333a302bad41431ab4df2d8d2. Published summary: evidence/source-retention-20261004.json. Published complete case/partition/timestamp index: evidence/source-retention-20261004-cases.txt. Earlier 127-case raw log and original 125-case receipts remain preserved. The six new tests prove static retention/schema checks, not model compliance or game quality.
+Final human-facing documentation was consolidated after that tested functional revision. CURRENT_ARTIFACT_STATE.json records the resulting eight functional directory identities and the two documentation-only changes within them. No new code/test/installed instruction change is smuggled into the earlier test claim. Historical 125/127/133 evidence and the original archive receipt remain distinct.
 
-The original six detailed JSON receipts and six raw logs for the 133-case run were generated locally; the summary and all case outcomes are durable, but those twelve individual files are not claimed committed. Do not fabricate them from the summary if temporary storage is lost; a future run can create a new separately labeled evidence set.
+## Source and capability review completed
+All **21 design-source files** have supported full reads, recorded in SOURCE_INVENTORY.json and DESIGN_SOURCE_REVIEW.md. The **60 legacy files** have exact identities/dispositions in LEGACY_SOURCE_REVIEW.md and LEGACY_SKILL_REVIEW.md; root AGENTS was also fully reviewed. The large historical narrative remains selectively inspected and intentionally excluded as operational authority, not mislabeled fully reviewed.
 
-A further actual invocation of tools/check_package.py's check(allow_unassembled=True) completed sixty available-file checks with no problems and correctly returned **PARTIAL_UNASSEMBLED**: thirteen reference byte files are missing from the temporary additions copy. Those exact files are present and identity-verified in GitHub. This is not a complete locally assembled-package pass. A normal checkout/assembly of the full branch must receive the remaining full-package static execution.
+The three EXTERNAL_*_REVIEW documents cover all seven named upstreams with bounded selected content, actual current refs/notices and explicit full-versus-partial coverage. No whole vendor runtime/catalog/service or transitive dependency set was adopted. No empirical token-savings claim is based on those sources.
 
-## Source-backed changes, not a new runtime
+Retained design responsibilities include all twelve expert lenses, five frameworks, L0–L3 depth, research and counterevidence, genuine alternatives, architecture/scale/reuse, red-team and design validation, consolidated questions, approved milestones, faithful package compilation and returned-evidence review. The revised official field resolves conflicting setup instructions and clarifies that reference ACCEPT labels and persona passes are not human approval or technically independent agents. The source-to-candidate capability map and complete setup/rollback instructions are in design-gpt/REVIEW_AND_SETUP.md; twenty authored live cases are provided, NOT_RUN.
 
-LEGACY_SOURCE_REVIEW.md records full pinned reads of twelve operating policies, fifteen templates and four compact game baselines. LEGACY_SKILL_REVIEW.md adds thirteen skill bodies, thirteen activation metadata files and three VS Code files: sixty complete files in this resume, plus the previously inspected legacy root AGENTS.
+## Scope of final assurance
+Reviewed the requirements/disposition matrix, the current functional changes and their tests, shared copy/manifest identities, deployment/resource paths, synthetic-versus-historical boundaries and original directory identities. Current runtime changes are confined to the identified generic preflight validation; installer/schema/other runtime mechanisms are retained. The repository diff is checked for unauthorized paths and publication omissions. This is not a claim of an externally independent audit or a fresh line-by-line reread of every historical evidence file.
 
-The review justified appending K12 section 11 for semantic contracts, reproducible Unity authoring, controlled experiments/measurements, persistence/co-op/narrative authority and explicitly delegated shared-record deltas. Existing sections 1-10 are byte-preserved. The knowledge digest is updated; fifteen knowledge selections and the 7,713-character official Instructions field remain unchanged. These checklists are retrieved when relevant, not new always-loaded Codex policy.
+ASSURANCE.md records the remaining meaningful risks: shared-writable approval/evidence records, wrapper-only enforcement, large-workspace hashing cost, Windows child processes, host instruction precedence, filename-only release scanning and unavailable live-host evidence. Cost control remains bounded design-to-implementation handoffs and selective context; quality/approval gates are not weakened.
 
-The Breach One overlay now retains the significant source-specific combat, progression, route/economy, proof-order, production, rejected-scope, asset, participant and narrative constraints. It remains SOURCE_DERIVED_UNRECONCILED, retains open decisions and enables no capabilities. It neither approves a new game design nor imports Breach One requirements into other games.
+## Next step and boundaries
+Run the controlled local pilot in LOCAL_INTEGRATION_TEST.md from the actual Windows/VS Code environment, beginning with offline checks and nonmutating installation preview. Separately pilot the revised design host using the exact official field and fifteen knowledge files. The ready-to-use paired prompts are in that protocol. Do not rebuild the harness, reapply the old additions patch, repeat completed source reads, or treat an old pending-status document as current authority.
 
-## External source coverage completed within its stated bounds
-
-Read EXTERNAL_UNITY_REVIEW.md, EXTERNAL_WORKFLOW_REVIEW.md and EXTERNAL_OPTIONAL_REVIEW.md. Together they disposition all seven named upstreams: Unity skills/plugin, CodeAF, Superpowers, Matt Pocock, Coplay and Ivan Murzak. Each records current pinned refs, exact selected files, full versus partial reads, stored-copy comparisons, applicable license/notices and retained/rejected ideas.
-
-This is deliberately not an exhaustive audit of every vendor source file or transitive dependency. No vendor code or substantial text, skill catalog, binary, service or account is adopted. Later selection of a vendor component requires its applicable full dependency/notice review and real integration tests. Current external evidence does not justify a replacement agent runtime, automatic latest-version installation, global skill activation, competing Unity writers or unmeasured savings claims.
-
-## Additional design-source reads completed after the checkpoint
-
-All at original baseline 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8; prefix BH-Game-Design-Director/:
-
-| Fully read file | Git blob |
-|---|---|
-| 00_READ_ME_FIRST.md | b01aaef4ed58c9a8bd29fb5ca350db5411301303 |
-| Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md | 0a3b67c2765f128046dc88a911f998fc6a59fd7c |
-| Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md | 0e4f411e82dfbd0c82be9cd999bc587a438e9e8c |
-| Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md | fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187 |
-| Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md | 3033dd7403ee0b687b9396fb654c11f4f6e5e51c |
-| Knowledge/K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md | 63acdd18ea244f1be1ef67e707dcc955c96848b5 |
-
-The original full instructions, K01, official 01C and K12 were fully read earlier in recovery. Thus ten of the twenty-one source design files have supported full reads in the recovery record. K07-K11 remain exact original references: preserve evidence classification/counterevidence, scale vectors/second-consumer validation, separate design/architecture/implementation judgments, durable canon/traceability, staged verification and generalized rather than copied Galaxy assumptions.
-
-The source 00_READ_ME_FIRST recommends 01B compact as installed Instructions, treats the full method as an alternative and lists twelve knowledge files; the later 01C official file creates setup ambiguity. The existing candidate's single official-field choice and explicit fifteen-file deployment manifest resolve that ambiguity without modifying the original. Do not imply a reference upload has instruction priority or assured retrieval.
-
-## Exact next construction action: eleven remaining full design reads
-
-Pin reads to the source baseline, not a moving default branch. Read complete content, not only hashes or opening excerpts:
-
-| File under BH-Game-Design-Director | Git blob |
-|---|---|
-| Knowledge/K02_FRAMEWORK_MDA.txt | c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa |
-| Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt | 65a1b00369177b88124cfbc6f0e72bc5259b9183 |
-| Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt | 79fdd7d202a1ae59d00ae12d9e70fcd32a22a444 |
-| Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt | d48d0da5e38c23719d5b3777a172965d7ab0a6f5 |
-| Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt | 6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be |
-| 03_GPT_ACCEPTANCE_TESTS.md | a0f3ed05af3145388505c953a9f554120917ef00 |
-| 01B_GPT_INSTRUCTIONS_COMPACT.md | bd00761576bc91968c9256019039d58a31725a58 |
-| 02_NAME_DESCRIPTION_STARTERS.md | 794030c774683d5db7909778668123ab7a88f604 |
-| 04_ARCHITECTURE_RATIONALE.md | 7e6f8b8e6be041e4085093067a0b3aa115064b1a |
-| 05_MIGRATION_FROM_V2.md | 8975b1f0ea368f7a81eb9d2b465f44631bb70ed4 |
-| PACKAGE_MANIFEST.md | 98f703987a02861b68ed29b4cefcf5acb38e0453 |
-
-Their preserved identities are not substitutes for full content review. Record dispositions and fix only demonstrated candidate gaps, committing the completed review batch. The 77KB narrative snapshot remains selectively reviewed; any task depending on its uninspected canon/status ledger must retrieve complete relevant sections. Neither limitation is silently relabeled as completed review.
-
-Then run the full original-reference assembled static check, consolidate final source/requirements/capability/assurance records and current distribution status, verify the complete resulting manifest/tree and content diff, and update the draft PR. The current path-level diff has been inspected and contains only candidate additions; a fresh line-by-line assurance pass over every historical implementation change has not been claimed. These remaining source and package-assurance steps are **construction obligations**, not merely optional post-adoption work.
-
-## Integration and human decision remain separate
-
-Windows/PowerShell, Unity Editor/build helper, Codex native discovery/activation, MCP and diagnostics, configured design GPT/Project, real game/player tests and comparative usage benchmarks are NOT_RUN. Do not infer account eligibility, remaining quota or dollar savings from documentation. No merge, installation, release, live-GPT edit or human acceptance occurred.
-
-Continue with small coherent commits and an exact checkpoint after each meaningful batch. Preserve the user's existing branch work and original directories. The next stage is the bounded remaining review and full-package checks above—not another implementation reconstruction.
+Windows/PowerShell, Unity/C# helper, Codex, optional MCP/diagnostics, configured GPT/Project, player validation and comparative usage remain **NOT_RUN**. Human adoption remains **PENDING**. No merge, release, live game installation, original-source modification or live-GPT edit is authorized by this report.
