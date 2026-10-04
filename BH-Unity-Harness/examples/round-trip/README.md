@@ -1,0 +1,3 @@
+# SYNTHETIC round-trip examples
+
+These records were produced by actual fixture subprocesses and the shipped runtime, not by writing successful receipts. The two projects are materially different synthetic render-pipeline profiles, not claimed Boar's Head games. Positive automated evidence leaves human acceptance PENDING. Contrary behavior fails the approved numeric expectation. Negative inputs and the stale-after-edit observation demonstrate rejection. The original temporary command paths are retained as provenance; they do not make archived evidence automatically valid for a new checkout. No Unity, Windows, Codex or configured-GPT test is implied.

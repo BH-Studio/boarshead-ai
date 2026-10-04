@@ -1,0 +1,33 @@
+{
+  "missing-design-approval": {
+    "expected": "REJECT",
+    "actual": "Missing design approval"
+  },
+  "unsupported-version": {
+    "expected": "REJECT",
+    "actual": "$.version: wrong constant"
+  },
+  "dropped-acceptance": {
+    "expected": "REJECT",
+    "actual": "Dropped or extra acceptance criterion"
+  },
+  "lost-project-invariant": {
+    "expected": "REJECT",
+    "actual": "$.invariant_ids: array size"
+  },
+  "source-manifest-mismatch": {
+    "expected": "REJECT",
+    "actual": "Missing or changed artifact: Handoff/DESIGN.md"
+  },
+  "stale-evidence-after-edit": {
+    "acceptance": {
+      "AC-01": "NOT_RUN",
+      "AC-HUMAN": "HUMAN_PENDING"
+    },
+    "gaps": []
+  },
+  "missing-knowledge-file": {
+    "expected": "Design host must block dependent procedure; tools/check_package.py rejects missing preserved files",
+    "live_gpt": "NOT_RUN"
+  }
+}

@@ -1,0 +1,5 @@
+interface:
+  display_name: "bh-systematic-debug"
+  short_description: "Explicit bounded BH workflow"
+policy:
+  allow_implicit_invocation: false

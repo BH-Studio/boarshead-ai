@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "project_id": "breach-one",
+  "synthetic": false,
+  "status": "SOURCE_DERIVED_UNRECONCILED",
+  "invariants": [
+    {
+      "id": "B1-ENGINE",
+      "text": "Source design intent: Unity 6.3 LTS, URP first game, PC first; actual installed patch/package baseline must be inspected. Core contracts avoid pipeline-specific types.",
+      "source_ref": "BH-Harness-old/AGENTS.md §3 @ 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8"
+    },
+    {
+      "id": "B1-INPUT-COOP",
+      "text": "Mouse/keyboard and gamepad; intended solo plus exactly two-player online. Network backend is not chosen by this overlay.",
+      "source_ref": "BH-Harness-old/AGENTS.md §3"
+    },
+    {
+      "id": "B1-UCC",
+      "text": "Use supported UCC character-execution seams before parallel motors/ability stacks; keep campaign/economy/session authority explicitly owned.",
+      "source_ref": "BH-Harness-old/AGENTS.md §3"
+    },
+    {
+      "id": "B1-NO-CONTAMINATION",
+      "text": "Do not import Galaxy coordinates, RNG architecture, scales, resource percentages or milestone numbers. Do not mandate a global event bus.",
+      "source_ref": "BH-Harness-old/AGENTS.md §3"
+    },
+    {
+      "id": "B1-CANON",
+      "text": "Preserve movement/attack-direction independence and approved proof order; retain mixed narrative statuses. Fictional AGI is not permission to add real LLM/API services.",
+      "source_ref": "BH-Harness-old/AGENTS.md §3"
+    }
+  ],
+  "protected_paths": [
+    "Packages",
+    "ProjectSettings"
+  ],
+  "optional_capabilities": [],
+  "open_decisions": [
+    "Inspect actual project paths, versions, packages, tests and unique baseline contracts.",
+    "Behavior Designer Pro 3 is approved for validation, not automatically production; A*, Rewired and network candidates require their own approval.",
+    "Retrieve current camera, drone, revive, downed-fire and bot policies; this overlay makes no choices."
+  ],
+  "facts": [
+    "Source-derived intent only, not installation evidence.",
+    "UCC and purchased assets are not redistributed."
+  ],
+  "source_refs": [
+    "BH-Harness-old/AGENTS.md @ 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8"
+  ]
+}

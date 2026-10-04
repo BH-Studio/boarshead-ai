@@ -1,0 +1,52 @@
+{
+  "version": "1.0.0",
+  "skills": [
+    {
+      "name": "bh-unity-preflight",
+      "source": "BH Unity Harness 1.0.0 candidate",
+      "review": "static-reviewed; live Codex NOT_RUN",
+      "activation": "explicit-only",
+      "local_modifications": "none",
+      "evidence": "See candidate review/VERIFICATION_REPORT.md"
+    },
+    {
+      "name": "bh-review-handoff",
+      "source": "BH Unity Harness 1.0.0 candidate",
+      "review": "static-reviewed; live Codex NOT_RUN",
+      "activation": "explicit-only",
+      "local_modifications": "none",
+      "evidence": "See candidate review/VERIFICATION_REPORT.md"
+    },
+    {
+      "name": "bh-implement-approved-slice",
+      "source": "BH Unity Harness 1.0.0 candidate",
+      "review": "static-reviewed; live Codex NOT_RUN",
+      "activation": "explicit-only",
+      "local_modifications": "none",
+      "evidence": "See candidate review/VERIFICATION_REPORT.md"
+    },
+    {
+      "name": "bh-unity-verify",
+      "source": "BH Unity Harness 1.0.0 candidate",
+      "review": "static-reviewed; live Codex NOT_RUN",
+      "activation": "explicit-only",
+      "local_modifications": "none",
+      "evidence": "See candidate review/VERIFICATION_REPORT.md"
+    },
+    {
+      "name": "bh-systematic-debug",
+      "source": "BH Unity Harness 1.0.0 candidate",
+      "review": "static-reviewed; live Codex NOT_RUN",
+      "activation": "explicit-only",
+      "local_modifications": "none",
+      "evidence": "See candidate review/VERIFICATION_REPORT.md"
+    }
+  ],
+  "optional": [
+    {
+      "name": "bh-procedural-regression",
+      "activation": "not-installed",
+      "source": "optional/bh-procedural-regression/SKILL.md"
+    }
+  ]
+}

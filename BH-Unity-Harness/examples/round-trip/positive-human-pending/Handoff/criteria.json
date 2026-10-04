@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-urp",
+  "task_id": "task-01",
+  "criteria": [
+    {
+      "id": "AC-01",
+      "requirement_ids": [
+        "REQ-01"
+      ],
+      "expected": "Counter value is exactly one",
+      "kind": "automated"
+    },
+    {
+      "id": "AC-HUMAN",
+      "requirement_ids": [
+        "REQ-02"
+      ],
+      "expected": "A human can understand the first-use counter",
+      "kind": "human"
+    }
+  ]
+}

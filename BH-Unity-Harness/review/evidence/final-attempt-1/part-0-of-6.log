@@ -1,0 +1,85 @@
+test_active_task_blocks (test_installer.InstallerTests.test_active_task_blocks) ... ERROR
+test_lock_blocks (test_installer.InstallerTests.test_lock_blocks) ... ERROR
+test_rollback_managed_only (test_installer.InstallerTests.test_rollback_managed_only) ... ok
+test_traversal_transaction (test_installer.InstallerTests.test_traversal_transaction) ... ERROR
+test_output_digest_mismatch (test_package.BuildParserTests.test_output_digest_mismatch) ... ok
+test_budget_metrics (test_package.PackageTests.test_budget_metrics) ... ok
+test_release_actual_match (test_package.PackageTests.test_release_actual_match) ... ok
+test_build_failure (test_runtime.ProcessTests.test_build_failure) ... ok
+test_missing_artifact (test_runtime.ProcessTests.test_missing_artifact) ... ok
+test_wrong_run_identity (test_runtime.ProcessTests.test_wrong_run_identity) ... ok
+test_begin_without_approval (test_runtime.RuntimeTests.test_begin_without_approval) ... ok
+test_draft_is_not_execution (test_runtime.RuntimeTests.test_draft_is_not_execution) ... ok
+test_duplicate_receipt_check (test_runtime.RuntimeTests.test_duplicate_receipt_check) ... ok
+test_lfs_pointer_blocks (test_runtime.RuntimeTests.test_lfs_pointer_blocks) ... ok
+test_missing_design_approval (test_runtime.RuntimeTests.test_missing_design_approval) ... ok
+test_nested_instruction_conflict (test_runtime.RuntimeTests.test_nested_instruction_conflict) ... ok
+test_open_overlay_decision (test_runtime.RuntimeTests.test_open_overlay_decision) ... ok
+test_raw_output_reparsed_not_green_wrapper (test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper) ... ok
+test_resume_discovery (test_runtime.RuntimeTests.test_resume_discovery) ... ok
+test_symlink_escape (test_runtime.RuntimeTests.test_symlink_escape) ... ok
+test_unreconciled_overlay (test_runtime.RuntimeTests.test_unreconciled_overlay) ... ok
+
+======================================================================
+ERROR: test_active_task_blocks (test_installer.InstallerTests.test_active_task_blocks)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_installer.py", line 48, in test_active_task_blocks
+    with self.assertRaises(bh.BHError):self.preview()
+                                       ~~~~~~~~~~~~^^
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_installer.py", line 10, in preview
+    def preview(self):return install.preview(self.root)
+                             ~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/installer/install.py", line 51, in preview
+    bh.require(state.get('phase') in ('ACCEPTED', 'CANCELLED'), 'Finish/cancel and archive active task before harness migration')
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/project-template/Tools/BH/bh.py", line 54, in require
+    raise BHError(message)
+bh_runtime.BHError: Finish/cancel and archive active task before harness migration
+
+======================================================================
+ERROR: test_lock_blocks (test_installer.InstallerTests.test_lock_blocks)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/recovered/BH-Unity-Harness/installer/install.py", line 87, in apply
+    lock.open('x').close()
+    ~~~~~~~~~^^^^^
+  File "/usr/lib/python3.13/pathlib/_local.py", line 539, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileExistsError: [Errno 17] File exists: '/tmp/BH install synthetic 6zc9dk2o/.bh/install/writer.lock'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_installer.py", line 54, in test_lock_blocks
+    with self.assertRaises(bh.BHError):self.apply()
+                                       ~~~~~~~~~~^^
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_installer.py", line 12, in apply
+    p=install.preview(self.root,preserve);return install.apply(self.root,bh.digest(p),preserve)
+                                                 ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/installer/install.py", line 89, in apply
+    raise bh.BHError('Installation writer lock exists; inspect interrupted transaction') from exc
+bh_runtime.BHError: Installation writer lock exists; inspect interrupted transaction
+
+======================================================================
+ERROR: test_traversal_transaction (test_installer.InstallerTests.test_traversal_transaction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_installer.py", line 61, in test_traversal_transaction
+    with self.assertRaises(bh.BHError):install.rollback(self.root,'../../other')
+                                       ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/installer/install.py", line 141, in rollback
+    bh.portable(transaction)
+    ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/project-template/Tools/BH/bh.py", line 103, in portable
+    require(part not in ('', '.', '..') and not part.endswith(('.', ' ')), f'Unsafe path: {name}')
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/recovered/BH-Unity-Harness/project-template/Tools/BH/bh.py", line 54, in require
+    raise BHError(message)
+bh_runtime.BHError: Unsafe path: ../../other
+
+----------------------------------------------------------------------
+Ran 21 tests in 7.075s
+
+FAILED (errors=3)

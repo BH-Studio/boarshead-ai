@@ -1,0 +1,25 @@
+test_fresh_install_actual_manifest (test_installer.InstallerTests.test_fresh_install_actual_manifest) ... ok
+test_rollback_active_record_blocks (test_installer.InstallerTests.test_rollback_active_record_blocks) ... ok
+test_stale_preview (test_installer.InstallerTests.test_stale_preview) ... ok
+test_no_outputs (test_package.BuildParserTests.test_no_outputs) ... ok
+test_assembler_rejects_unsafe_reference (test_package.PackageTests.test_assembler_rejects_unsafe_reference) ... ok
+test_package_additions_no_false_full_pass (test_package.PackageTests.test_package_additions_no_false_full_pass) ... ok
+test_audit_detects_mutation (test_runtime.ProcessTests.test_audit_detects_mutation) ... ok
+test_facts_match (test_runtime.ProcessTests.test_facts_match) ... ok
+test_two_materially_different_profiles (test_runtime.ProcessTests.test_two_materially_different_profiles) ... ok
+test_archive_and_no_task_reuse (test_runtime.RuntimeTests.test_archive_and_no_task_reuse) ... ok
+test_dirty_after_plan_before_approval (test_runtime.RuntimeTests.test_dirty_after_plan_before_approval) ... ok
+test_duplicate_json_keys (test_runtime.RuntimeTests.test_duplicate_json_keys) ... ok
+test_interrupted_run_resume (test_runtime.RuntimeTests.test_interrupted_run_resume) ... ok
+test_missing_configuration (test_runtime.RuntimeTests.test_missing_configuration) ... ok
+test_named_suite_failure_not_leaf_pass (test_runtime.RuntimeTests.test_named_suite_failure_not_leaf_pass) ... ok
+test_nunit_requires_positive_count (test_runtime.RuntimeTests.test_nunit_requires_positive_count) ... ok
+test_protected_mutation_blocks (test_runtime.RuntimeTests.test_protected_mutation_blocks) ... ok
+test_required_na_rejected (test_runtime.RuntimeTests.test_required_na_rejected) ... ok
+test_structural_approval_not_authentication (test_runtime.RuntimeTests.test_structural_approval_not_authentication) ... ok
+test_unlock_cannot_terminate_live_owner (test_runtime.RuntimeTests.test_unlock_cannot_terminate_live_owner) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 8.849s
+
+OK

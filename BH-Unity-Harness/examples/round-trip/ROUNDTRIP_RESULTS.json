@@ -1,0 +1,58 @@
+[
+  {
+    "case": "positive-human-pending",
+    "synthetic": true,
+    "acceptance": [
+      {
+        "id": "AC-01",
+        "expected": "Counter value is exactly one",
+        "status": "PASS",
+        "receipt_refs": [
+          ".bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/receipt.json"
+        ],
+        "limitations": []
+      },
+      {
+        "id": "AC-HUMAN",
+        "expected": "A human can understand the first-use counter",
+        "status": "HUMAN_PENDING",
+        "receipt_refs": [],
+        "limitations": [
+          "Human observation required"
+        ]
+      }
+    ],
+    "human_acceptance": "PENDING",
+    "phase": "READY_FOR_HUMAN_REVIEW",
+    "source_path_original": "/tmp/BH synthetic project txqaqflh",
+    "portable_note": "Raw receipt commands refer to original temporary execution path; captured bytes/hashes remain the evidence. Copied snapshots are review fixtures, not executable approvals. Re-run exporter for fresh evidence."
+  },
+  {
+    "case": "behavior-contradicts-design",
+    "synthetic": true,
+    "acceptance": [
+      {
+        "id": "AC-01",
+        "expected": "Counter value is exactly one",
+        "status": "FAIL",
+        "receipt_refs": [
+          ".bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/receipt.json"
+        ],
+        "limitations": []
+      },
+      {
+        "id": "AC-HUMAN",
+        "expected": "A human can understand the first-use counter",
+        "status": "HUMAN_PENDING",
+        "receipt_refs": [],
+        "limitations": [
+          "Human observation required"
+        ]
+      }
+    ],
+    "human_acceptance": "PENDING",
+    "phase": "FAILED",
+    "source_path_original": "/tmp/BH synthetic project 8paqth_k",
+    "portable_note": "Raw receipt commands refer to original temporary execution path; captured bytes/hashes remain the evidence. Copied snapshots are review fixtures, not executable approvals. Re-run exporter for fresh evidence."
+  }
+]

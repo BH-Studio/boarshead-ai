@@ -1,0 +1,26 @@
+test_destination_requires_marker (test_installer.InstallerTests.test_destination_requires_marker) ... ok
+test_preview_no_writes (test_installer.InstallerTests.test_preview_no_writes) ... ok
+test_rollback_refuses_managed_edit (test_installer.InstallerTests.test_rollback_refuses_managed_edit) ... ok
+test_failed_is_fail_not_error (test_package.BuildParserTests.test_failed_is_fail_not_error) ... ok
+test_wrong_target (test_package.BuildParserTests.test_wrong_target) ... ok
+test_missing_preserved_blocks_full_validation (test_package.PackageTests.test_missing_preserved_blocks_full_validation) ... ok
+test_release_no_match_narrow_only (test_package.PackageTests.test_release_no_match_narrow_only) ... ok
+test_diagnostics_new (test_runtime.ProcessTests.test_diagnostics_new) ... ok
+test_skipped_required (test_runtime.ProcessTests.test_skipped_required) ... ok
+test_zero_tests (test_runtime.ProcessTests.test_zero_tests) ... ok
+test_case_collision (test_runtime.RuntimeTests.test_case_collision) ... ok
+test_dropped_invariant (test_runtime.RuntimeTests.test_dropped_invariant) ... ok
+test_human_automation_rejected (test_runtime.RuntimeTests.test_human_automation_rejected) ... ok
+test_manual_not_automated (test_runtime.RuntimeTests.test_manual_not_automated) ... ok
+test_missing_receipt (test_runtime.RuntimeTests.test_missing_receipt) ... ok
+test_nonfinite_json (test_runtime.RuntimeTests.test_nonfinite_json) ... ok
+test_path_traversal (test_runtime.RuntimeTests.test_path_traversal) ... ok
+test_repeated_init_unchanged (test_runtime.RuntimeTests.test_repeated_init_unchanged) ... ok
+test_stale_dirty_evidence (test_runtime.RuntimeTests.test_stale_dirty_evidence) ... ok
+test_unknown_configuration_field (test_runtime.RuntimeTests.test_unknown_configuration_field) ... ok
+test_wrong_project_receipt (test_runtime.RuntimeTests.test_wrong_project_receipt) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 8.096s
+
+OK

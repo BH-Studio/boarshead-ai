@@ -1,0 +1,26 @@
+test_conflicting_agents_preserved (test_installer.InstallerTests.test_conflicting_agents_preserved) ... ok
+test_preserve_not_blanket_override (test_installer.InstallerTests.test_preserve_not_blanket_override) ... ok
+test_rollback_preview_read_only (test_installer.InstallerTests.test_rollback_preview_read_only) ... ok
+test_cancelled_not_pass (test_package.BuildParserTests.test_cancelled_not_pass) ... ok
+test_success_actual_hashed_output (test_package.BuildParserTests.test_success_actual_hashed_output) ... ok
+test_distribution_nonempty (test_package.PackageTests.test_distribution_nonempty) ... ok
+test_release_empty_policy_blocks (test_package.PackageTests.test_release_empty_policy_blocks) ... ok
+test_diagnostics_clean (test_runtime.ProcessTests.test_diagnostics_clean) ... ok
+test_reviewed_narrow_dependencies (test_runtime.ProcessTests.test_reviewed_narrow_dependencies) ... ok
+test_xml_entities (test_runtime.ProcessTests.test_xml_entities) ... ok
+test_blocking_question (test_runtime.RuntimeTests.test_blocking_question) ... ok
+test_dropped_check (test_runtime.RuntimeTests.test_dropped_check) ... ok
+test_failed_then_pass_preserves_history (test_runtime.RuntimeTests.test_failed_then_pass_preserves_history) ... ok
+test_manifest_mismatch (test_runtime.RuntimeTests.test_manifest_mismatch) ... ok
+test_missing_raw_artifact (test_runtime.RuntimeTests.test_missing_raw_artifact) ... ok
+test_no_self_certification (test_runtime.RuntimeTests.test_no_self_certification) ... ok
+test_override_instruction_conflict (test_runtime.RuntimeTests.test_override_instruction_conflict) ... ok
+test_recovery_budget (test_runtime.RuntimeTests.test_recovery_budget) ... ok
+test_roundtrip_human_pending (test_runtime.RuntimeTests.test_roundtrip_human_pending) ... ok
+test_unbound_required_check_blocks_plan (test_runtime.RuntimeTests.test_unbound_required_check_blocks_plan) ... ok
+test_wrong_harness_version (test_runtime.RuntimeTests.test_wrong_harness_version) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 10.166s
+
+OK

@@ -1,0 +1,117 @@
+{
+  "name": "BH Unity Harness",
+  "version": "1.0.0",
+  "status": "CANDIDATE",
+  "files": [
+    {
+      "path": ".agents/skills/bh-implement-approved-slice/SKILL.md",
+      "sha256": "941590210a2fc7748833d11dae50b12f5640434d9ed5890f518650bb11842364",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "sha256": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-review-handoff/SKILL.md",
+      "sha256": "58f6880b23332880826ac4e987cb51f5226972e115df9a301d21412b064fec08",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-review-handoff/agents/openai.yaml",
+      "sha256": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-systematic-debug/SKILL.md",
+      "sha256": "44daa7da45a919c8196aac60cba5ee7515122099716a2ca486a9ce4088abef6c",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "sha256": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-preflight/SKILL.md",
+      "sha256": "6265515cf88c0a6f6bd2e4f0ad466b0cbe7f660ae0f760cef8f832a8cff4f624",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "sha256": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-verify/SKILL.md",
+      "sha256": "62dee41a3bdd349569b0f651b9b4094cf8cefe1afce17d24d86790911e8d090c",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-verify/agents/openai.yaml",
+      "sha256": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      "ownership": "managed"
+    },
+    {
+      "path": ".bh/GITIGNORE_MERGE.txt",
+      "sha256": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/bindings.json",
+      "sha256": "75708d8783bdb3dba198ebcc62f2ebcc0cf4570a2382e997f27bc9155352f26c",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/local.json",
+      "sha256": "620c676aca908c70c68b9abfb4585515dbeafee9b6f16f76560942929c89c031",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/project.json",
+      "sha256": "6da5c1fe692f8b63681ee7ab3ad8a32e7a13937442d3ad2c8428091ed2509613",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/schema.json",
+      "sha256": "a781cccd0e652c73c0dff6809e0b3f72e7c292b39cc1ed1e1ae5f587703e438f",
+      "ownership": "managed"
+    },
+    {
+      "path": ".bh/skill-registry.json",
+      "sha256": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      "ownership": "managed"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "9746e6442806355628605359623bbe13a315c2825623fc496cee39b88f5eb169",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/INTERFACE.md",
+      "sha256": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/OPERATING_GUIDE.md",
+      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/Invoke-BH.ps1",
+      "sha256": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/bh.py",
+      "sha256": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/check_release_profile.py",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "ownership": "managed"
+    }
+  ]
+}

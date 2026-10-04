@@ -1,0 +1,8 @@
+# Review and merge into your existing .gitignore; installer does not edit it.
+.bh/local.json
+.bh/locks/
+.bh/runs/
+.bh/install/
+**/__pycache__/
+# Decide explicitly whether sanitized task/return records belong in Git.
+# Never ignore actual game source merely to obtain a clean audit.
