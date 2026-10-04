@@ -1,27 +1,40 @@
 # BH Unity Harness construction checkpoint
 
-Status: RESUMED; candidate source review/final reconciliation in progress, NOT adopted.
+Status: DURABLE PROGRESS SAVED — construction review remains open; NOT adopted.
 Repository: BH-Studio/boarshead-ai
-Branch: harness/bh-standard-v1-20261004; PR #1 must remain draft/unmerged.
+Branch: harness/bh-standard-v1-20261004
+PR: #1, open/draft/unmerged; title and body updated to current published status.
 Source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
-Latest reviewed progress before this checkpoint: 61de4f43ab1650263ae2d72cf75c2dbe12e5c87e
+Parent of this checkpoint: c9ee1d51d7e58ff7fb543875a941ef7d3c99b95b
 Tested functional candidate: 043113b4103dee4333a302bad41431ab4df2d8d2
 
-## Completed and published
-- Actual recovered implementation was already published; full reconciliation in RESUME_RECONCILIATION.md. Do not reapply archive or rebuild code.
-- Preserved contributor CRLF assembler fix/two tests. Original 125-case evidence remains historical. Fresh 127-case complete raw outcomes are in evidence/resume-20261004.log.
-- Full pinned reads: twelve legacy policies, fifteen templates, four compact baselines, thirteen skill bodies and thirteen metadata files, three VS Code files. See LEGACY_SOURCE_REVIEW.md and LEGACY_SKILL_REVIEW.md for exact 60-file identities/dispositions; root AGENTS also reviewed. Large narrative remains selective, not a whole-file review.
-- Source-retention amendments at 043113b: appended K12 detail checks preserving old sections 1-10 exactly; knowledge hash updated; Breach One overlay expanded without approving it; six new static tests. Runtime, installed files, schema, fifteen knowledge-file count and 7713-character official field unchanged.
-- All 133 current tests passed in six nonoverlapping partitions on identical source maps, zero failures/errors/skips, 31.903 seconds combined. Published summary evidence/source-retention-20261004.json (7995098). All four amended functional file blobs were read back and matched local tested bytes. Six individual receipts/logs are LOCAL_ONLY; publish a consolidated detailed record before ending.
-- Bounded selected-source/current-license dispositions for ALL SEVEN Reference upstreams published in EXTERNAL_UNITY_REVIEW.md (f128903), EXTERNAL_WORKFLOW_REVIEW.md (0e59ade), EXTERNAL_OPTIONAL_REVIEW.md (61de4f4). Exact refs, full versus partial read coverage, stored-copy identities, rights and exclusions are explicit. No external component installed/copied. Not exhaustive vendor dependency assurance.
-- Current Pro-tier grandfathering dates rechecked against official documentation; user eligibility/quota and actual savings remain unknown. No paid account/API requirement.
+## Read these before doing more work
+1. CURRENT_REVIEW.md — completed coverage, exact eleven remaining design-source paths/hashes and next construction actions.
+2. CURRENT_ARTIFACT_STATE.json — verified snapshot, eight functional subtree identities, five changed existing functional files and one added test file since the historical archive.
+3. Source-review documents and evidence named below, then the actual current branch head/diff.
 
-## Exact next action
-Finish remaining original design package content reads identified by SOURCE_INVENTORY: K02-K11, source acceptance cases, compact/setup/starters/rationale/migration/manifest (full, K01, official and original K12 already read). Record actual coverage and justified discrepancies; do not reread unchanged legacy or external selections just to restart. Commit that batch, then reconcile current manifests/delta, publish 133-case detailed outcomes, inspect final complete diff/tree and update draft PR to remove stale publication-pending wording.
+The actual implementation is already published. Do not rebuild it, re-prompt Codex to recreate it, reapply the old additions patch or overwrite contributor changes. Older publication-pending wording in recovery delivery documents, original SOURCE_INVENTORY flags and original 125-test reports describe historical stages. Current review records supersede status only where explicit; they do not erase old evidence.
 
-## Remaining verification boundaries
-Full original-reference local assembly/static execution NOT_RUN: thirteen original source byte files are present and identity-verified in GitHub, but missing from the temporary additions test copy. Test suite exercised its explicit PARTIAL_UNASSEMBLED branch. Windows/PowerShell, Unity/C# helper, Codex, MCP/diagnostics, configured GPT/Project, player tests, cost benchmarks and human adoption remain NOT_RUN. No automatic claim of integration or production approval.
+## Completed and committed
+- Reconciled all actual recovery archive files and thirteen preserved references against GitHub. Preserved the contributor's CRLF assembler correction and two tests.
+- Fully read sixty pinned legacy policies/templates/compact baselines/skill bodies/activation metadata/VS Code files. Exact identities and significant requirement dispositions are in LEGACY_SOURCE_REVIEW.md and LEGACY_SKILL_REVIEW.md; legacy root AGENTS was also read.
+- Appended K12 source-retained semantic, authoring, experiment/measurement, persistence/co-op/narrative and canonical-record-delta checks without altering prior sections 1-10. Updated its knowledge digest. Expanded the source-derived Breach One overlay while retaining unresolved status and no enabled capabilities. Added six static conformance tests. Functional amendment commit: 043113b4103dee4333a302bad41431ab4df2d8d2.
+- Official Instructions remain 7713 characters (287 headroom), knowledge selections fifteen, game-installed files twenty-two. Runtime, installer core and shared schema were not rewritten.
+- All 133 current offline tests passed in six nonoverlapping completed partitions on identical tested sources, zero failures/errors/skips, 31.903 seconds combined. Summary: evidence/source-retention-20261004.json. All case IDs, partition results and timestamps: evidence/source-retention-20261004-cases.txt. Historical 125-case records and the fresh 127-case raw combined log remain preserved.
+- Completed bounded selected-source/current-license comparisons for all seven named Reference repositories. See EXTERNAL_UNITY_REVIEW.md, EXTERNAL_WORKFLOW_REVIEW.md and EXTERNAL_OPTIONAL_REVIEW.md. Full versus partial coverage and redistribution boundaries are explicit. No external catalog/runtime/service or paid dependency installed.
+- Full design-source reads supported in the recovery now total ten of twenty-one: original full, official 01C, K01, original K12, 00_READ_ME_FIRST and K07-K11. Latest exact identities and setup ambiguity disposition are in CURRENT_REVIEW.md. The remaining eleven full reads are explicitly listed there.
+- Recomputed all eight functional directory tree identities and matched published GitHub at 7c0859db6b94f5142ca018e0635e0dccb28bd537. Inspected complete changed-path diff and current root tree; all differences confined to candidate additions, original directories and existing Readme.md unchanged. This does not claim a new line-by-line audit of every historical implementation line.
+- Actual fresh static invocation completed sixty available-file checks with no problems, correctly returning PARTIAL_UNASSEMBLED because the local additions copy lacks thirteen original reference byte files. Their exact identities and presence in GitHub are verified.
+- PR #1 description now states implementation published, 133 tests observed and remaining review/integration work. It remains draft; no merge or adoption.
 
-DELIVERY_MANIFEST is the original archive receipt, not a current complete-tree manifest. SOURCE_INVENTORY and earlier recovery prose require current-review pointers. Keep historical logs intact and do not describe LOCAL_ONLY artifacts as published.
+## Exact next construction action
+Finish the eleven full design-source reads listed in CURRENT_REVIEW.md at the pinned source baseline: K02-K06, original acceptance tests, compact Instructions, starters, rationale, migration and source package manifest. Record concrete compatibility/disposition evidence and correct only demonstrated candidate gaps. Commit that completed batch without repeating the completed sixty-file legacy or seven-source bounded reviews.
 
-Commit each coherent completed batch and exact next action before the next substantial batch. Recheck branch head; non-force updates only. Preserve original directories and existing Readme.md. No merge/release/install/live-GPT changes. Never install this construction checkpoint as a game's task state.
+Then execute full original-reference assembled package checks; reconcile final source/requirements/capability/assurance records and distribution status; inspect the final content-level diff and all manifests; update this checkpoint and the draft PR. These are remaining construction obligations, not waived or merely post-adoption suggestions. The large narrative snapshot remains selectively reviewed; retrieve complete relevant canon/status sections before relying on them.
+
+## Evidence and validation limits
+Published: actual implementation, reviews, snapshots, suite summaries, original historical receipts, 127-case raw log and latest 133-case complete case/outcome index. LOCAL_ONLY: six individual JSON receipts and six raw logs for the latest 133-case run. If temporary storage disappears, preserve the committed records and create a new labeled run rather than fabricating the missing raw files.
+Full original-reference local assembly/static execution is NOT_RUN; PARTIAL_UNASSEMBLED is not a full pass. Windows/PowerShell, Unity/C# helper, Codex native discovery, MCP/diagnostics, configured GPT/Project, real game/player validation and comparative usage benchmarks are NOT_RUN. Human adoption PENDING. No savings percentage, user quota or account eligibility is inferred.
+
+## Durable-work discipline
+Commit each coherent completed work batch with its actual artifacts/evidence and exact next action before starting another substantial batch. Recheck the current head and existing file SHAs. Use non-force updates; preserve intervening work. No merge, release, installation, live-GPT edit, security change or new paid spend. Keep all candidate changes under BH-Unity-Harness and preserve existing Readme.md. Never install this construction checkpoint as a game's task state.
