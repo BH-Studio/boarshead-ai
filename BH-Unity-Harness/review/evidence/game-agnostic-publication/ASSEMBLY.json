@@ -1,0 +1,59 @@
+{
+  "status": "PASS_ASSEMBLY_AND_STATIC",
+  "utc": "2026-10-04T22:54:48.646705+00:00",
+  "source_kind": "isolated local Git object store populated with thirteen exact connector-read original source blobs; not a real game checkout",
+  "commands": [
+    [
+      "/opt/pyvenv/bin/python",
+      "/mnt/data/bh-agnostic/work/BH-Unity-Harness/tools/assemble_candidate.py",
+      "--clone",
+      "/mnt/data/bh-agnostic/original-objects",
+      "--output",
+      "/mnt/data/bh-agnostic/assembled-review"
+    ],
+    [
+      "/opt/pyvenv/bin/python",
+      "/mnt/data/bh-agnostic/assembled-review/tools/check_package.py"
+    ]
+  ],
+  "exit_codes": [
+    0,
+    0
+  ],
+  "assembly": {
+    "status": "ASSEMBLED_NOT_ADOPTED",
+    "output": "/mnt/data/bh-agnostic/assembled-review",
+    "preserved_files": 13,
+    "next": "Run tools/check_package.py and the actual suite; review before any pilot."
+  },
+  "static": {
+    "status": "PASS_STATIC_PACKAGE",
+    "checks": 85,
+    "instruction_characters": 7798,
+    "managed_files": 22,
+    "missing_preserved": [],
+    "problems": [],
+    "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+  },
+  "all_copied_bytes_match": true,
+  "preserved_blobs": {
+    "design-gpt/01_GPT_INSTRUCTIONS_FULL.md": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+    "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+    "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+    "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+    "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+    "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+    "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+    "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+    "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+    "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+    "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+    "review/reference-only/K11_SOURCE_LESSONS.md": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+    "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md": "a0f3ed05af3145388505c953a9f554120917ef00"
+  },
+  "limitations": [
+    "Linux only",
+    "No game installation or adoption",
+    "No Windows/Unity/Codex/configured-GPT execution"
+  ]
+}
