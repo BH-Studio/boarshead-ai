@@ -26,6 +26,13 @@ class PackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);repo=root/'repo';repo.mkdir();git(repo,'init','-q');data=b'SYNTHETIC reference, not preserved studio content\n';f=repo/'source.md';f.write_bytes(data);sha=git(repo,'hash-object','-w','source.md').decode().strip();package=root/'additions';package.mkdir();write(package,'PRESERVED_REFERENCES.json',{'files':[{'path':'design-gpt/reference.md','git_blob_sha':sha}]});out=root/'assembled';assemble.assemble(repo,out,package);self.assertEqual((out/'design-gpt/reference.md').read_bytes(),data)
             with self.assertRaises(ValueError):assemble.assemble(repo,out,package)
+    def test_assembler_accepts_crlf_checkout_of_preserved_blob(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);repo=root/'repo';repo.mkdir();git(repo,'init','-q');data=b'SYNTHETIC reference\nsecond line\n';source=repo/'source.md';source.write_bytes(data);sha=git(repo,'hash-object','-w','source.md').decode().strip();package=root/'additions';package.mkdir();write(package,'PRESERVED_REFERENCES.json',{'files':[{'path':'design-gpt/reference.md','git_blob_sha':sha}]});existing=package/'design-gpt/reference.md';existing.parent.mkdir();existing.write_bytes(data.replace(b'\n',b'\r\n'));out=root/'assembled';assemble.assemble(repo,out,package);self.assertEqual((out/'design-gpt/reference.md').read_bytes(),data)
+    def test_assembler_rejects_real_preserved_content_conflict(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);repo=root/'repo';repo.mkdir();git(repo,'init','-q');data=b'SYNTHETIC reference\n';source=repo/'source.md';source.write_bytes(data);sha=git(repo,'hash-object','-w','source.md').decode().strip();package=root/'additions';package.mkdir();write(package,'PRESERVED_REFERENCES.json',{'files':[{'path':'design-gpt/reference.md','git_blob_sha':sha}]});existing=package/'design-gpt/reference.md';existing.parent.mkdir();existing.write_bytes(b'DIFFERENT reference\r\n')
+            with self.assertRaisesRegex(ValueError,'Conflicting preserved file'):assemble.assemble(repo,root/'assembled',package)
     def test_assembler_rejects_unsafe_reference(self):
         with tempfile.TemporaryDirectory() as td:
             r=Path(td);repo=r/'repo';repo.mkdir();git(repo,'init','-q');package=r/'p';package.mkdir();write(package,'PRESERVED_REFERENCES.json',{'files':[{'path':'../escape','git_blob_sha':'0'*40}]})

@@ -10,6 +10,10 @@ PACKAGE=Path(__file__).resolve().parents[1]
 def blob_sha(data):
     return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
 
+def matches_preserved_blob(data, sha):
+    """Accept exact bytes or Git's standard Windows CRLF checkout form."""
+    return blob_sha(data)==sha or blob_sha(data.replace(b'\r\n',b'\n'))==sha
+
 def assemble(clone, output, package=PACKAGE):
     clone=Path(clone).resolve(); output=Path(output).absolute(); package=Path(package).resolve()
     if output.exists() or output.is_symlink(): raise ValueError('Output must not exist; no overwrite')
@@ -39,7 +43,7 @@ def assemble(clone, output, package=PACKAGE):
             dest=stage/src.relative_to(package);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest)
         for name,data in recovered.items():
             dest=stage/name
-            if dest.exists() and dest.read_bytes()!=data: raise ValueError('Conflicting preserved file: '+name)
+            if dest.exists() and not matches_preserved_blob(dest.read_bytes(),blob_sha(data)): raise ValueError('Conflicting preserved file: '+name)
             dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
         if output.exists(): raise ValueError('Concurrent destination creation')
         stage.rename(output)
