@@ -1,0 +1,18 @@
+{
+  "archive": {
+    "name": "BH_Unity_Harness_v1.0.0_Recovery_Additions.zip",
+    "bytes": 339472,
+    "sha256": "be4fab9c97ad9661f4b8dfe06095ae946af2bce1abd6f7e8a766b783efb5fa42"
+  },
+  "patch": {
+    "name": "BH_Unity_Harness_v1.0.0_Recovery_Additions.patch",
+    "bytes": 1050531,
+    "sha256": "bbe6f1d9c8eb97903eeda311d17e31e180c256b9e03ca364ef4d629a7c759653"
+  },
+  "files": 176,
+  "offline_tests": 125,
+  "construction_status": "INCOMPLETE_PUBLICATION_AND_SOURCE_REVIEW",
+  "preserved_reference_files": 13,
+  "source_commit": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "branch": "harness/bh-standard-v1-20261004"
+}

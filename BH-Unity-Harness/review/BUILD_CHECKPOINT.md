@@ -1,15 +1,21 @@
-# BH Unity Harness construction checkpoint
+# BH Unity Harness construction checkpoint — recovered implementation
 
-Baseline: BH-Studio/boarshead-ai main @ 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8.
-Branch: harness/bh-standard-v1-20261004. All additions stay under BH-Unity-Harness.
-Existing Readme.md, original harness, original design GPT and live GPT are unchanged.
+Repository: BH-Studio/boarshead-ai
+Source baseline: 0cffc7e090eccb2d0b453c2c2c5a0db4631650c8
+Continuation branch: harness/bh-standard-v1-20261004
+Preserved-reference commit: 424698b1a6210638632fd163a32bfa9f889aec00
+Status: LOCAL CANDIDATE ADDITIONS BUILT AND OFFLINE-TESTED; FULL FILE-LEVEL PUBLICATION AND SOURCE-COVERAGE COMPLETION REMAIN.
 
-Status: candidate construction in progress; not installable or adopted at this intermediate commit.
-Completed discovery: complete 21-file design-GPT package; legacy operating files, 13 skills and metadata, 15 templates, VS Code files and four compact baselines. The large opening narrative was sampled, not fully reviewed. External references were reviewed selectively.
-This commit preserves the complete full design method, K01-K11 and source evaluation scenarios using exact original Git blob SHAs. No source-method abridgment was performed.
+## Actual recovery
+The surviving Recovery_Snapshot.zip contained the actual runtime, installer, schema, five skills and84 tests, but not every document or test mentioned by earlier checkpoints. The implementation was recovered rather than discarded. Missing candidate documents/manifests, complete official instructions/K12, setup, source/capability/requirements maps, actual example exporter, offline assembler, package checks, installer/build/release tests and optional Unity build producer were authored. Existing original/live source files remain unchanged.
 
-Locally authored: canonical schemas and consumer copies; actual Python runtime with PowerShell launcher; installer preview/apply/rollback; five focused skills; official GPT candidate (7426 characters including final newline), revised K12, shared interface, deployment/setup/review/evaluation documents; actual offline test suite.
-Most recent executed suite: 84 tests passed in 25.501 seconds on Linux/Python 3.13.5/Git 2.47.3. Further edits after that run require rerunning affected tests. Windows, Unity, MCP and configured-GPT integration tests are NOT_RUN.
-These local implementation files are not yet committed by this intermediate checkpoint. Remaining: finish operating/configuration/profile/traceability documents and fixtures; rerun assurance tests; publish actual implementation artifacts; inspect final diff and open a draft PR.
+## Actual verification
+125 offline tests passed, zero failures/errors/skips, across six nonoverlapping completed partitions with identical source-hash maps, total47.857seconds. Raw logs and hashes are in the additions package. Earlier failed/interrupted runs remain preserved and are not counted as successes. Actual synthetic subprocess round trips demonstrate automatic PASS plus HUMAN_PENDING, contrary behavior FAIL, and stale input invalidation. Instructions measure7,713characters including newline, with287characters below the user's8,000 budget. There are22 game-installable files and15 design knowledge/reference selections.
 
-Next exact construction action: finish local package and manifest, execute tests, publish remaining candidate files through the GitHub connector, then update this checkpoint with the actual final commit and PR evidence. This checkpoint must never be installed as a game's task state.
+The local additions exclude thirteen unchanged source reference blobs already preserved in this branch. The package check correctly reports PARTIAL_UNASSEMBLED until the provided offline assembler combines them from a local clone. Full assembled original-reference validation, Windows/PowerShell, real Unity and optional C# compilation, Codex, MCP, SonarQube bridge, configured design GPT/Project, comparative usage and human acceptance are NOT_RUN.
+
+## Where the actual code is
+Download BH_Unity_Harness_v1.0.0_Recovery_Additions.zip and its additions patch/manifest from the recovery response. This branch is not yet an install-ready normal file-level publication. This checkpoint and the delivery receipt do not stand in for the uncommitted runtime or design-candidate files. See RECOVERY_DELIVERY.md for the archive hash and DELIVERY_AND_CONTINUATION.md inside the package for exact safe commands.
+
+## Remaining work and exact next action
+Recover and hash-check the actual archive; inspect current branch head; read source inventory and remaining coverage. Complete unread nested legacy/source/reference comparisons, publish actual missing files without reimplementation, run the fully assembled package checks, and inspect the complete diff with original paths unchanged. Keep the PR draft. Then use the separate local-integration/design-host pilot checklists; no merge, game installation, live-GPT edit or human acceptance is implied. The precise continuation prompt is in DELIVERY_AND_CONTINUATION.md. Never install this construction checkpoint as a game's active task state.
