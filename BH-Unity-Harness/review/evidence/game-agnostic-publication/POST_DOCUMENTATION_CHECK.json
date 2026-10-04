@@ -1,0 +1,21 @@
+{
+  "utc": "2026-10-04T23:17:45.135819+00:00",
+  "cwd": "/mnt/data/bh-agnostic/work/BH-Unity-Harness",
+  "static": {
+    "status": "PASS_STATIC_PACKAGE",
+    "checks": 85,
+    "instruction_characters": 7798,
+    "managed_files": 22,
+    "missing_preserved": [],
+    "problems": [],
+    "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+  },
+  "focused_modules": ["test_game_agnostic", "test_review_amendments", "test_package"],
+  "tests": 44,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 0.929,
+  "log_sha256": "5737bcc4f9b555b79d941f315e07ff98121c58f4f7b9321d68dbbdb3b6b7046c",
+  "scope": "Post-documentation static and focused checks; does not relabel the prior full 148-test input map. No runtime or deployed instruction changes after functional commit72bf50263b39f9ccd236fb54ecae341c97f80125."
+}
