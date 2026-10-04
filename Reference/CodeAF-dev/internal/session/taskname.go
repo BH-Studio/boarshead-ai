@@ -1,0 +1,544 @@
+package session
+
+// THE TWO OR THREE WORDS A PIECE OF WORK IS CALLED.
+//
+// A node's title is what every surface that draws work draws: the rail's column,
+// the home card's work band, the tasks list on a phone, the header of the card
+// that lands. The rail is twenty-four columns wide, so what it actually shows is
+// the first three words of that title ([taskTitleOf], internal/tui3) — and until
+// this file existed, four of the five doors into the graph put a RAW SENTENCE
+// there for those three words to be cut out of:
+//
+//	/task with no shaper   the person's own first eight words   "read /Users…"
+//	the route judge        the judge's goal, first line          "Look into why the…"
+//	an adaptive run's root the goal, first line                  "/var/folders/j7/…"
+//	a resumed node         whatever the checkpoint kept of those
+//
+// Three words off the front of a sentence is not a name. It is whatever the
+// sentence happened to open with — how somebody cleared their throat, or the
+// path they pasted — so a column of them names every piece of work after its
+// first noise and a person tracking one of them has to read every row.
+//
+// So a node is NAMED, by one small call, and the design is four properties:
+//
+//   - ONE CALL, ONCE, PER NODE, AND ONLY WHERE NOTHING NAMED IT. A title a model
+//     WROTE as a name is left exactly as it is ([taskSpec.named]): the model that
+//     groomed a proposal and called it "Fix the nil-map crash" has already done
+//     this work, and the shaper's own name for a `/task` (task_shape.go) is the
+//     same answer arriving on a call somebody was already paying for. A second
+//     call to rename either of those would be the harness disagreeing with
+//     itself and billing for it. A title that is already short and has no path
+//     in it is left alone too ([taskNameNeeded]), which is what stops a door
+//     that names its work well from paying for a call that changes nothing.
+//
+//   - THE CHEAP MODEL. It resolves through internal/roles as RoleTaskName, on
+//     the low tier, beside the session's own namer: naming in a few words is the
+//     archetypal cheap call, and it is one of the calls that must NOT think —
+//     the resolved level is deliberately not put on the request. THE FLOOR IS
+//     NEVER THE AUDITOR TIER: a session whose model is the high-tier judge
+//     used to fall through onto that judge and bill a naming call as if it
+//     were a verdict (F38).
+//
+//   - IT NEVER BLOCKS THE WORK. The node is admitted, checkpointed and on the
+//     frontier before this call is made; it runs on a goroutine of its own with
+//     its own deadline, and the surfaces draw the fallback they draw today until
+//     the answer lands. A name that never arrives costs a good name and nothing
+//     else — there is no state for "a small thing did not work" and inventing
+//     one would report a fault about work nobody asked for.
+//
+//   - THE NAME IS THE TITLE, NOT A SECOND FIELD BESIDE IT. It is written into
+//     the node's spec, which means the checkpoint keeps it (task_store.go), a
+//     resume reads it back, the project index rows are cut from it, presence
+//     publishes it, and every surface that already draws a title draws the name
+//     with no change of its own. One update is published so a row that is
+//     already on screen learns it (internal/tui3's taskRenames handles exactly
+//     this: a row may be published before its name is known and again after).
+//
+// WHAT IS DELIBERATELY NOT NAMED. A sub-harness design node (TaskKindHarness)
+// keeps the title harness_task.go gives it, because its row is read as a design
+// and not as a task.
+//
+// AN ADAPTIVE RUN'S INNER NODES ARE NAMED HERE TOO, at the foot of this file,
+// and they are the reason this file is not only about [TaskGraph.admit]. They
+// are not graph nodes — orchestrate.go publishes those rows itself — so the
+// first property above is where they start: the planner is asked for each
+// node's name on the call it adds the node (internal/orchestrate's
+// [orchestrate.Node] Title), which is a name arriving on a call somebody was
+// already paying for. But a planner is a model, and a model asked for a title
+// answers `{"id": "r1", "goal": …}` often enough that a person watched a live
+// run draw `r1` through `r7` down the rail with `synth` at the foot of them.
+// So the same four properties close over that case as well: a node whose title
+// is missing or is nothing but its own id goes through THE SAME CALL, on the
+// same cheap model, on a goroutine, and its row renames when the answer lands
+// ([orchestrateFamily.nameWorker], and internal/orchestrate's NodeNeedsName for
+// the one generic question that decides it).
+
+import (
+	"context"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/orchestrate"
+	"github.com/Agent-Field/codeaf/internal/roles"
+)
+
+// The namer is a ROLE, registered from the file that makes the call, as
+// internal/roles asks. LOW, for the session title's reason rather than the
+// shaper's: a wrong name costs a glance at a column and is not a decision
+// anything downstream is made from. A person who disagrees pins it
+// (`roles.taskname: <model>`).
+func init() { roles.Register(roles.RoleTaskName, roles.TierLow) }
+
+// TaskNameWords is how long a piece of work's name is allowed to be.
+//
+// THREE IS THE LENGTH A PERSON READS AS A LABEL rather than as a sentence, and
+// it is a cap and not a target — a two-word name is left at two. It is exported
+// because the surface that draws the name cuts to the same figure, and a namer
+// asked for more words than the column can show would be paying for words that
+// are thrown away on the way to the screen (internal/tui3's taskTitleWords).
+//
+// IT IS ONE FIGURE FOR THE WHOLE PRODUCT and not this package's own. An adaptive
+// run's planner is asked for a name of exactly this length for every node it
+// adds (internal/orchestrate's [orchestrate.NameWords], which its law quotes),
+// and those rows stand in the same column beside these ones — so a second number
+// here would be two lengths of name in one list, and the shorter column would be
+// quietly cutting the longer one.
+const TaskNameWords = orchestrate.NameWords
+
+// taskNameSystem is all the system message says, for the session namer's reason
+// (title.go): the cheap model reads the system message as character and the end
+// of the user message as the thing to do, so the instruction is not put here.
+const taskNameSystem = "You name pieces of work."
+
+// taskNamePrompt is the whole instruction, and the shape of the answer IS the
+// requirement: a label for a narrow column, in the lowercase every other label
+// on this surface is drawn in. IT GOES LAST IN THE USER MESSAGE, after the work
+// it is about — this call lands on the same small models the session's namer
+// does, and one of them handed that instruction straight back as a session's
+// name.
+const taskNamePrompt = "Name this piece of work in two or three words — a label for a narrow column, not a sentence. Lowercase, no quotes, no full stop, no file paths, no ids. Answer with the name and nothing else."
+
+const (
+	// taskNameSummaryClip and taskNameBriefClip bound what the namer is shown.
+	// The gloss says what the work is in a line and the brief says it properly;
+	// past the first page of the brief everything is detail, and sending a
+	// six-thousand-character contract to produce three words would pay for a
+	// whole context per node.
+	taskNameSummaryClip = 400
+	taskNameBriefClip   = 1500
+
+	// taskNameWindow is how long the call is given. Nobody is waiting for it —
+	// the node is already running — so this is not a person's patience but a
+	// bound on a goroutine holding a provider slot for work that has stopped
+	// mattering: the row has been drawn under its fallback for twenty seconds by
+	// then and a name arriving after that is a column changing under somebody's
+	// eyes for no reason they can see.
+	taskNameWindow = 20 * time.Second
+
+	// taskNameAheadWindow is how long a name asked for AHEAD of its node is
+	// given ([nameAhead]). It is longer than the window above because nobody is
+	// drawing a fallback under it: the call runs beside the stage that writes
+	// the brief, which is measured at fifteen to thirty seconds, and a name that
+	// lands anywhere inside that stage costs the person nothing to wait for. A
+	// cheap model on a slow endpoint has been measured at twenty tokens a second,
+	// and a pass it insists on running in front of three words is a few hundred
+	// of them.
+	taskNameAheadWindow = 45 * time.Second
+)
+
+// nameNode gives one freshly admitted node a name, if it needs one.
+//
+// It is called from [TaskGraph.admit] — the ONE door every task in this package
+// goes through, whoever opened it — so a new way of starting work inherits the
+// name without knowing this file exists.
+func (g *TaskGraph) nameNode(node *TaskNode) {
+	if g == nil || node == nil {
+		return
+	}
+	g.mu.Lock()
+	home, spec, kind := g.home, node.spec, node.kind
+	g.mu.Unlock()
+	// No conversation behind the graph is every scripted graph in the tests and
+	// every graph a headless caller built: there is no client to ask and nothing
+	// to bill it to. A DESIGN KEEPS ITS OWN TITLE (see the file comment).
+	if home == nil || kind == TaskKindHarness || spec.named || !taskNameNeeded(spec.title) {
+		return
+	}
+	subject, ahead := taskNameSubject(spec), spec.ahead
+	if subject == "" && ahead == nil {
+		return
+	}
+	// IT DOES NOT RIDE THE TURN'S CONTEXT. The turn that admitted this node ends
+	// in a moment and the node outlives it by minutes; a namer cancelled with the
+	// turn would only ever land for work admitted at the very end of one.
+	//
+	// A NAME ALREADY ASKED FOR IS WAITED ON, NOT ASKED FOR AGAIN ([nameAhead]).
+	// Only when that call came back with nothing — a timeout, an answer that was
+	// a path — is the ordinary call made, off the brief this door was handed,
+	// which is a different question and may well answer.
+	go func() {
+		if name := ahead.wait(); name != "" {
+			g.rename(node, name)
+			return
+		}
+		if subject == "" {
+			return
+		}
+		if name := home.taskName(context.Background(), subject); name != "" {
+			g.rename(node, name)
+		}
+	}()
+}
+
+// ── a name asked for ahead of its node ──────────────────────────────────────
+//
+// WHEN THE HARNESS STARTS WORK ON ITS OWN, THE NAME IS ASKED FOR THE MOMENT IT
+// DECIDES TO, NOT WHEN THE NODE EXISTS. Both roads that start a task nobody
+// typed — the judge's (route_judge.go) and the ceiling's handover
+// (checkpoint.go) — know the person's sentence before they know anything else,
+// and the handover then spends fifteen to thirty seconds writing the brief. The
+// namer used to start after that, at admission, so the told-after line and the
+// first row on the rail carried the sentence, and the name replaced it a second
+// or eight later — or never: measured, a task announced as
+// "https://github.com/…/252 Can you look at this and …" failed before its name
+// arrived, and the failure was reported under the same sentence. Asked at the
+// decision, the name is in hand by the time there is a node to put it on, and
+// the first line a person reads is the name.
+//
+// IT IS STILL ONE CALL, ONCE, PER NODE. A name that has landed is written into
+// the spec as a name a model wrote ([taskSpec.named]), so [TaskGraph.nameNode]
+// leaves it alone; one still in flight rides the spec ([taskSpec.ahead]) and
+// nameNode waits for it instead of asking again. Only a road that declined
+// after asking pays for a name nobody used, and it cancels the call the moment
+// it declines ([nameAhead.release]).
+//
+// EVERY METHOD IS SAFE ON NIL, because a road that had nothing to name from
+// hands the doors a nil and the doors do not branch on it.
+type nameAhead struct {
+	done    chan struct{}
+	cancel  context.CancelFunc
+	name    string
+	claimed atomic.Bool
+}
+
+// nameAhead starts the call, off the person's own words, and answers at once.
+func (a *Agent) nameAhead(subject string) *nameAhead {
+	subject = strings.TrimSpace(clip(strings.TrimSpace(subject), taskNameBriefClip))
+	if a == nil || subject == "" {
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	ahead := &nameAhead{done: make(chan struct{}), cancel: cancel}
+	go func() {
+		defer close(ahead.done)
+		ahead.name = a.taskNameWithin(ctx, subject, taskNameAheadWindow)
+	}()
+	return ahead
+}
+
+// ready is the name if it has landed, and whether it has, without waiting.
+func (n *nameAhead) ready() (string, bool) {
+	if n == nil {
+		return "", false
+	}
+	select {
+	case <-n.done:
+		return n.name, true
+	default:
+		return "", false
+	}
+}
+
+// wait blocks until the call answers or gives up, and is the name or "".
+func (n *nameAhead) wait() string {
+	if n == nil {
+		return ""
+	}
+	<-n.done
+	return n.name
+}
+
+// claim says a node took this name, so a release afterwards leaves it running.
+func (n *nameAhead) claim() {
+	if n != nil {
+		n.claimed.Store(true)
+	}
+}
+
+// release lets an unclaimed call go: the road that asked declined to start
+// anything, and a name nobody will use is a provider slot held for nothing.
+func (n *nameAhead) release() {
+	if n != nil && !n.claimed.Load() {
+		n.cancel()
+	}
+}
+
+// taskNameNeeded reports whether a title still wants a name made for it.
+//
+// A TITLE THAT IS ALREADY A NAME IS LEFT ALONE, which is what keeps this from
+// being a call on every task: short, and with no path in it, is the whole test.
+// A path fails it however short it is, because the one thing a name must not be
+// is the machine's own filing.
+func taskNameNeeded(title string) bool {
+	title = strings.TrimSpace(title)
+	if title == "" || unusableName(title) {
+		return true
+	}
+	if strings.ContainsAny(title, "/\\") {
+		return true
+	}
+	return len(strings.Fields(title)) > TaskNameWords
+}
+
+// taskNameSubject is what the namer reads: the gloss, then the front of the
+// brief. Both, because they answer different halves of "what is this" — the
+// gloss says what somebody would call it and the brief says what it actually
+// involves — and a node admitted with only one of them still has something to
+// be named from.
+func taskNameSubject(spec taskSpec) string {
+	parts := make([]string, 0, 2)
+	if summary := strings.TrimSpace(spec.summary); summary != "" {
+		parts = append(parts, clip(summary, taskNameSummaryClip))
+	}
+	if brief := strings.TrimSpace(spec.brief); brief != "" {
+		parts = append(parts, clip(brief, taskNameBriefClip))
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+// taskName asks the cheap model for the name. Every failure answers "", and the
+// caller's only response to that is to leave the title where it was.
+func (a *Agent) taskName(ctx context.Context, subject string) string {
+	return a.taskNameWithin(ctx, subject, taskNameWindow)
+}
+
+// taskNameWithin is [Agent.taskName] with the window as a parameter, because a
+// name asked for ahead of its node has a stage to answer in and one asked for at
+// admission has a row already drawn under it ([taskNameAheadWindow]).
+func (a *Agent) taskNameWithin(ctx context.Context, subject string, window time.Duration) string {
+	a.mu.Lock()
+	model, closed := a.model, a.closed
+	source := a.config.RolesSource
+	a.mu.Unlock()
+	if closed || !a.hasClient() {
+		return ""
+	}
+	// IT CARRIES ITS OWN DEADLINE for the shaper's reason: the provider's client
+	// is built with no timeout, so a stalled namer would be a goroutine and a
+	// provider slot held for the life of the session. Twenty seconds is a fact
+	// about THIS call — two or three words off a brief — and it is tighter than
+	// the low tier's own bound, so it is the one in force (auxiliary.go).
+	ctx, cancel := context.WithTimeout(ctx, window)
+	defer cancel()
+
+	// NAMING NEVER FALLS THROUGH ONTO THE AUDITOR TIER. The floor is the
+	// session model, and when this agent IS the high-tier judge that floor
+	// would turn one failed cheap call into a dear one (F38). An empty floor
+	// means the cheap rung or silence — a missing name, not a billed retry
+	// on the model that exists to judge work.
+	floor := model
+	if high, ok := roles.TierModel(roles.Source(source), roles.TierHigh); ok {
+		if strings.TrimSpace(high) != "" && strings.TrimSpace(model) == strings.TrimSpace(high) {
+			floor = ""
+		}
+	}
+
+	// NO EFFORT AND NO CEILING ARE PUT ON THE REQUEST. Both used to be here and
+	// both were this harness deciding how somebody else's model answers a
+	// question; the clips above are what keep this call small, and the prompt is
+	// what keeps the answer to three words.
+	response, named, callErr := a.callRoleChecked(withDetachedUsage(ctx), roles.RoleTaskName, floor,
+		[]ai.Message{
+			textMessage("system", taskNameSystem),
+			textMessage("user", subject+"\n\n"+taskNamePrompt),
+		}, func(response *ai.Response, named string) bool {
+			if cleanTaskName(response.Text()) != "" {
+				return true
+			}
+			a.addDetachedUsageAs(response, named, 1, auxRoleTaskName)
+			return false
+		})
+	if callErr != nil || response == nil {
+		return ""
+	}
+	// The person pays for it out of the same pocket the session's own title, the
+	// guardian and the shaper come out of, and no turn asked for it — against the
+	// model that ANSWERED, which is not always the rung the ladder resolved first.
+	a.addAuxiliaryUsageAs(response, named, 1, auxRoleTaskName)
+	return cleanTaskName(response.Text())
+}
+
+// cleanTaskName reads the answer back through the same repair the session's own
+// namer uses ([cleanTitle], title.go) — a model asked for a short lowercase name
+// answers "Title: …", or quotes it, or welds it into a slug, at the same rates
+// whichever prompt asked — and then holds it to the cap.
+//
+// AN ANSWER THAT IS STILL NOT A NAME IS NO ANSWER. The test is the same one that
+// decided to make the call ([taskNameNeeded]): a namer that echoed a path has
+// handed back exactly the thing the call was made to get rid of, and taking it
+// would be paying to make the row no better. The other way an answer is not a
+// name — the INSTRUCTION handed back — is refused by [cleanTitle] before the cut
+// to three words ever happens, because a shared hand is the only place a rule
+// like that can be true of both namers at once.
+func cleanTaskName(raw string) string {
+	name := firstWordsOf(cleanTitle(raw), TaskNameWords)
+	if name == "" || unusableName(name) || taskNameNeeded(name) {
+		return ""
+	}
+	return name
+}
+
+// firstWordsOf cuts a phrase to its first n words and drops the punctuation the
+// sentence it came out of ended on.
+func firstWordsOf(text string, n int) string {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) == 0 {
+		return ""
+	}
+	if len(fields) > n {
+		fields = fields[:n]
+	}
+	return strings.TrimRight(strings.Join(fields, " "), ".,:;")
+}
+
+// rename writes a node's new name into its spec, keeps it, and tells the world.
+//
+// THE ORDER IS THE POINT. The write is under the graph's lock, because the spec
+// is read under it everywhere else ([TaskNode.notice], [TaskNode.recordLocked]);
+// the checkpoint and the update are outside it, because both take other locks
+// and the graph is a package with one lock order.
+//
+// IT PUBLISHES THE UPDATE ITSELF rather than through [TaskGraph.announce], and
+// the difference is what announce does with a SETTLED node: it writes the
+// project's index row and hands the model a note saying the work has landed.
+// This is a node being renamed, which is neither of those, and a node that
+// finished before its name arrived would otherwise land twice.
+func (g *TaskGraph) rename(node *TaskNode, name string) {
+	g.mu.Lock()
+	if node.spec.title == name {
+		g.mu.Unlock()
+		return
+	}
+	node.spec.title = name
+	g.mu.Unlock()
+	g.republish(node)
+}
+
+// republish keeps a node whose spec was written after admission, and tells the
+// world. It is the second half of every write that completes a spec late — a
+// name ([TaskGraph.rename]), a person's brief (task_shape.go) — and it is one
+// function for the reason rename states: the checkpoint and the update take
+// other locks, so they come after the write's own, and they are not
+// [TaskGraph.announce], which is about a node's ending.
+func (g *TaskGraph) republish(node *TaskNode) {
+	g.checkpoint()
+	g.mu.Lock()
+	home := g.home
+	g.mu.Unlock()
+	if home != nil {
+		home.emitTaskUpdate(node.notice())
+	}
+}
+
+// ── an adaptive run's own row, and the rows under it ────────────────────────
+//
+// A run is not a node in this package's graph (orchestrate.go says why), so it
+// does not come through [TaskGraph.admit] and gets its name here instead, and
+// neither do the workers under it. Both are the same call, the same cap and the
+// same silence on failure; what differs is where the answer is written, because
+// a run's rows are published by the family rather than read off a spec.
+
+// nameRun gives the run's own row a name, if its goal is a sentence rather than
+// one. The goal itself is what the namer reads: a run has no gloss and no brief
+// of its own, and the goal is what every one of its nodes is cut out of. Its
+// context belongs to the session, so ordinary completion keeps a useful name
+// in flight while Close can cancel and join it through the returned channel.
+func (f *orchestrateFamily) nameRun(ctx context.Context, goal string) <-chan struct{} {
+	done := make(chan struct{})
+	if f == nil || f.agent == nil {
+		close(done)
+		return done
+	}
+	f.mu.Lock()
+	current := f.title
+	f.mu.Unlock()
+	if !taskNameNeeded(current) {
+		close(done)
+		return done
+	}
+	subject := clip(strings.TrimSpace(goal), taskNameBriefClip)
+	if subject == "" {
+		close(done)
+		return done
+	}
+	agent := f.agent
+	go func() {
+		defer close(done)
+		if name := agent.taskName(ctx, subject); name != "" {
+			f.rename(name)
+		}
+	}()
+	return done
+}
+
+// rename writes the run's new name and republishes its row under it.
+//
+// A RUN THAT HAS ALREADY FINISHED IS NOT REPUBLISHED. Its last row was its final
+// one and a surface reading a second "running" after it would draw a finished
+// run as live again. The name is still written, because the family outlives the
+// notice and anything that reads the title afterwards should read the good one.
+func (f *orchestrateFamily) rename(name string) {
+	f.mu.Lock()
+	republish := f.title != name && !f.settled
+	f.title = name
+	root, run, model := f.root, f.run, f.model
+	// AND IT CARRIES THE PHASE THE ROW IS ALREADY IN. A name lands a second or
+	// two after the run is minted, which is squarely inside the minute the
+	// opening planner call takes, so a row republished bare here would take the
+	// forming line off a run that is still forming — the one gap that line exists
+	// to fill (orchestrate.go's [orchestrateFamily.formingLocked]). It is read
+	// under the lock the title was written under, so the two cannot disagree.
+	doing := f.formingLocked()
+	f.mu.Unlock()
+	if !republish {
+		return
+	}
+	f.publish(TaskNotice{
+		ID: root, Run: run, Title: name, State: TaskRunning, Model: model, Doing: doing,
+	})
+}
+
+// nameWorker names one node of a run whose planner did not name it. It is
+// [orchestrate.Options.Name], wired at the run's door ([Agent.RunOrchestrate]).
+//
+// IT IS THE SAME DOOR AND NOT A SECOND ONE. Everything that decides what a name
+// is lives in [Agent.taskName] and [cleanTaskName] — the role, the cheap model,
+// the deadline, the refusal of an answer that is a path or the instruction
+// handed back — and a run's workers stand in the same rail column as admitted
+// tasks. A second namer here would be two shapes of name in one list, and the
+// one that changed first would make the other look wrong.
+//
+// THE GOAL IS WHAT IT READS, and that is not a contradiction of the law that a
+// goal is never a name: the namer is being asked to WRITE a name from the work,
+// which is exactly the job, where the defect was a surface CUTTING one off the
+// front of a sentence. What comes back is two or three words about the work; the
+// first three words of the brief are how the brief cleared its throat.
+//
+// IT IS SYNCHRONOUS AND THE CALLER IS NOT. internal/orchestrate calls this on a
+// goroutine of its own with nothing waiting on it, so what this owes is the
+// answer and the deadline, both of which [Agent.taskName] already carries.
+func (f *orchestrateFamily) nameWorker(ctx context.Context, node orchestrate.Node) string {
+	if f == nil || f.agent == nil {
+		return ""
+	}
+	// The gloss a task is named from does not exist for a planned node, so the
+	// front of the brief is the whole subject — clipped to the same figure, since
+	// past the first page everything is detail and three words do not need it.
+	subject := clip(strings.TrimSpace(node.Goal), taskNameBriefClip)
+	if subject == "" {
+		return ""
+	}
+	return f.agent.taskName(ctx, subject)
+}

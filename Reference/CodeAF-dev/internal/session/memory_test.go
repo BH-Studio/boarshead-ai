@@ -1,0 +1,1262 @@
+package session
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/roles"
+	"github.com/Agent-Field/codeaf/internal/store"
+)
+
+// The memory tests are written against BEHAVIOUR a person could observe: what
+// reached the model's prompt, what is in the store afterwards, and — just as
+// often — that no call was made at all.
+//
+// The reflex calls are told apart from the turn's own by their system prompt,
+// which is how they really differ on the wire: the router, the extractor and
+// the decider each open with a sentence internal/reflex wrote and nothing else
+// in this package says. That is what lets one scripted completer answer a whole
+// turn and its two reflexes in the order they actually happen.
+
+type reflexScript struct {
+	mu sync.Mutex
+
+	route, extract, decide       string
+	routeErr, extractErr, decErr error
+	answer                       string
+
+	routes, extracts, decides, turns int
+	systems                          []string
+	// requests is the WHOLE of what each call was sent, every message joined.
+	// The routed memory block rides at the tail of the transcript rather than in
+	// message[0] (agent.go's memoryNoteOpening), so a test asking whether a turn
+	// carried it has to read the request and not just its head.
+	requests []string
+	// routeInputs is what each router call was actually SHOWN, which is the
+	// half of the request that changed: the shortlist is the thing under test.
+	routeInputs []string
+	// deliberate makes the TURN'S FIRST ANSWER take a moment, the way a real
+	// model's does, instead of coming back before anything else has run.
+	//
+	// IT EXISTS BECAUSE THE LOOKUP NO LONGER PRECEDES THE TURN. It is started
+	// beside the person's own model and applied to whichever request is still
+	// ahead of it (loop.go's law): landing before the first token, it CUTS the
+	// request and the turn asks again carrying the block. A fixture whose model
+	// answers in microseconds never reaches that road — the answer is finished
+	// before the lookup has been made — so a test that is about WHAT THE TURN
+	// CARRIED would be asserting a scheduling accident. One deliberate first
+	// answer is the ordinary conversation, where a model takes seconds.
+	//
+	// It respects the request's own context, which is the whole point: the cut is
+	// what ends this wait.
+	deliberate bool
+}
+
+// aDeliberateFirstAnswer makes the turn's first request take its time. See
+// [reflexScript.deliberate].
+func (r *reflexScript) aDeliberateFirstAnswer() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.deliberate = true
+}
+
+func (r *reflexScript) CompleteWithMessages(ctx context.Context, messages []ai.Message, options ...ai.Option) (*ai.Response, error) {
+	var request ai.Request
+	for _, option := range options {
+		_ = option(&request)
+	}
+	// On a turn a fixture has put a watch on, the conversation answers only once
+	// the recall beside it has landed ([answerWhenQuiet]). Before the lock, which
+	// the recall's own router call is answered under.
+	answerWhenQuiet(ctx, request)
+	system := ""
+	if len(messages) > 0 {
+		system = messageText(messages[0])
+	}
+	var whole strings.Builder
+	for _, message := range messages {
+		whole.WriteString(messageText(message))
+		whole.WriteString("\n")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.systems = append(r.systems, system)
+	r.requests = append(r.requests, whole.String())
+	switch {
+	case strings.Contains(system, "memory router"):
+		r.routes++
+		if len(messages) > 1 {
+			r.routeInputs = append(r.routeInputs, messageText(messages[1]))
+		}
+		if r.routeErr != nil {
+			return nil, r.routeErr
+		}
+		return textResponse(r.route), nil
+	case strings.Contains(system, "worth remembering after this session ends"):
+		r.extracts++
+		if r.extractErr != nil {
+			return nil, r.extractErr
+		}
+		return textResponse(r.extract), nil
+	case strings.Contains(system, "one candidate memory and the lines already stored"):
+		r.decides++
+		if r.decErr != nil {
+			return nil, r.decErr
+		}
+		return textResponse(r.decide), nil
+	}
+	r.turns++
+	answer := r.answer
+	if answer == "" {
+		answer = "done"
+	}
+	if r.deliberate {
+		r.deliberate = false
+		r.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			// The recall landed and cut this request; the turn asks again with the
+			// block in, which is the road under test.
+			r.mu.Lock()
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+		r.mu.Lock()
+	}
+	return textResponse(answer), nil
+}
+
+// lastRouteInput is what the router was shown on its most recent call, or ""
+// when it was never asked.
+func (r *reflexScript) lastRouteInput() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.routeInputs) == 0 {
+		return ""
+	}
+	return r.routeInputs[len(r.routeInputs)-1]
+}
+
+func (r *reflexScript) counts() (routes, extracts, decides int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.routes, r.extracts, r.decides
+}
+
+// brainAgent is a session with a brain of its own, in a directory the test
+// owns. The store is never the person's real one: a test that wrote into
+// ~/.codeaf would be a test that changes their next conversation.
+func brainAgent(t *testing.T, completer Completer, mutate func(*Config)) (*Agent, *store.Store) {
+	t.Helper()
+	brain, err := store.Open(filepath.Join(t.TempDir(), "brain.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = brain.Close() })
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.Memory = brain
+		if mutate != nil {
+			mutate(config)
+		}
+	})
+	return agent, brain
+}
+
+func remember(t *testing.T, brain *store.Store, title, text string) store.Memory {
+	t.Helper()
+	memory, err := brain.AddMemory(store.Memory{
+		Type: store.MemoryFact, Scope: store.MemoryScopeUser, Title: title, Text: text,
+	})
+	if err != nil {
+		t.Fatalf("add memory: %v", err)
+	}
+	return memory
+}
+
+func titles(memories []store.Memory) []string {
+	names := make([]string, 0, len(memories))
+	for _, memory := range memories {
+		names = append(names, memory.Title)
+	}
+	return names
+}
+
+// ── the pre-turn block ──────────────────────────────────────────────────────
+
+// AN EMPTY BRAIN IS NEVER A CALL. A fresh install remembers nothing, so there
+// is nothing to route against, and a reflex that billed for that would bill for
+// every turn of every first day.
+func TestAnEmptyIndexIsNeverRouted(t *testing.T) {
+	script := &reflexScript{}
+	agent, _ := brainAgent(t, script, nil)
+
+	if block := agent.memoryBlock(context.Background(), "how do I deploy this"); block != "" {
+		t.Fatalf("an empty brain rendered %q", block)
+	}
+	if routes, _, _ := script.counts(); routes != 0 {
+		t.Fatalf("the router was called %d times against an empty index", routes)
+	}
+}
+
+// A continuation says nothing the index could be matched against. "yes" and "go
+// on" are half the messages in a working conversation, and each one is a call
+// nobody would get an answer out of.
+func TestAContinuationIsNotRouted(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`}
+	agent, brain := brainAgent(t, script, nil)
+	remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+
+	if block := agent.memoryBlock(context.Background(), "yes"); block != "" {
+		t.Fatalf("a two-word continuation rendered %q", block)
+	}
+	if routes, _, _ := script.counts(); routes != 0 {
+		t.Fatalf("the router was called %d times on a continuation", routes)
+	}
+
+	// The exception, and the reason the rule is about words rather than length:
+	// "forget that" is shorter than the floor and is the whole point of routing.
+	if block := agent.memoryBlock(context.Background(), "forget that"); block != "" {
+		t.Fatalf("the forget command rendered a block: %q", block)
+	}
+	if routes, _, _ := script.counts(); routes != 1 {
+		t.Fatalf("a memory command was routed %d times, want once", routes)
+	}
+}
+
+// What the router asks for is what the model reads — by title and text, in the
+// router's own order, inside one <memory> block.
+func TestTheRoutedMemoriesAreRenderedIntoTheBlock(t *testing.T) {
+	script := &reflexScript{}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	remember(t, brain, "dark themes", "prefers dark themes everywhere")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+
+	block := agent.memoryBlock(context.Background(), "reformat this file for me")
+	if !strings.Contains(block, "<memory>") || !strings.Contains(block, "</memory>") {
+		t.Fatalf("the block is not a <memory> block:\n%s", block)
+	}
+	if !strings.Contains(block, "prefers tabs: prefers tabs over spaces in Go") {
+		t.Fatalf("the routed memory is not in the block:\n%s", block)
+	}
+	if strings.Contains(block, "dark themes") {
+		t.Fatalf("a memory the router did not ask for is in the block:\n%s", block)
+	}
+}
+
+// AND IT REACHES THE ACTUAL REQUEST. The block is decided inside the turn — the
+// router is a provider call and the landing runs under the session lock — so the
+// thing worth asserting is what the turn actually sent. It rides at the TAIL of
+// the transcript now rather than in message[0], which this wave made byte-stable
+// for the life of a session (memory.go's refreshSystemLocked), so the assertion
+// is over the whole request; the base prompt is still checked so a request that
+// somehow carried the block without the page could not pass.
+func TestTheBlockIsInTheRequestTheTurnRidesOn(t *testing.T) {
+	script := &reflexScript{answer: "reformatted"}
+	// THE LOOKUP RUNS BESIDE THE TURN NOW, so what this asserts is the case where
+	// it lands in time: the turn's answer waits for the router exactly as a real
+	// model's seconds do ([reflexScript.holdForRoute]).
+	script.aDeliberateFirstAnswer()
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+	script.extract = `{"mem":0}`
+
+	collect(t, mustSubmit(t, agent, "reformat this file for me"))
+
+	var found bool
+	script.mu.Lock()
+	for _, request := range script.requests {
+		if strings.Contains(request, "SYSTEM") && strings.Contains(request, "prefers tabs over spaces in Go") {
+			found = true
+		}
+	}
+	script.mu.Unlock()
+	if !found {
+		t.Fatal("no request carried the routed memory")
+	}
+}
+
+// A REFLEX FAILURE IS INVISIBLE. The router refused, and the turn is exactly
+// the turn it would have been if this feature did not exist.
+func TestARouterFailureLeavesTheTurnAlone(t *testing.T) {
+	script := &reflexScript{routeErr: errors.New("provider is down"), answer: "here you go"}
+	agent, brain := brainAgent(t, script, nil)
+	remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+
+	events := collect(t, mustSubmit(t, agent, "reformat this file for me"))
+	var text strings.Builder
+	for _, event := range events {
+		if event.Kind == EventTextDelta {
+			text.WriteString(event.Text)
+		}
+		if event.Kind == EventError {
+			t.Fatalf("the turn failed: %v", event.Err)
+		}
+	}
+	if agent.memoryText != "" {
+		t.Fatalf("a failed router still rendered a block: %q", agent.memoryText)
+	}
+}
+
+// The two instructions ABOUT memory, answered in one dim line each.
+func TestTheRoutersRememberCommandWritesToTheStore(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":{"name":"remember","arg":"always deploys on Fridays"}}`}
+	agent, brain := brainAgent(t, script, nil)
+	remember(t, brain, "standup", "standup is at 9:15")
+
+	var seen []string
+	agent.routedMemory(context.Background(), "remember that I always deploy on Fridays",
+		func(line string) { seen = append(seen, line) }, true)
+
+	kept, err := brain.ListMemories("", 10)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var landed *store.Memory
+	for index, memory := range kept {
+		if strings.Contains(memory.Text, "Fridays") {
+			landed = &kept[index]
+		}
+	}
+	if landed == nil {
+		t.Fatalf("the command wrote nothing; the store holds %v", titles(kept))
+	}
+	// "always" is the whole heuristic: somebody saying how they want things done.
+	if landed.Type != store.MemoryPreference {
+		t.Errorf("the memory is a %q, want a preference", landed.Type)
+	}
+	if len(seen) != 1 || !strings.Contains(seen[0], "remembered") {
+		t.Errorf("the confirmation was %v, want one line saying it was remembered", seen)
+	}
+}
+
+func TestTheRoutersForgetCommandDropsTheMatchAndSaysWhich(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":{"name":"forget","arg":"standup"}}`}
+	agent, brain := brainAgent(t, script, nil)
+	remember(t, brain, "standup time", "standup is at 9:15")
+
+	agent.routedMemory(context.Background(), "forget when standup is", nil, true)
+
+	kept, err := brain.ListMemories("", 10)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(kept) != 0 {
+		t.Fatalf("the store still holds %v", titles(kept))
+	}
+}
+
+// Nothing matched is an ANSWER, not a failure: the person said forget something
+// and there was nothing to forget, and they are told so.
+func TestForgettingWhatIsNotThereSaysSo(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":{"name":"forget","arg":"pineapples"}}`}
+	agent, brain := brainAgent(t, script, nil)
+	remember(t, brain, "standup time", "standup is at 9:15")
+
+	var seen []string
+	agent.routedMemory(context.Background(), "forget everything about pineapples",
+		func(line string) { seen = append(seen, line) }, true)
+
+	if len(seen) != 1 || !strings.Contains(seen[0], "nothing matched") {
+		t.Fatalf("the answer was %v, want one line saying nothing matched", seen)
+	}
+	kept, _ := brain.ListMemories("", 10)
+	if len(kept) != 1 {
+		t.Fatalf("a no-match forget changed the store: %v", titles(kept))
+	}
+}
+
+// MEMORY OFF IS ABSENT, NOT BROKEN. No store is no block, no call, and no verb.
+func TestWithoutAStoreThereIsNoBlockNoCallAndNoTool(t *testing.T) {
+	script := &reflexScript{}
+	agent, _ := newTestAgent(t, script, nil)
+
+	if block := agent.memoryBlock(context.Background(), "how do I deploy this"); block != "" {
+		t.Fatalf("a session with no brain rendered %q", block)
+	}
+	if routes, extracts, decides := script.counts(); routes+extracts+decides != 0 {
+		t.Fatalf("a session with no brain made %d/%d/%d reflex calls", routes, extracts, decides)
+	}
+	for _, tool := range agent.belt() {
+		if tool.Name == "remember" {
+			t.Fatal("remember is on the belt of a session that cannot remember")
+		}
+	}
+	if _, err := agent.Remember("prefers tabs"); err == nil {
+		t.Fatal("Remember succeeded on a session with no brain")
+	}
+}
+
+func TestTheRememberToolIsOnTheBeltOfASessionWithABrain(t *testing.T) {
+	agent, _ := brainAgent(t, &reflexScript{}, nil)
+	var found bool
+	for _, tool := range agent.belt() {
+		if tool.Name == "remember" {
+			found = true
+		}
+		if tool.Name == "note" || tool.Name == "forget" {
+			t.Fatalf("the retired %s tool is still on the belt", tool.Name)
+		}
+	}
+	if !found {
+		t.Fatal("remember is not on the belt")
+	}
+}
+
+// ── the post-turn pass ──────────────────────────────────────────────────────
+
+// Nothing near it is not a question: the store has no opinion about this
+// subject, so the candidate goes in as it stands and no decider is asked.
+func TestAnExchangeWorthKeepingLandsWithNoDecisionToMake(t *testing.T) {
+	script := &reflexScript{
+		route:   `{"inject":[],"cmd":null}`,
+		extract: `{"mem":1,"type":"preference","scope":"user","title":"deploys on Fridays","text":"deploys on Fridays","tags":[]}`,
+	}
+	agent, brain := brainAgent(t, script, nil)
+
+	collect(t, mustSubmit(t, agent, "I always deploy on Fridays, remember that"))
+	if err := agent.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	kept, err := brain.ListMemories("", 10)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(kept) != 1 || kept[0].Text != "deploys on Fridays" {
+		t.Fatalf("the store holds %v, want the extracted memory", titles(kept))
+	}
+	if _, _, decides := script.counts(); decides != 0 {
+		t.Fatalf("the decider was asked %d times with nothing to decide against", decides)
+	}
+}
+
+// And when there IS something near it, the decider is what settles it. The
+// three operations are checked as one table because what is being tested is
+// that each word reaches a different store call.
+func TestANeighbourTurnsTheWriteIntoADecision(t *testing.T) {
+	for _, probe := range []struct {
+		name   string
+		decide func(id string) string
+		expect func(t *testing.T, kept []store.Memory)
+	}{
+		{
+			name: "update refines the line that is already there",
+			decide: func(id string) string {
+				return `{"op":"update","target_id":"` + id + `","title":"standup time","text":"standup is at 9:30"}`
+			},
+			expect: func(t *testing.T, kept []store.Memory) {
+				if len(kept) != 1 || kept[0].Text != "standup is at 9:30" {
+					t.Fatalf("the store holds %d rows: %v", len(kept), titles(kept))
+				}
+			},
+		},
+		{
+			name: "supersede retires it and admits the replacement",
+			decide: func(id string) string {
+				return `{"op":"supersede","target_id":"` + id + `","title":"standup time","text":"standup moved to 10:00"}`
+			},
+			expect: func(t *testing.T, kept []store.Memory) {
+				if len(kept) != 1 || kept[0].Text != "standup moved to 10:00" {
+					t.Fatalf("the store holds %d rows: %v", len(kept), titles(kept))
+				}
+			},
+		},
+		{
+			name:   "skip writes nothing at all",
+			decide: func(string) string { return `{"op":"skip"}` },
+			expect: func(t *testing.T, kept []store.Memory) {
+				if len(kept) != 1 || kept[0].Text != "standup is at 9:15" {
+					t.Fatalf("a skip changed the store: %v", titles(kept))
+				}
+			},
+		},
+	} {
+		t.Run(probe.name, func(t *testing.T) {
+			script := &reflexScript{
+				route:   `{"inject":[],"cmd":null}`,
+				extract: `{"mem":1,"type":"fact","scope":"project","title":"standup time","text":"standup is at 9:30","tags":[]}`,
+			}
+			agent, brain := brainAgent(t, script, nil)
+			existing := remember(t, brain, "standup time", "standup is at 9:15")
+			script.mu.Lock()
+			script.decide = probe.decide(existing.ID)
+			script.mu.Unlock()
+
+			collect(t, mustSubmit(t, agent, "standup has moved, note that down"))
+			if err := agent.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+
+			kept, err := brain.ListMemories("", 10)
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			probe.expect(t, kept)
+		})
+	}
+}
+
+// mem 0 is the answer for most exchanges, and it costs nothing downstream.
+func TestAnExchangeWithNothingInItWritesNothing(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`, extract: `{"mem":0}`}
+	agent, brain := brainAgent(t, script, nil)
+
+	collect(t, mustSubmit(t, agent, "what is the capital of France"))
+	_ = agent.Close()
+
+	kept, _ := brain.ListMemories("", 10)
+	if len(kept) != 0 {
+		t.Fatalf("an exchange worth nothing wrote %v", titles(kept))
+	}
+	if _, _, decides := script.counts(); decides != 0 {
+		t.Fatalf("the decider ran %d times after a mem 0", decides)
+	}
+}
+
+func TestExtractedMemoryCarriesTheSessionID(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`, extract: `{"mem":1,"type":"preference","scope":"user","title":"Prefers tabs","text":"Prefers tabs in Go.","tags":[]}`}
+	agent, brain := brainAgent(t, script, nil)
+	sessionID := agent.memorySourceSession()
+	collect(t, mustSubmit(t, agent, "I prefer tabs in Go"))
+	_ = agent.Close()
+	kept, err := brain.ListMemories("", 10)
+	if err != nil || len(kept) != 1 || kept[0].SourceSession != sessionID || kept[0].SourceSeq == 0 {
+		t.Fatalf("extracted memory = (%+v, %v), want source session %q", kept, err, sessionID)
+	}
+}
+
+func TestAFailedExtractionBreaksNothingAndWritesNothing(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`, extractErr: errors.New("provider is down"), answer: "here you go"}
+	agent, brain := brainAgent(t, script, nil)
+
+	events := collect(t, mustSubmit(t, agent, "reformat this file for me"))
+	for _, event := range events {
+		if event.Kind == EventError {
+			t.Fatalf("a failed extraction faulted the turn: %v", event.Err)
+		}
+	}
+	_ = agent.Close()
+
+	kept, _ := brain.ListMemories("", 10)
+	if len(kept) != 0 {
+		t.Fatalf("a failed extraction wrote %v", titles(kept))
+	}
+}
+
+// THE COUNTER MEASURES HELP, NOT INJECTION. A memory the extractor confirms
+// bore on the answer is counted as a use; one that was put in front of the
+// model and bore on nothing is counted AGAINST it, which is the same bargain
+// fixstore.go keeps with a fix it offered that then failed.
+func TestOnlyAMemoryThatHelpedIsCountedAsUsed(t *testing.T) {
+	script := &reflexScript{}
+	// The ledger is about a block the turn CARRIED, so the turn waits for it.
+	script.aDeliberateFirstAnswer()
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	dark := remember(t, brain, "prefers dark themes", "uses a dark theme everywhere")
+	script.route = `{"inject":["` + tabs.ID + `","` + dark.ID + `"],"cmd":null}`
+	script.extract = `{"mem":0,"used":["` + tabs.ID + `"]}`
+
+	collect(t, mustSubmit(t, agent, "reformat this file for me"))
+	_ = agent.Close()
+
+	helped, found, err := brain.MemoryRecord(tabs.ID)
+	if err != nil || !found {
+		t.Fatalf("read back: %v, found=%v", err, found)
+	}
+	if helped.UseCount != 1 || helped.MissCount != 0 {
+		t.Fatalf("the memory that helped reads %d/%d, want one use and no miss",
+			helped.UseCount, helped.MissCount)
+	}
+	unused, found, err := brain.MemoryRecord(dark.ID)
+	if err != nil || !found {
+		t.Fatalf("read back: %v, found=%v", err, found)
+	}
+	if unused.UseCount != 0 || unused.MissCount != 1 {
+		t.Fatalf("the memory that bore on nothing reads %d/%d, want no use and one miss",
+			unused.UseCount, unused.MissCount)
+	}
+}
+
+// A reflex that never answered is not evidence that a memory failed to help.
+// Nothing is counted either way, so somebody else's outage cannot push a good
+// line down this store's ranking.
+func TestAFailedExtractionCountsNothingAgainstWhatWasInjected(t *testing.T) {
+	script := &reflexScript{extractErr: errors.New("provider is down")}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+
+	collect(t, mustSubmit(t, agent, "reformat this file for me"))
+	_ = agent.Close()
+
+	record, _, _ := brain.MemoryRecord(tabs.ID)
+	if record.UseCount != 0 || record.MissCount != 0 {
+		t.Fatalf("a failed extraction counted %d/%d", record.UseCount, record.MissCount)
+	}
+}
+
+// ── the three commands' engine ──────────────────────────────────────────────
+
+func TestRememberForgetAndMemoriesAnswerByHand(t *testing.T) {
+	script := &reflexScript{decide: `{"op":"add"}`}
+	agent, brain := brainAgent(t, script, nil)
+
+	title, err := agent.Remember("prefers tabs over spaces in Go")
+	if err != nil {
+		t.Fatalf("Remember: %v", err)
+	}
+	if title == "" {
+		t.Fatal("Remember answered with no title")
+	}
+	lines, err := agent.Memories("")
+	if err != nil {
+		t.Fatalf("Memories: %v", err)
+	}
+	if len(lines) != 1 || lines[0].Text != "prefers tabs over spaces in Go" {
+		t.Fatalf("the list is %v", lines)
+	}
+	if lines[0].ID == "" {
+		t.Fatal("a listed memory has no id to name it by")
+	}
+
+	// The search half: a query narrows the list.
+	remember(t, brain, "standup time", "standup is at 9:15")
+	found, err := agent.Memories("standup")
+	if err != nil {
+		t.Fatalf("Memories(query): %v", err)
+	}
+	if len(found) != 1 || !strings.Contains(found[0].Text, "standup") {
+		t.Fatalf("the search answered %v", found)
+	}
+
+	dropped, err := agent.Forget("standup")
+	if err != nil {
+		t.Fatalf("Forget: %v", err)
+	}
+	if dropped != "standup time" {
+		t.Fatalf("Forget dropped %q", dropped)
+	}
+	missed, err := agent.Forget("pineapples")
+	if err != nil {
+		t.Fatalf("Forget(no match): %v", err)
+	}
+	if missed != "" {
+		t.Fatalf("Forget claimed to drop %q", missed)
+	}
+	if _, err := agent.Remember("   "); err == nil {
+		t.Fatal("Remember accepted an empty line")
+	}
+}
+
+// ── the legacy file ─────────────────────────────────────────────────────────
+
+// A person's memory.md is CARRIED, not dropped, and it is carried exactly once.
+func TestTheOldMemoryFileIsImportedOnceAndRenamed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "memory.md")
+	if err := os.WriteFile(path, []byte(
+		"# my memory\n\n- prefers tabs over spaces in Go\n\n- deploys on Fridays\n"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	script := &reflexScript{}
+	agent, brain := brainAgent(t, script, func(config *Config) { config.MemoryImport = path })
+
+	agent.importMemoryFile()
+
+	kept, err := brain.ListMemories("", 10)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(kept) != 2 {
+		t.Fatalf("imported %d lines, want 2: %v", len(kept), titles(kept))
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("memory.md is still there: %v", err)
+	}
+	if _, err := os.Stat(path + ".imported"); err != nil {
+		t.Fatalf("the person's own copy was not kept: %v", err)
+	}
+
+	// A second session finds nothing to import and writes nothing.
+	second, _ := newTestAgent(t, script, func(config *Config) {
+		config.Memory = brain
+		config.MemoryImport = path
+	})
+	second.importMemoryFile()
+	again, _ := brain.ListMemories("", 10)
+	if len(again) != 2 {
+		t.Fatalf("a second run imported again: %v", titles(again))
+	}
+}
+
+// ── what a task node opens with ─────────────────────────────────────────────
+
+// A node has no turn of its own to route against, so the conversation routes
+// for it — against the brief — and hands down the WORDS ([Agent.takeMemory]),
+// whenever the reading beside its work answers.
+func TestATaskNodeOpensWithTheMemoryItsBriefNeeded(t *testing.T) {
+	script := &reflexScript{}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+
+	block := agent.memoryBlock(context.Background(), "reformat every Go file in internal/session")
+	if !strings.Contains(block, "prefers tabs over spaces in Go") {
+		t.Fatalf("the brief was routed to nothing:\n%s", block)
+	}
+
+	child, err := newAgent(Config{
+		Workspace: t.TempDir(), Model: "test/model", System: "SYSTEM",
+	}, script)
+	if err != nil {
+		t.Fatalf("newAgent: %v", err)
+	}
+	child.takeMemory(block)
+	// The block rides at the TAIL, in its own note, and lands on the drain
+	// immediately before the first request (agent.go's memoryNoteOpening) — so
+	// what a node opens with is read out of the transcript rather than out of
+	// message[0], which the wave that moved it made byte-stable for the session.
+	child.mu.Lock()
+	child.landVolatileLocked()
+	child.mu.Unlock()
+	opening := transcriptText(child)
+	if !strings.Contains(opening, "prefers tabs over spaces in Go") {
+		t.Fatalf("the node did not open with the block:\n%s", opening)
+	}
+	// AND IT KEEPS THEM. A node has no store to route against, so the per-turn
+	// refresh has nothing to replace the block with — clearing it would take
+	// away the one thing the node was given.
+	collect(t, mustSubmit(t, child, "start on the first file"))
+	working := transcriptText(child)
+	if !strings.Contains(working, "prefers tabs over spaces in Go") {
+		t.Fatalf("the node's first turn dropped the block:\n%s", working)
+	}
+	// AND IT DID NOT INHERIT THE COUNTING. The parent's telemetry is the
+	// parent's; a node crediting its parent's memories with retrievals nobody
+	// made would make the numbers a fiction.
+	record, _, _ := brain.MemoryRecord(tabs.ID)
+	if record.UseCount != 0 {
+		t.Fatalf("the spawn seam counted %d retrievals", record.UseCount)
+	}
+}
+
+// MEMORY IS AN AID, NOT A CONTRACT, AND A LATE ONE RIDES THE NEXT REQUEST.
+//
+// The router used to be asked inside the worker's constructor, so the worker did
+// not exist until it had answered. It is read beside the work now (memory.go's
+// [nodeMemory]): a worker whose first request goes out first opens without the
+// block, and the block is on the very next request that worker makes, through the
+// same drain every request is assembled by.
+//
+// The order is made by the test: the router is released by the worker's first
+// request and has finished before that request is answered, so the second
+// request of the same turn is the first one it can ride.
+func TestMemoryThatAnswersLateRidesTheWorkersNextRequest(t *testing.T) {
+	const block = "<memory>prefers tabs over spaces in Go</memory>"
+	release := make(chan struct{})
+	memory := &nodeMemory{id: 1, ctx: context.Background(), route: func(context.Context) string {
+		<-release
+		return block
+	}}
+	worker := &lateMemoryWorker{memory: memory, release: release}
+	agent, err := newAgent(Config{Workspace: t.TempDir(), Model: "test/model", System: "SYSTEM", InTask: true}, worker)
+	if err != nil {
+		t.Fatalf("newAgent: %v", err)
+	}
+	t.Cleanup(func() { _ = agent.Close() })
+
+	memory.handTo(agent)
+	collect(t, mustSubmit(t, agent, "start on the first file"))
+	memory.end()
+
+	if len(worker.asked) != 2 {
+		t.Fatalf("the worker made %d requests, want the tool step and the answer", len(worker.asked))
+	}
+	if strings.Contains(worker.asked[0], "prefers tabs") {
+		t.Fatalf("the FIRST request carried a block the router had not answered yet:\n%s", worker.asked[0])
+	}
+	if !strings.Contains(worker.asked[1], "prefers tabs") {
+		t.Fatalf("the block that came back mid-turn never rode the next request:\n%s", worker.asked[1])
+	}
+}
+
+// lateMemoryWorker answers a worker's two requests: the first with a tool call,
+// having let the router go and waited for it to finish, and the second with the
+// end of the turn.
+type lateMemoryWorker struct {
+	memory  *nodeMemory
+	release chan struct{}
+	asked   []string
+}
+
+func (w *lateMemoryWorker) CompleteWithMessages(_ context.Context, messages []ai.Message, _ ...ai.Option) (*ai.Response, error) {
+	var asked strings.Builder
+	for _, message := range messages {
+		asked.WriteString(messageText(message))
+		asked.WriteString("\n")
+	}
+	w.asked = append(w.asked, asked.String())
+	if len(w.asked) == 1 {
+		close(w.release)
+		<-w.memory.reader.done
+		return toolResponse("call-1", "bash", `{"command":"true"}`), nil
+	}
+	return textResponse("Done."), nil
+}
+
+// AND THE CONSTRUCTOR NEVER WAITS FOR IT. A worker built for a node whose reading
+// has not answered exists at once, and is handed the block the moment it lands.
+func TestATaskWorkerIsBuiltWithoutWaitingForItsMemory(t *testing.T) {
+	script := &reflexScript{}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+	graph := agent.graph()
+	graph.run = func(*TaskNode) {}
+	id := graph.reserve()
+	graph.admit(id, taskSpec{title: "reformat", request: "reformat every Go file in internal/session",
+		brief: "reformat every Go file in internal/session", acceptance: "gofmt reports nothing", model: "test/model"})
+	node := graph.node(id)
+
+	ctx, end := agent.withNodeMemory(context.Background(), node)
+	release := make(chan struct{})
+	reading := nodeMemoryOn(ctx, node)
+	route := reading.route
+	reading.route = func(ctx context.Context) string {
+		<-release
+		return route(ctx)
+	}
+
+	worker, err := agent.newTaskAgent(ctx, t.TempDir(), node, "")
+	if err != nil {
+		t.Fatalf("newTaskAgent: %v", err)
+	}
+	t.Cleanup(func() { _ = worker.Close() })
+	worker.mu.Lock()
+	early := worker.memoryText
+	worker.mu.Unlock()
+	if early != "" {
+		t.Fatalf("the worker was built holding a block the router had not answered: %q", early)
+	}
+
+	close(release)
+	end()
+	worker.mu.Lock()
+	late := worker.memoryText
+	worker.mu.Unlock()
+	if !strings.Contains(late, "prefers tabs over spaces in Go") {
+		t.Fatalf("the router's answer never reached the worker built before it: %q", late)
+	}
+	// AND ONE READING SERVES EVERY WORKER THE NODE BUILDS. A second worker — a
+	// repair round, a resolver — is handed the answer already in hand, and the
+	// router is not asked again.
+	routes, _, _ := script.counts()
+	second, err := agent.newTaskAgent(ctx, t.TempDir(), node, "-repair1")
+	if err != nil {
+		t.Fatalf("newTaskAgent for the second worker: %v", err)
+	}
+	t.Cleanup(func() { _ = second.Close() })
+	second.mu.Lock()
+	handed := second.memoryText
+	second.mu.Unlock()
+	if !strings.Contains(handed, "prefers tabs over spaces in Go") {
+		t.Fatalf("the second worker was not handed the node's block: %q", handed)
+	}
+	if again, _, _ := script.counts(); again != routes {
+		t.Fatalf("the router was asked %d more times for a brief it had already answered", again-routes)
+	}
+}
+
+// And a conversation with no brain spawns a node exactly as it always did.
+func TestATaskNodeWithoutAStoreIsSkippedSilently(t *testing.T) {
+	script := &reflexScript{}
+	agent, _ := newTestAgent(t, script, nil)
+	if block := agent.memoryBlock(context.Background(), "reformat every Go file"); block != "" {
+		t.Fatalf("a brainless session routed a brief to %q", block)
+	}
+	if routes, _, _ := script.counts(); routes != 0 {
+		t.Fatalf("a brainless session made %d router calls", routes)
+	}
+}
+
+// ── the small judgements ────────────────────────────────────────────────────
+
+func TestTheBlockDropsTheTailRatherThanTheHead(t *testing.T) {
+	long := strings.Repeat("x", store.MemoryTextRunes)
+	memories := []store.Memory{
+		{ID: "a", Title: "first", Text: long},
+		{ID: "b", Title: "second", Text: long},
+		{ID: "c", Title: "third", Text: long},
+		{ID: "d", Title: "fourth", Text: long},
+		{ID: "e", Title: "fifth", Text: long},
+		{ID: "f", Title: "sixth", Text: long},
+		{ID: "g", Title: "seventh", Text: long},
+		{ID: "h", Title: "eighth", Text: long},
+		{ID: "i", Title: "ninth", Text: long},
+		{ID: "j", Title: "tenth", Text: long},
+	}
+	block, kept := renderMemoryBlock(memories, time.Now())
+	if len(kept) == 0 || len(kept) == len(memories) {
+		t.Fatalf("kept %d of %d — the cap did nothing", len(kept), len(memories))
+	}
+	if kept[0].ID != "a" {
+		t.Fatalf("the first memory the router named was dropped; kept %v", kept)
+	}
+	if !strings.Contains(block, "first") || strings.Contains(block, "tenth") {
+		t.Fatal("the block kept the tail rather than the head")
+	}
+}
+
+func TestATitleIsTheFirstSixWords(t *testing.T) {
+	if got := memoryTitleFrom("prefers tabs over spaces in Go always and forever"); got != "prefers tabs over spaces in Go" {
+		t.Fatalf("title is %q", got)
+	}
+}
+
+func TestAStatedPreferenceIsAPreferenceAndEverythingElseIsAFact(t *testing.T) {
+	if got := memoryTypeOf("always deploys on Fridays"); got != store.MemoryPreference {
+		t.Errorf("'always …' is a %q", got)
+	}
+	if got := memoryTypeOf("the repo is at github.com/example/thing"); got != store.MemoryFact {
+		t.Errorf("a plain statement is a %q", got)
+	}
+}
+
+// toolOutput is one named tool's result as the surface saw it. It reads the
+// event rather than the transcript because a surface's copy is the one a person
+// is shown, and the two must agree.
+func toolOutput(t *testing.T, events []Event, tool string) string {
+	t.Helper()
+	for _, event := range events {
+		if event.Tool != tool {
+			continue
+		}
+		if event.Kind == EventToolEnd || event.Kind == EventToolFailed {
+			return event.Output
+		}
+	}
+	t.Fatalf("no result event for %s; events = %v", tool, kinds(events))
+	return ""
+}
+
+// THE PERSON PAYS FOR THE REFLEX, SO THE BILL SAYS SO. It is the only auxiliary
+// call made twice every turn, which makes it exactly the one that must not be
+// invisible in /cost — and it is charged to the SESSION rather than to the turn,
+// because no turn asked for it.
+func TestTheReflexCallsAreOnTheSessionsBill(t *testing.T) {
+	script := &reflexScript{extract: `{"mem":0}`}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+
+	events := collect(t, mustSubmit(t, agent, "reformat this file for me"))
+	var turn Usage
+	for _, event := range events {
+		if event.Kind == EventTurnDone {
+			turn = event.Usage
+		}
+	}
+	_ = agent.Close()
+
+	session := agent.Usage()
+	if session.Input <= turn.Input {
+		t.Fatalf("the session billed %d input tokens and the turn billed %d — the reflex calls are free", session.Input, turn.Input)
+	}
+	if turn.Turns != 1 {
+		t.Fatalf("the reflex calls were counted as %d turns", turn.Turns)
+	}
+}
+
+func emptyReflexResponse(tokens int) *ai.Response {
+	response := textResponse(" \n")
+	response.Choices[0].FinishReason = "length"
+	response.Usage = &ai.Usage{
+		PromptTokens: 10, CompletionTokens: tokens, TotalTokens: 10 + tokens,
+	}
+	return response
+}
+
+func TestAnEmptyReflexFallsBackAndLeavesOneHonestTrail(t *testing.T) {
+	const primary = "test/reflex-silent"
+	const low = "test/low"
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	ledgerPath := filepath.Join(t.TempDir(), UsageLedgerName)
+	completer := &scriptedCompleter{steps: []step{
+		func(context.Context, []ai.Message) (*ai.Response, error) {
+			return emptyReflexResponse(200), nil
+		},
+		func(context.Context, []ai.Message) (*ai.Response, error) {
+			return textResponse(`{"inject":["memory-id"],"cmd":null}`), nil
+		},
+		func(context.Context, []ai.Message) (*ai.Response, error) {
+			return textResponse(`{"inject":[],"cmd":null}`), nil
+		},
+	}}
+	agent, brain := brainAgent(t, completer, func(config *Config) {
+		config.SessionFile = sessionPath
+		config.usageLedger = ledgerPath
+		config.RolesSource = tierSettings(map[string]string{
+			roles.TierKey(roles.TierReflex): primary,
+			roles.TierKey(roles.TierLow):    low,
+		})
+	})
+	memory := remember(t, brain, "the useful memory", "the useful remembered text")
+	// The scripted answer needs the store's real id, which is minted only after
+	// the agent exists.
+	completer.steps[1] = func(context.Context, []ai.Message) (*ai.Response, error) {
+		return textResponse(`{"inject":["` + memory.ID + `"],"cmd":null}`), nil
+	}
+
+	hub := newEventHub()
+	stream := hub.subscribe()
+	agent.mu.Lock()
+	agent.hub = hub
+	agent.mu.Unlock()
+	block := agent.routedMemory(context.Background(), "please use the useful memory now", agent.sayMemory, true)
+	if !strings.Contains(block, "the useful remembered text") {
+		t.Fatalf("the low-tier fallback did not route the memory:\n%s", block)
+	}
+	agent.routedMemory(context.Background(), "please check the useful memory again", agent.sayMemory, true)
+	agent.mu.Lock()
+	agent.hub = nil
+	agent.mu.Unlock()
+	hub.close()
+
+	var notices []string
+	for event := range stream {
+		if event.Kind == EventNotice && strings.Contains(event.Text, "reflex model answers nothing") {
+			notices = append(notices, event.Text)
+		}
+	}
+	if len(notices) != 1 || !strings.Contains(notices[0], "using "+low+" for this session") {
+		t.Fatalf("fallback notices = %q, want one calm line naming %s", notices, low)
+	}
+
+	completer.mu.Lock()
+	models := append([]string(nil), completer.models...)
+	ceilings := append([]int(nil), completer.max...)
+	completer.mu.Unlock()
+	if got := strings.Join(models, ","); got != primary+","+low+","+low {
+		t.Fatalf("models = %s, want the primary once and then the low tier", got)
+	}
+	for call, ceiling := range ceilings {
+		if ceiling != 0 {
+			t.Fatalf("call %d carried max_tokens = %d", call+1, ceiling)
+		}
+	}
+
+	used := agent.Usage()
+	if used.EmptyReflex != 1 || used.Calls != 3 {
+		t.Fatalf("usage = %+v, want three reflex calls and one empty answer", used)
+	}
+	if err := agent.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	lines := journalUsageLines(t, sessionPath)
+	if len(lines) != 3 {
+		t.Fatalf("journal has %d usage rows, want one per paid request", len(lines))
+	}
+	for index, line := range lines {
+		if !line.Aux || line.Role != string(roles.RoleReflex) {
+			t.Fatalf("row %d = %+v, want an auxiliary reflex row", index+1, line)
+		}
+		if line.Empty != (index == 0) {
+			t.Fatalf("row %d empty = %v, want %v", index+1, line.Empty, index == 0)
+		}
+	}
+	replayed, err := replaySessionFile(sessionPath)
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if replayed.usage.EmptyReflex != 1 {
+		t.Fatalf("replayed usage = %+v, want the empty reflex answer", replayed.usage)
+	}
+	FlushUsage()
+	ledger, err := ReadUsage(ledgerPath, time.Time{})
+	if err != nil {
+		t.Fatalf("read usage ledger: %v", err)
+	}
+	if len(ledger) != 3 || !ledger[0].Empty || ledger[1].Empty || ledger[2].Empty {
+		t.Fatalf("usage ledger = %+v, want only the wasted request marked empty", ledger)
+	}
+}
+
+// ── the shortlist, the age, and the line a supersession now draws ───────────
+
+// The router is shown a SHORTLIST and never the store. Two hundred titles was
+// about 3,200 tokens on every message and grew with everything the person had
+// ever asked to be kept.
+func TestTheRouterIsShownAShortlistAndNotTheWholeStore(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`, extract: `{"mem":0}`}
+	agent, brain := brainAgent(t, script, nil)
+	for index := 0; index < 60; index++ {
+		remember(t, brain, fmt.Sprintf("Filler %d", index),
+			fmt.Sprintf("An unremarkable line number %d about nothing.", index))
+	}
+	agent.routedMemory(context.Background(), "can you reformat this file for me", nil, false)
+
+	shown := script.lastRouteInput()
+	if shown == "" {
+		t.Fatal("the router was never asked")
+	}
+	lines := strings.Count(shown, "\n- ")
+	if lines > store.MemoryCandidatesDefault {
+		t.Fatalf("the router was shown %d lines, want at most %d:\n%s",
+			lines, store.MemoryCandidatesDefault, shown)
+	}
+	if lines == 0 {
+		t.Fatalf("the router was shown nothing at all:\n%s", shown)
+	}
+}
+
+// A memory that has HELPED before reaches the shortlist even when the message
+// shares no word with it. That is the one thing a lexical index cannot do, and
+// it is why importance is one of the three rankings fused.
+func TestAMemoryThatHasHelpedReachesTheShortlistWithoutAWordInCommon(t *testing.T) {
+	script := &reflexScript{route: `{"inject":[],"cmd":null}`}
+	agent, brain := brainAgent(t, script, nil)
+	terse := remember(t, brain, "wants terse replies", "Answers short, conclusion first, no preamble.")
+	for index := 0; index < 40; index++ {
+		remember(t, brain, fmt.Sprintf("Filler %d", index),
+			fmt.Sprintf("An unremarkable line number %d about nothing.", index))
+	}
+	for turn := 0; turn < 20; turn++ {
+		if err := brain.RecordMemoryOutcome([]string{terse.ID}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	agent.routedMemory(context.Background(), "rewrite the postgres migration for me", nil, false)
+
+	if shown := script.lastRouteInput(); !strings.Contains(shown, terse.ID) {
+		t.Fatalf("the high-value head is not in the shortlist:\n%s", shown)
+	}
+}
+
+// The injected block stamps every line with how long ago it was learned, and it
+// is SHOWN rather than asked for.
+func TestTheInjectedBlockCarriesEachLinesAge(t *testing.T) {
+	script := &reflexScript{}
+	agent, brain := brainAgent(t, script, nil)
+	tabs := remember(t, brain, "prefers tabs", "prefers tabs over spaces in Go")
+	script.route = `{"inject":["` + tabs.ID + `"],"cmd":null}`
+
+	block := agent.routedMemory(context.Background(), "reformat this file for me", nil, false)
+	if !strings.Contains(block, "prefers tabs over spaces in Go (learned just now)") {
+		t.Fatalf("the block carries no age:\n%s", block)
+	}
+}
+
+// An unknown age renders as NOTHING — the emptiness law, and the honest answer
+// for a row whose journal entry predates the column.
+func TestAMemoryWithNoKnownAgeRendersNoAge(t *testing.T) {
+	block, kept := renderMemoryBlock([]store.Memory{
+		{ID: "a", Title: "prefers tabs", Text: "prefers tabs over spaces in Go"},
+	}, time.Now())
+	if len(kept) != 1 {
+		t.Fatalf("kept %d lines", len(kept))
+	}
+	if strings.Contains(block, "learned") {
+		t.Fatalf("an unknown age was rendered:\n%s", block)
+	}
+}
+
+// A SUPERSESSION IS NO LONGER SILENT. A model deciding out of ordinary
+// conversation that something the person said has stopped being true gets the
+// same one dim line remember and forget get.
+func TestASupersessionSaysWhatItReplaced(t *testing.T) {
+	script := &reflexScript{
+		route:   `{"inject":[],"cmd":null}`,
+		extract: `{"mem":1,"type":"fact","scope":"project","title":"deploys on Tuesdays","text":"Deploys go out on Tuesday mornings.","tags":[]}`,
+	}
+	agent, brain := brainAgent(t, script, nil)
+	// THE NEXT TURN'S RECALL IS WHAT SAYS IT, and that recall rides beside the
+	// turn: the conversation answers once it has landed, so the line is on the
+	// stream of the turn that said it rather than whichever turn came after.
+	watchReadings(t, agent)
+	fridays := remember(t, brain, "deploys on Fridays", "Deploys go out on Friday afternoons.")
+	script.mu.Lock()
+	script.decide = `{"op":"supersede","target_id":"` + fridays.ID + `","title":"deploys on Tuesdays","text":"Deploys go out on Tuesday mornings."}`
+	script.mu.Unlock()
+
+	collect(t, mustSubmit(t, agent, "we moved deploys to Tuesday mornings"))
+	// The pass writes after the turn is sealed, so the line is held until there
+	// is a stream to say it on. The next turn is that stream.
+	agent.memoryJobs.Wait()
+
+	said := supersessionSaid(collect(t, mustSubmit(t, agent, "what else is on today")))
+	if said != "superseded · deploys on Fridays → deploys on Tuesdays" {
+		t.Fatalf("the supersession said %q, want it to name both halves", said)
+	}
+}
+
+// AND A READING THAT OUTLIVED ITS TURN SAYS NOTHING INTO THE DARK.
+//
+// The recall rides beside the turn and is never joined, so on a busy machine it
+// can run after the turn it was started for has ended, and it is the thing that
+// takes a held line off the queue. It used to say that line onto the stream it
+// had been handed when it started, which by then had closed: the supersession
+// was taken, said to nobody, and never said again. Measured on this package's
+// own test beside another suite, where the drain logged `ctxErr=context
+// canceled hubClosed=true` on every run that lost the line. A line taken with no
+// turn live now goes back on the queue, and the next turn says it.
+func TestAHeldLineOutlivesTheReadingThatTookIt(t *testing.T) {
+	const line = "superseded · deploys on Fridays → deploys on Tuesdays"
+	agent, _ := brainAgent(t, &reflexScript{route: `{"inject":[],"cmd":null}`}, nil)
+	watchReadings(t, agent)
+	agent.memory.queueNotice(line)
+
+	// The recall of a turn that has already ended, running now: no stream is live.
+	agent.refreshMemory(context.Background(), "we moved deploys to Tuesday mornings")
+
+	if said := supersessionSaid(collect(t, mustSubmit(t, agent, "what else is on today"))); said != line {
+		t.Fatalf("the next turn said %q, want the held line the late reading took", said)
+	}
+}
+
+// TestALineSaidOntoAClosedStreamIsHeldInstead is the property the held line
+// rests on, and the reason it is a property and not an ordering: a reading that
+// outlived its turn may still be holding the pointer to that turn's hub, and
+// the only thing that can say whether a line landed is the hub, under its own
+// lock. Here the hub is closed with the pointer deliberately left in place —
+// the shape a fourth road that closed before it cleared would leave behind —
+// and the line is still there to be said on the next turn.
+func TestALineSaidOntoAClosedStreamIsHeldInstead(t *testing.T) {
+	const line = "superseded · deploys on Fridays → deploys on Tuesdays"
+	agent, _ := brainAgent(t, &reflexScript{route: `{"inject":[],"cmd":null}`}, nil)
+	watchReadings(t, agent)
+
+	hub := newEventHub()
+	hub.close()
+	agent.mu.Lock()
+	agent.hub = hub
+	agent.mu.Unlock()
+	agent.sayMemory(line)
+	agent.mu.Lock()
+	agent.hub = nil
+	agent.mu.Unlock()
+
+	if said := supersessionSaid(collect(t, mustSubmit(t, agent, "what else is on today"))); said != line {
+		t.Fatalf("the next turn said %q, want the line the closed stream could not take", said)
+	}
+}
+
+// supersessionSaid is the supersession line a turn put on its stream, or "".
+func supersessionSaid(events []Event) string {
+	for _, text := range noticeTexts(events) {
+		if strings.HasPrefix(text, "superseded · ") {
+			return text
+		}
+	}
+	return ""
+}

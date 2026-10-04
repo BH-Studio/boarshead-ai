@@ -1,0 +1,1180 @@
+package provider
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	lanes "github.com/Agent-Field/codeaf/internal/lane"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+)
+
+// ── the corpus ──────────────────────────────────────────────────────────────
+//
+// THE TWO DEGENERATE TEXTS ARE REAL. They were streamed by
+// deepseek/deepseek-v4-pro-0813 into one conversation on 2026-08-20, at about
+// 150k input tokens, and are excerpted verbatim into testdata: the first
+// collapses into multi-script soup ("стаthisada", "済", a run of six hundred
+// letter s), and the second ends in several thousand repetitions of "    0\n".
+// Both were recorded in the transcript, both went back into the next request,
+// and the second was worse than the first.
+//
+// The innocents beside them are the shapes a legitimate reply takes that LOOK
+// like those two from a distance: text that compresses to nothing because it is
+// a matrix or a log, and text that mixes alphabets because the answer is about
+// more than one language. Every one of them must survive.
+
+func loadCorpus(t *testing.T, name string) string {
+	t.Helper()
+	text, err := os.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatalf("read corpus %s: %v", name, err)
+	}
+	return string(text)
+}
+
+// feed streams text through the guard the way the read loop does — in deltas,
+// not in one piece — and says whether it tripped and after how much.
+func feed(text string, delta int) (bool, int) {
+	watch := &babbleWatch{}
+	for at := 0; at < len(text); at += delta {
+		end := at + delta
+		if end > len(text) {
+			end = len(text)
+		}
+		if watch.write(text[at:end]) {
+			return true, end
+		}
+	}
+	return false, len(text)
+}
+
+func TestTheRealDegenerationsAreCut(t *testing.T) {
+	for _, name := range []string{"babble-mixed-script.txt", "babble-repetition-loop.txt"} {
+		text := loadCorpus(t, name)
+		tripped, at := feed(text, 48)
+		if !tripped {
+			t.Fatalf("%s streamed to the end untouched — %d bytes of it", name, len(text))
+		}
+		t.Logf("%s cut after %d of %d bytes", name, at, len(text))
+	}
+}
+
+// TestOneDegenerationIsCutAtEveryDeltaSize pins that the answer is a property of
+// the TEXT and not of how the endpoint happened to chop it up. A guard that only
+// worked at one chunk size would be a guard that worked in the test.
+func TestOneDegenerationIsCutAtEveryDeltaSize(t *testing.T) {
+	text := loadCorpus(t, "babble-repetition-loop.txt")
+	for _, delta := range []int{1, 3, 17, 200, 4096} {
+		if tripped, _ := feed(text, delta); !tripped {
+			t.Fatalf("delta %d: the loop streamed to the end untouched", delta)
+		}
+	}
+}
+
+func TestLegitimateRepliesAreLeftAlone(t *testing.T) {
+	innocents := map[string]string{
+		"a zero matrix in a code fence": "Here is what the test printed:\n\n```\n" +
+			strings.Repeat("    0\n", 900) + "```\n\nEvery entry is zero, as expected.\n",
+		"a test log in a code fence": "The suite says:\n\n```\n" +
+			strings.Repeat("ok  \tgithub.com/x/y\t0.001s\n", 400) + "```\n",
+		"repetitive code in a code fence": "```go\n" + strings.Repeat(
+			"func handle(w http.ResponseWriter, r *http.Request) {\n\tif err := do(r); err != nil {\n\t\thttp.Error(w, err.Error(), 500)\n\t\treturn\n\t}\n}\n", 80) + "```\n",
+		"a big JSON dump in a code fence": "```json\n" + strings.Repeat(
+			"  {\"id\": 1, \"name\": \"row\", \"value\": 0},\n", 500) + "```\n",
+		"a long markdown table":             markdownTable(300),
+		"ascii art with no fence":           asciiArt(200),
+		"markdown rules between paragraphs": markdownRules(90),
+		"a bilingual English and Chinese answer": strings.Repeat(
+			"The Chinese word for computer is 电脑, literally 'electric brain'. "+
+				"In a sentence: 我的电脑很快, meaning 'my computer is fast'. "+
+				"The formal register prefers 计算机, which you see in academic writing. ", 30),
+		"a four-language glossary": strings.Repeat(
+			"In Russian that is компьютер, in Chinese 电脑, and in Greek υπολογιστής. "+
+				"Each borrows differently: компьютер is a transliteration, "+
+				"电脑 is a calque, and υπολογιστής is a native coinage. ", 30),
+		"a four-script table": strings.Repeat(
+			"| en | ru | zh | el |\n| hello | привет | 你好 | γεια |\n"+
+				"| world | мир | 世界 | κόσμος |\n| thanks | спасибо | 谢谢 | ευχαριστώ |\n", 40),
+		"Japanese prose with Latin nouns": strings.Repeat(
+			"このAPIはHTTPリクエストを受け取り、JSONを返します。Goのnet/httpパッケージを使い、"+
+				"ctxをWithTimeoutで包むのが基本です。エラーはerrors.Isで判定してください。", 40),
+		"emoji-heavy prose": strings.Repeat(
+			"Done! ✅ The build passed 🎉 and the tests are green 🟢. "+
+				"Next up: the deploy 🚀 — I will ping you when it lands. ", 40),
+		"loanwords and accents": strings.Repeat(
+			"The naive approach — a soupçon of caching, plus a résumé of the schema — "+
+				"handles the déjà vu case. See the München benchmark and the 日本語 note. ", 40),
+		"mathematics in Greek letters": strings.Repeat(
+			"The bound is σ ≤ ε·√n where ε is the tolerance and n the sample count. "+
+				"Substituting μ for the mean gives Δ = |μ̂ − μ| ≤ σ/√n with probability 1−δ. ", 40),
+		"plain English prose": plainProse(120),
+	}
+	for name, text := range innocents {
+		if tripped, at := feed(text, 48); tripped {
+			t.Errorf("%s was cut at %d of %d bytes — a legitimate reply must survive",
+				name, at, len(text))
+		}
+	}
+}
+
+// TestAShortRepetitionIsNotADegeneration pins the full-window rule: somebody
+// answering "no, no, no" is not a model that has come off the rails, and the
+// compression test may not say anything until it has a whole window — the
+// short one, a kilobyte — to read.
+func TestAShortRepetitionIsNotADegeneration(t *testing.T) {
+	if tripped, _ := feed(strings.Repeat("no. ", 200), 8); tripped {
+		t.Fatal("a short repeated line was cut before the window was even full")
+	}
+}
+
+// TestOneTokenOverAndOverIsCutInsideTwoKilobytes is the 2026-09-01 shape: a
+// serving stack looping the chat template's own closer into the answer, which
+// a person watched for fourteen seconds and stopped by hand because the guard
+// could not speak before four kilobytes. The short window makes it a matter
+// of a second or two. "# 1.0." in the middle is what the real screen showed,
+// and it must not rescue the loop.
+func TestOneTokenOverAndOverIsCutInsideTwoKilobytes(t *testing.T) {
+	for name, text := range map[string]string{
+		"a bare closer loop":        strings.Repeat("</think>", 2000),
+		"a closer loop with a word": strings.Repeat("</think>", 60) + "# 1.0." + strings.Repeat("</think>", 2000),
+		"a zero loop with no fence": strings.Repeat("    0\n", 3000),
+	} {
+		tripped, at := feed(text, 48)
+		if !tripped {
+			t.Fatalf("%s streamed to the end untouched", name)
+		}
+		if at > 2*babbleShortWindow {
+			t.Fatalf("%s was cut only after %d bytes; the short window should have read it by %d", name, at, 2*babbleShortWindow)
+		}
+	}
+}
+
+// TestALoopBehindAFenceThatNeverClosesIsStillCut pins the fence cap. A model
+// that opens a real code fence and then comes apart inside it used to be
+// invisible for the rest of the stream — measured, 240 kilobytes of one token
+// after a bare "```go" line never tripped — and a fenced innocent under the cap
+// is still never judged.
+func TestALoopBehindAFenceThatNeverClosesIsStillCut(t *testing.T) {
+	soup := "here is the patch:\n```go\n" + strings.Repeat("</think>", 32000)
+	tripped, at := feed(soup, 64)
+	if !tripped {
+		t.Fatal("a loop behind an open fence was never cut")
+	}
+	if at < fenceCap || at > fenceCap+4*babbleShortWindow {
+		t.Fatalf("cut at %d bytes; want just past the %d-byte fence cap", at, fenceCap)
+	}
+	// Under the cap a fenced block may be as repetitive as it likes.
+	dump := "```json\n" + strings.Repeat("  {\"id\": 1, \"name\": \"row\", \"value\": 0},\n", 1200) + "```\n" +
+		"That is the whole file — every row is the same, as you suspected.\n"
+	if len(dump) > fenceCap {
+		t.Fatalf("the innocent dump is %d bytes, over the cap it is meant to sit under", len(dump))
+	}
+	if tripped, at := feed(dump, 64); tripped {
+		t.Fatalf("a %d-byte repetitive code block under the cap was cut at %d", len(dump), at)
+	}
+}
+
+// TestLostItsThreadReadsTheTailOfAStoppedReply pins the keep path's judgement:
+// the same window and floor as the live guard, read once over text that has
+// already streamed. A healthy reply and a short one are kept; soup is not.
+func TestLostItsThreadReadsTheTailOfAStoppedReply(t *testing.T) {
+	if !LostItsThread(strings.Repeat("</think>", 400)) {
+		t.Fatal("three kilobytes of one token were not read as soup")
+	}
+	if !LostItsThread(plainProse(20) + strings.Repeat("</think>", 400)) {
+		t.Fatal("a reply that came apart at its tail was not read as soup")
+	}
+	for name, text := range map[string]string{
+		"a healthy half answer": plainProse(30),
+		"a short repeated word": strings.Repeat("no. ", 100),
+		"a fenced zero matrix":  "```\n" + strings.Repeat("    0\n", 900) + "```\n",
+		"nothing at all":        "",
+	} {
+		if LostItsThread(text) {
+			t.Fatalf("%s was read as soup", name)
+		}
+	}
+}
+
+// TestAFenceTheSoupInventedDoesNotBlindTheGuard is the reason fenceLine is
+// strict. The real degeneration emitted "```ongoingSpark......" mid-soup, and a
+// scanner that took that for a code fence would have stopped reading exactly
+// when it mattered.
+func TestAFenceTheSoupInventedDoesNotBlindTheGuard(t *testing.T) {
+	text := "```ongoingSpark........................\n" + strings.Repeat("    0\n", 900)
+	if tripped, _ := feed(text, 48); !tripped {
+		t.Fatal("a loop behind an invented fence was not cut")
+	}
+	if _, ok := fenceLine([]byte("```ongoingSpark........................\n")); ok {
+		t.Fatal("an info string full of dots was read as a language tag")
+	}
+	for _, opener := range []string{"```", "```go\n", "   ```json\n", "```c++\n"} {
+		if _, ok := fenceLine([]byte(opener)); !ok {
+			t.Fatalf("%q is a real fence and was not read as one", opener)
+		}
+	}
+}
+
+// TestOneUnbrokenLineCannotOutrunTheGuard pins that a model writing megabytes
+// with no newline is still read: the pending line is settled once it is longer
+// than the window, so nothing can hide in it.
+func TestOneUnbrokenLineCannotOutrunTheGuard(t *testing.T) {
+	if tripped, _ := feed(strings.Repeat("s", 40000), 64); !tripped {
+		t.Fatal("forty thousand letters on one line were not cut")
+	}
+}
+
+// asciiArt is a drawn table with real figures in it, which is what a model
+// producing one actually sends.
+func asciiArt(rows int) string {
+	var out strings.Builder
+	for i := 0; i < rows; i++ {
+		out.WriteString("+------+------+------+\n")
+		fmt.Fprintf(&out, "| %4d | %4d | %4d |\n", i, i*7%997, i*31%89)
+	}
+	return out.String()
+}
+
+func markdownTable(rows int) string {
+	var out strings.Builder
+	out.WriteString("| id | name | value |\n| --- | --- | --- |\n")
+	for i := 0; i < rows; i++ {
+		fmt.Fprintf(&out, "| row-%d | %s | %d |\n", i, strings.Repeat(string(rune('a'+i%8)), 6), i*37)
+	}
+	return out.String()
+}
+
+func markdownRules(sections int) string {
+	words := strings.Fields("alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau")
+	var out strings.Builder
+	for i := 0; i < sections; i++ {
+		fmt.Fprintf(&out, "## Section %d\n\n%s\n\n", i, strings.Repeat("-", 78))
+		for w := 0; w < 14; w++ {
+			out.WriteString(words[(i*7+w*3)%len(words)] + " ")
+		}
+		out.WriteString(".\n\n")
+	}
+	return out.String()
+}
+
+func plainProse(sentences int) string {
+	words := strings.Fields("the guard sits at the stream layer and watches two things at once it does not " +
+		"read tool results because a tool that prints a million zeros is doing its job only what the " +
+		"model itself is saying reaches this and nothing else ever will")
+	var out strings.Builder
+	for i := 0; i < sentences; i++ {
+		for w := 0; w < 18; w++ {
+			out.WriteString(words[(i*11+w*5)%len(words)] + " ")
+		}
+		out.WriteString(". ")
+	}
+	return out.String()
+}
+
+// ── the silence watchdog ────────────────────────────────────────────────────
+
+// TestASilentEndpointIsCutAndNamed streams response headers and then nothing at
+// all, with the watchdog's bounds shortened for the test, and pins that the call
+// comes back as a cut rather than as a torn connection.
+func TestASilentEndpointIsCutAndNamed(t *testing.T) {
+	restore := shortenStallBounds(t, 60*time.Millisecond, 60*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		// Keepalive comments and nothing else: bytes on the wire, no model
+		// writing. This is exactly the shape transport.go's byte watchdog
+		// cannot see. The comments buy the stream the buffered cap — and
+		// nothing past it, which is what this test now proves: an endpoint
+		// that speaks forever and answers never is still cut.
+		for i := 0; i < 40; i++ {
+			fmt.Fprint(w, ": keepalive\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer server.Close()
+
+	_, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutSilent {
+		t.Fatalf("reason = %d, want CutSilent", cut.Reason)
+	}
+	if !strings.Contains(cut.Error(), "nothing came back") {
+		t.Fatalf("sentence = %q", cut.Error())
+	}
+}
+
+// TestAStreamThatGoesQuietMidReplyIsCutAndNamed is the second bound: the model
+// wrote, so the wait is a gap rather than a wait to be served, and the two are
+// named differently because a person watching them sees two different things.
+func TestAStreamThatGoesQuietMidReplyIsCutAndNamed(t *testing.T) {
+	restore := shortenStallBounds(t, 5*time.Second, 60*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: "+deltaChunk("the answer begins")+"\n\n")
+		w.(http.Flusher).Flush()
+		for i := 0; i < 40; i++ {
+			fmt.Fprint(w, ": keepalive\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer server.Close()
+
+	_, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutStalled {
+		t.Fatalf("reason = %d, want CutStalled", cut.Reason)
+	}
+}
+
+// TestTheWatchdogDoesNotEatAnInterrupt is the law the guard must never break: a
+// person who stopped the turn gets their stop back, not a report about the
+// provider.
+func TestTheWatchdogDoesNotEatAnInterrupt(t *testing.T) {
+	restore := shortenStallBounds(t, 40*time.Millisecond, 40*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		for i := 0; i < 40; i++ {
+			fmt.Fprint(w, ": keepalive\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer server.Close()
+
+	ctx, stop := context.WithCancel(context.Background())
+	time.AfterFunc(20*time.Millisecond, stop)
+	_, err := streamAgainstCtx(ctx, t, server.URL, nil)
+	if _, ok := CutFrom(err); ok {
+		t.Fatalf("an interrupt came back as a stream cut: %v", err)
+	}
+	if ctx.Err() == nil {
+		t.Fatal("the test never actually interrupted")
+	}
+}
+
+// TestAQuietStreamWhoseEndpointStillSpeaksIsGivenPatience is the buffering
+// case measured on 2026-08-24: the model goes quiet past the gap bound while
+// the endpoint assembles the answer server-side, keepalives flowing the whole
+// time — and then the answer LANDS. Five of sixteen production endpoints
+// deliver tool calls exactly this way; before the buffered cap existed, every
+// one of those streams was cut on the verge of finishing.
+func TestAQuietStreamWhoseEndpointStillSpeaksIsGivenPatience(t *testing.T) {
+	restore := shortenStallBoundsCapped(t, 5*time.Second, 60*time.Millisecond, 800*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: "+deltaChunk("the answer begins ")+"\n\n")
+		w.(http.Flusher).Flush()
+		// Quiet for three gap bounds — a cut under the old law — with the
+		// endpoint speaking the whole time.
+		for i := 0; i < 20; i++ {
+			fmt.Fprint(w, ": keepalive\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+		fmt.Fprint(w, "data: "+deltaChunk("and lands whole")+"\n\n")
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainst(t, server.URL, nil)
+	if err != nil {
+		t.Fatalf("a buffered stream that finished was cut: %v", err)
+	}
+	if got := response.Text(); got != "the answer begins and lands whole" {
+		t.Fatalf("text = %q", got)
+	}
+}
+
+// TestPatienceEndsAtTheBufferedCap is the trickler the header always feared: an
+// endpoint that speaks forever and answers never. The cap is the whole reason
+// the extension is safe to grant, and the cut names the cap it waited.
+func TestPatienceEndsAtTheBufferedCap(t *testing.T) {
+	restore := shortenStallBoundsCapped(t, 60*time.Millisecond, 60*time.Millisecond, 200*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: "+deltaChunk("started")+"\n\n")
+		w.(http.Flusher).Flush()
+		for i := 0; i < 60; i++ {
+			fmt.Fprint(w, ": keepalive\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer server.Close()
+
+	_, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutStalled {
+		t.Fatalf("reason = %d, want CutStalled", cut.Reason)
+	}
+	if cut.Waited != stallBufferedBound {
+		t.Fatalf("waited = %v, want the buffered cap %v — the sentence must name the wait the person actually watched", cut.Waited, stallBufferedBound)
+	}
+}
+
+// TestDeadSilenceIsStillCutAtThePlainBound pins that the extension is only for
+// an endpoint that is SPEAKING: a connection sending nothing at all gets the
+// old bounds, because that one really is not coming back.
+func TestDeadSilenceIsStillCutAtThePlainBound(t *testing.T) {
+	restore := shortenStallBoundsCapped(t, 5*time.Second, 60*time.Millisecond, 10*time.Second)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: "+deltaChunk("the answer begins")+"\n\n")
+		w.(http.Flusher).Flush()
+		time.Sleep(500 * time.Millisecond)
+	}))
+	defer server.Close()
+
+	began := time.Now()
+	_, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutStalled {
+		t.Fatalf("reason = %d, want CutStalled", cut.Reason)
+	}
+	if cut.Waited != stallGapBound {
+		t.Fatalf("waited = %v, want the plain gap bound %v", cut.Waited, stallGapBound)
+	}
+	if elapsed := time.Since(began); elapsed > 400*time.Millisecond {
+		t.Fatalf("a dead connection was given %v — the buffered patience is only for an endpoint that is speaking", elapsed)
+	}
+}
+
+// TestASlowButLivingStreamIsNeverCut pins the other side of it: a model writing
+// steadily, more slowly than the gap bound, is a model that is working.
+func TestASlowButLivingStreamIsNeverCut(t *testing.T) {
+	restore := shortenStallBounds(t, 200*time.Millisecond, 80*time.Millisecond)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		for i := 0; i < 12; i++ {
+			fmt.Fprint(w, "data: "+deltaChunk("word ")+"\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(30 * time.Millisecond)
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainst(t, server.URL, nil)
+	if err != nil {
+		t.Fatalf("a healthy slow stream failed: %v", err)
+	}
+	if got := response.Text(); got != strings.Repeat("word ", 12) {
+		t.Fatalf("text = %q", got)
+	}
+}
+
+// ── the degeneration guard end to end ───────────────────────────────────────
+
+func TestADegenerateStreamComesBackAsACutAndNothingElse(t *testing.T) {
+	soup := loadCorpus(t, "babble-repetition-loop.txt")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		for at := 0; at < len(soup); at += 200 {
+			end := at + 200
+			if end > len(soup) {
+				end = len(soup)
+			}
+			fmt.Fprint(w, "data: "+deltaChunk(soup[at:end])+"\n\n")
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutBabble {
+		t.Fatalf("reason = %d, want CutBabble", cut.Reason)
+	}
+	// THE HIGHEST-VALUE PROPERTY: no response means nothing to record, so the
+	// junk cannot reach the transcript and cannot be re-sent next turn.
+	if response != nil {
+		t.Fatalf("a cut stream returned a response of %d bytes", len(response.Text()))
+	}
+}
+
+// TestALoopOnTheThinkingChannelIsCut pins that the working is watched too. The
+// reproduced upstream failure on these models loops one glyph inside the
+// reasoning pass with no content at all (sgl-project/sglang#36669): a stream
+// that showed a person nothing while it ran to the ceiling and billed every
+// token. It ends the same way a loop in the answer does — a cut, no response.
+func TestALoopOnTheThinkingChannelIsCut(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		for range 4000 {
+			fmt.Fprint(w, "data: "+reasoningChunk("!!!!")+"\n\n")
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprint(w, "data: "+deltaChunk("the answer")+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainst(t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutBabble {
+		t.Fatalf("reason = %d, want CutBabble", cut.Reason)
+	}
+	if response != nil {
+		t.Fatalf("a cut stream returned a response of %d bytes", len(response.Text()))
+	}
+}
+
+// And a long, ordinary run of thought is left alone: thinking is prose.
+func TestALongOrdinaryThoughtIsNotCut(t *testing.T) {
+	thought := plainProse(120)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		for at := 0; at < len(thought); at += 120 {
+			end := min(at+120, len(thought))
+			fmt.Fprint(w, "data: "+reasoningChunk(thought[at:end])+"\n\n")
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprint(w, "data: "+deltaChunk("the answer")+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainst(t, server.URL, nil)
+	if err != nil {
+		t.Fatalf("a healthy thought was cut: %v", err)
+	}
+	if response == nil || response.Text() != "the answer" {
+		t.Fatalf("response = %#v, want the answer after the thought", response)
+	}
+}
+
+func TestTheGuardCanBeSwitchedOff(t *testing.T) {
+	soup := loadCorpus(t, "babble-repetition-loop.txt")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: "+deltaChunk(soup)+"\n\n")
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	response, err := streamAgainstCtx(WithoutBabbleGuard(context.Background()), t, server.URL, nil)
+	if err != nil {
+		t.Fatalf("with the guard off the stream must land: %v", err)
+	}
+	if response.Text() != soup {
+		t.Fatal("with the guard off the reply must come back byte for byte")
+	}
+}
+
+// ── plumbing ────────────────────────────────────────────────────────────────
+
+// shortenStallBounds makes the silence bounds testable. They are constants in
+// the shipping binary for the one-source-of-truth reason; this swaps the
+// variables the watchdog actually reads and puts them back. The buffered cap
+// travels with the two bounds because every keepalive-sending test server is
+// now buying patience against it, and a test that shortened only the bounds
+// would sit through the real two and a half minutes.
+func shortenStallBounds(t *testing.T, first, gap time.Duration) func() {
+	t.Helper()
+	return shortenStallBoundsCapped(t, first, gap, 4*gap)
+}
+
+// It holds the ROLE MULTIPLIER at one as well, and that is part of the same
+// seam. Every bound below is scaled by the patience of the role that asked
+// ([boundsFor]); a test that shortens the transport to milliseconds is asking
+// whether the machinery cuts rather than whose errand it was, so the figures it
+// states here are the figures its watch runs on.
+func shortenStallBoundsCapped(t *testing.T, first, gap, buffered time.Duration) func() {
+	t.Helper()
+	oldFirst, oldGap, oldBuffered := stallFirstBound, stallGapBound, stallBufferedBound
+	oldPatience, oldCeiling := stallPatience, stallCeiling
+	stallFirstBound, stallGapBound, stallBufferedBound = first, gap, buffered
+	stallPatience = func(lanes.Role) float64 { return 1 }
+	// AND THE CEILING COMES DOWN WITH THEM. The floor under every bound is
+	// [transportHeadroom] ceilings, so a shortened transport left beside a
+	// ten-second ceiling has a twenty-second floor standing over figures stated
+	// in milliseconds — which is [stallBounds.floor] silently substituting
+	// itself for everything this helper set, and in particular making the
+	// derivation [stallWatch.regap] performs unobservable.
+	// A QUARTER OF THE GAP, because that is roughly the shipped ratio: the flat
+	// mid-stream bound is forty-five seconds and a watched role's ceiling is
+	// ten, so the floor stands at a bit under half the bound. Scaling the two
+	// together is what keeps a shortened transport a faithful model of the real
+	// one rather than a different machine that happens to run faster.
+	stallCeiling = func(lanes.Role) time.Duration { return gap / 4 }
+	return func() {
+		stallFirstBound, stallGapBound, stallBufferedBound = oldFirst, oldGap, oldBuffered
+		stallPatience, stallCeiling = oldPatience, oldCeiling
+	}
+}
+
+func deltaChunk(text string) string {
+	payload, err := json.Marshal(streamChunk{
+		Choices: []streamChoice{{Delta: streamDelta{Content: text}}},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return string(payload)
+}
+
+// reasoningChunk is one streamed delta on the REASONING channel — the working,
+// which a person never reads as answer.
+func reasoningChunk(text string) string {
+	payload, err := json.Marshal(streamChunk{
+		Choices: []streamChoice{{Delta: streamDelta{Reasoning: text}}},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return string(payload)
+}
+
+func streamAgainst(t *testing.T, base string, observed *[]StreamEvent) (*ai.Response, error) {
+	t.Helper()
+	return streamAgainstCtx(context.Background(), t, base, observed)
+}
+
+func streamAgainstCtx(ctx context.Context, t *testing.T, base string, observed *[]StreamEvent) (*ai.Response, error) {
+	t.Helper()
+	client, err := NewClient(Config{APIKey: "k", BaseURL: base, Model: "sim/model"})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	// A LEDGER OF ITS OWN, because the wall is derived from one. Every client
+	// NewClient builds folds into the process-wide ledger by design
+	// (velocity.go's sharedVelocity), so a guard test left on it would open
+	// under a wall earned by whichever test ran before it — which is exactly
+	// what happened the first time this line was not here.
+	client.velocity = newVelocityLedger()
+	ctx = WithStreamObserver(ctx, func(event StreamEvent) {
+		if observed != nil {
+			*observed = append(*observed, event)
+		}
+	})
+	return client.CompleteWithMessages(ctx, []ai.Message{{
+		Role: "user", Content: []ai.ContentPart{{Type: "text", Text: "hello"}},
+	}})
+}
+
+// ── the wall ────────────────────────────────────────────────────────────────
+
+// TestAStreamThatNeverStopsIsCutAtTheCeiling is the whole of the missing bound.
+// The endpoint writes a token, and another, and another, forever: every silence
+// bound in this file is reset by each one, the streaming client has no total
+// deadline (retry.go's clientFor), and before the wall existed nothing in this
+// process ended such a request. The cut also carries the three facts the journal
+// row needs — who served, how long, how much arrived.
+//
+// IT IS CUT AT THE CEILING AND NOT AT ITS FIRST WALL, because it keeps pace the
+// whole time and a wall that fires on a stream keeping pace re-arms
+// ([stallWatch.keptPace]). The ceiling is the one bound no evidence moves, so
+// the stream is cut there however well it is writing, and the sentence names
+// the ceiling because that is the figure the timer was last set to.
+func TestAStreamThatNeverStopsIsCutAtTheCeiling(t *testing.T) {
+	const ceiling = 600 * time.Millisecond
+	defer shortenWall(t, 150*time.Millisecond, ceiling)()
+
+	stop := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, `data: {"id":"one","provider":"gusher","choices":[{"index":0,`+
+			`"delta":{"content":"the answer begins "}}]}`+"\n\n")
+		w.(http.Flusher).Flush()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-stop:
+				return
+			default:
+			}
+			fmt.Fprint(w, "data: "+deltaChunk("and on ")+"\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(2 * time.Millisecond)
+		}
+	}))
+	defer func() { close(stop); server.Close() }()
+
+	// THE DEGENERATION GUARD IS OFF because the text is one phrase repeated on
+	// purpose: this test is about the wall, and a repetition that runs to the
+	// ceiling is soup the guard would rightly cut first.
+	_, err := streamAgainstCtx(WithoutBabbleGuard(context.Background()), t, server.URL, nil)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("err = %v, want a stream cut", err)
+	}
+	if cut.Reason != CutOverrun {
+		t.Fatalf("reason = %d, want CutOverrun: the stream was never quiet", cut.Reason)
+	}
+	if cut.Waited != ceiling {
+		t.Fatalf("waited = %s, want the ceiling %s: a stream keeping pace is re-armed until it", cut.Waited, ceiling)
+	}
+	if cut.Ran < ceiling {
+		t.Fatalf("ran = %s, want the stream to have run to the ceiling %s", cut.Ran, ceiling)
+	}
+	if !strings.Contains(cut.Error(), "without finishing") {
+		t.Fatalf("sentence = %q", cut.Error())
+	}
+	if cut.Provider != "gusher" {
+		t.Fatalf("provider = %q, want the endpoint the stream named", cut.Provider)
+	}
+	if cut.Ran <= 0 {
+		t.Fatalf("ran = %s, want how long the request was actually open", cut.Ran)
+	}
+	if cut.Tokens <= 0 {
+		t.Fatalf("tokens = %d, want how much answer had arrived before the cut", cut.Tokens)
+	}
+}
+
+// TestALongHealthyReplyUnderTheWallIsNotCut is the other half of the law, and
+// the one that keeps the wall from being a new way to fail: a reply that writes
+// for a long time and then FINISHES is an answer, and it must land untouched —
+// and what it took must be remembered, because that is what the next wall on
+// this lane is derived from.
+func TestALongHealthyReplyUnderTheWallIsNotCut(t *testing.T) {
+	defer shortenWall(t, 2*time.Second, 4*time.Second)()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		fmt.Fprint(w, `data: {"id":"one","provider":"steady","choices":[{"index":0,`+
+			`"delta":{"content":"working "}}]}`+"\n\n")
+		w.(http.Flusher).Flush()
+		for i := 0; i < 60; i++ {
+			fmt.Fprint(w, "data: "+deltaChunk("on it ")+"\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(5 * time.Millisecond)
+		}
+		fmt.Fprint(w, `data: {"id":"one","choices":[{"index":0,"delta":{"content":"done"},`+
+			`"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
+		w.(http.Flusher).Flush()
+	}))
+	defer server.Close()
+
+	client, err := NewClient(Config{APIKey: "k", BaseURL: server.URL, Model: "sim/model"})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	client.velocity = newVelocityLedger()
+	ctx := WithStreamObserver(context.Background(), func(StreamEvent) {})
+	response, err := client.CompleteWithMessages(ctx, userMessages("hello"))
+	if err != nil {
+		t.Fatalf("a healthy reply under the wall was cut: %v", err)
+	}
+	if !strings.Contains(response.Choices[0].Message.Content[0].Text, "done") {
+		t.Fatalf("the reply did not land whole: %q", response.Choices[0].Message.Content[0].Text)
+	}
+	client.velocity.mu.Lock()
+	longest := client.velocity.runs["sim/model"]["steady"]
+	client.velocity.mu.Unlock()
+	if longest <= 0 {
+		t.Fatal("the completed reply left no run on the ledger, so no wall can ever be earned")
+	}
+}
+
+// TestTheWallIsTheLanesOwnHistoryAndNotTheModels is the derivation. Two
+// endpoints of one model, two different histories, two different walls — which
+// is the point of deriving it at all rather than picking a number.
+func TestTheWallIsTheLanesOwnHistoryAndNotTheModels(t *testing.T) {
+	ledger, _ := testLedger()
+	const model = "vendor/fast-model"
+	ledger.noteRun(model, "brisk", 90*time.Second)
+	ledger.noteRun(model, "brisk", 30*time.Second) // the maximum stands, not the last
+	ledger.noteRun(model, "ponderous", 3*time.Minute)
+
+	if got := ledger.wall(model, "brisk"); got != 90*time.Second*streamWallFactor {
+		t.Fatalf("brisk wall = %s, want five times its own longest reply", got)
+	}
+	if got := ledger.wall(model, "ponderous"); got != 3*time.Minute*streamWallFactor {
+		t.Fatalf("ponderous wall = %s, want five times its own longest reply", got)
+	}
+	// A lane nothing is known about inherits the lineage's widest rather than
+	// the bare floor: a router that has just moved this session onto a fresh
+	// endpoint must not have its first long reply cut.
+	if got := ledger.wall(model, "newcomer"); got != 3*time.Minute*streamWallFactor {
+		t.Fatalf("newcomer wall = %s, want the lineage's widest", got)
+	}
+	// And a model nothing has ever answered gets the floor.
+	if got := ledger.wall("vendor/unheard-model", "anybody"); got != streamWallFloor {
+		t.Fatalf("cold wall = %s, want the floor", got)
+	}
+}
+
+// TestTheWallIsClampedAtBothEnds pins the three constants that keep a derived
+// bound honest: a lane whose replies are tiny cannot earn a wall shorter than
+// the measured floor, one pathological completion cannot buy an hour, and a lane
+// nothing is known about gets the outer bound rather than a derivation.
+func TestTheWallIsClampedAtBothEnds(t *testing.T) {
+	if got := wallFor(0); got != streamWallFloor {
+		t.Fatalf("wallFor(0) = %s, want the cold outer bound", got)
+	}
+	if got := wallFor(time.Second); got != streamWallMeasuredFloor {
+		t.Fatalf("wallFor(1s) = %s, want the measured floor", got)
+	}
+	if got := wallFor(19 * time.Minute); got != streamWallCeiling {
+		t.Fatalf("wallFor(19m) = %s, want the ceiling", got)
+	}
+	if got := wallFor(2 * time.Minute); got != 10*time.Minute {
+		t.Fatalf("wallFor(2m) = %s, want the multiple between the two clamps", got)
+	}
+}
+
+// TestAWallCutStrikesTheLaneAndTheNextRequestRoutesAround is the fourth thing
+// the law asks for: the cut is not just an error, it is a verdict about the
+// endpoint that earned it. The lane goes into the ledger's refusals, and the
+// very next request encodes around it — which is how the turn loop's re-ask
+// reaches somebody else rather than the same wall again.
+func TestAWallCutStrikesTheLaneAndTheNextRequestRoutesAround(t *testing.T) {
+	defer shortenWall(t, 120*time.Millisecond, time.Second)()
+	const model = "vendor/fast-model"
+
+	var mu sync.Mutex
+	calls := 0
+	recorded := &capture{}
+	httpClient := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		recorded.record(request)
+		mu.Lock()
+		calls++
+		call := calls
+		mu.Unlock()
+		if call > 1 {
+			body := `data: {"id":"done","choices":[{"index":0,"delta":{"content":"ok"},` +
+				`"finish_reason":"stop"}]}` + "\n\ndata: [DONE]\n\n"
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    request,
+			}, nil
+		}
+		reader, writer := io.Pipe()
+		go func() {
+			_, _ = writer.Write([]byte(`data: {"id":"one","provider":"gusher","choices":` +
+				`[{"index":0,"delta":{"content":"start "}}]}` + "\n\n"))
+			for {
+				if request.Context().Err() != nil {
+					_ = writer.CloseWithError(request.Context().Err())
+					return
+				}
+				if _, err := writer.Write([]byte("data: " + deltaChunk("and on ") + "\n\n")); err != nil {
+					return
+				}
+				time.Sleep(2 * time.Millisecond)
+			}
+		}()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       reader,
+			Request:    request,
+		}, nil
+	})}
+	client, err := NewClient(Config{
+		APIKey: "test-key", BaseURL: "https://openrouter.ai/api/v1", Model: model,
+		Routing: StaticRouting(RoutingLatency), HTTPClient: httpClient,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.velocity = newVelocityLedger()
+	client.velocity.brisk(model, "quicksilver")
+
+	// The guard is off for [TestAStreamThatNeverStopsIsCutAtTheCeiling]'s
+	// reason: the repeated phrase is the fixture, and the wall is the subject.
+	ctx := WithStreamObserver(WithoutBabbleGuard(context.Background()), func(StreamEvent) {})
+	_, err = client.CompleteWithMessages(ctx, userMessages("hello"))
+	cut, ok := CutFrom(err)
+	if !ok || cut.Reason != CutOverrun {
+		t.Fatalf("err = %v, want an overrun cut", err)
+	}
+	if !cut.Rerouted {
+		t.Fatal("the cut did not report a strike, so the turn loop cannot know the retry moves")
+	}
+	if _, err := client.CompleteWithMessages(ctx, userMessages("again")); err != nil {
+		t.Fatal(err)
+	}
+	written := prefsOn(t, recorded, 1)
+	if got := words(written["ignore"]); !equalStrings(got, []string{"gusher"}) {
+		t.Fatalf("next request ignore = %v, want the endpoint the wall cut", got)
+	}
+	if got := words(written["order"]); !equalStrings(got, []string{"quicksilver"}) {
+		t.Fatalf("next request order = %v, want the healthy lane", got)
+	}
+}
+
+// shortenWall makes the derived bound testable in milliseconds, the way
+// shortenStallBounds does for the silence bounds. Only the clamps move:
+// [streamWallFactor] is what the derivation MEANS, so a test that changed it
+// would be testing a different law.
+func shortenWall(t *testing.T, floor, ceiling time.Duration) func() {
+	t.Helper()
+	oldFloor, oldMeasured, oldCeiling := stallWallFloor, stallWallMeasured, stallWallCeiling
+	// BOTH FLOORS MOVE TOGETHER. The cold floor and the measured one bound the
+	// same clock from the same side, and a test that shortened one while the
+	// other stayed at two and a half minutes would be timing a bound it did not
+	// set (see [wallFor]).
+	stallWallFloor, stallWallMeasured, stallWallCeiling = floor, floor, ceiling
+	return func() {
+		stallWallFloor, stallWallMeasured, stallWallCeiling = oldFloor, oldMeasured, oldCeiling
+	}
+}
+
+// ── A STREAM PRODUCING TOKENS IS NOT CUT FOR ELAPSED TIME ───────────────────
+//
+// The recovery design's one law from the census (`docs/design/recovery/
+// DESIGN.md` §5): silence is bounded relative to the lane's own measured rate,
+// and the only DURATION bound a producing stream may meet is the twenty-minute
+// absolute ceiling from #786.
+//
+// WHAT THE CENSUS GOT RIGHT AND WHAT IT GOT WRONG, because the correction is
+// what these tests are for. 869 rows read `decode stream: context deadline
+// exceeded` with `ms` at exactly 90,000 and 60,000, and 780 of them had already
+// taken a first token — a live stream, guillotined, and the largest single
+// error class in ten days. The census attributed it to the stream wall. It is
+// not the wall and it is not in this package at all: `clientFor` already sets
+// no total deadline on a streamed request, `attemptContext` gives a stream a
+// cancel and never a timeout, and every bound in this file announces itself as
+// a [StreamCut] with its own sentence rather than as a context error. Those
+// rows carry a deadline set by the CALLER, at two and three times a role's
+// ceiling. So what this package owes is not another removal — it is a proof
+// that the removal holds, and an honest record of which bound really fired
+// ([streamWatch.applied]).
+
+// TestNoFixedDurationEverBoundsAProducingStream is the guillotine stated as a
+// law about this package's own transport, so the 2026-08 fix cannot be undone
+// by somebody restoring a "sensible" timeout.
+//
+// A COMPLETION IS BOUNDED IN TOTAL AND A STREAM IS NOT, and the asymmetry is the
+// whole point: a completion's body IS the answer arriving in one piece, so a
+// total deadline is a real statement about a wedged call; a stream's body is the
+// answer arriving over time, so the same deadline is a stopwatch on how much the
+// model chose to write.
+func TestNoFixedDurationEverBoundsAProducingStream(t *testing.T) {
+	client, err := NewClient(Config{APIKey: "k", BaseURL: "http://example.invalid", Model: "sim/model", Timeout: time.Minute})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	if streamed := client.clientFor("sim/model", true, 40_000); streamed.Timeout != 0 {
+		t.Fatalf("a streamed request carries a total deadline of %s — that is the guillotine, and 780 live streams "+
+			"were cut by one like it. A stream is bounded by silence (streamguard.go) and by nothing else.", streamed.Timeout)
+	}
+	whole := client.clientFor("sim/model", false, 40_000)
+	if whole.Timeout <= 0 {
+		t.Fatal("a completion carries no total deadline — an answer that arrives in one piece has no silence to measure, " +
+			"so a wedged one would never end")
+	}
+}
+
+// TestADripAtItsLanesPaceOutlivesEveryDurationBound is the drip the brief asks
+// for, at the scale a test can run: a stream delivering at its lane's own rate
+// for many multiples of the wall it was armed with, which is never cut.
+//
+// It is the same shape as the 2026-09-10 measurement in this file's header — a
+// single `write` call streaming at pace for far longer than the lane's history
+// had earned — run long enough that a fixed duration bound of ANY size short of
+// the ceiling would have fired several times over.
+func TestADripAtItsLanesPaceOutlivesEveryDurationBound(t *testing.T) {
+	const wall = 200 * time.Millisecond
+	defer shortenWall(t, wall, time.Minute)()
+	// Forty bytes — ten tokens — every twenty-five milliseconds is this lane's
+	// own four hundred a second, and ten walls of it.
+	piece := strings.Repeat("a", 40)
+	server := httptest.NewServer(writeCallStream("steady", piece, 25*time.Millisecond, 10*wall))
+	defer server.Close()
+	client := steadyClient(t, server.URL)
+
+	ctx := WithStreamObserver(context.Background(), func(StreamEvent) {})
+	began := time.Now()
+	response, err := client.CompleteWithMessages(ctx, userMessages("write the page"))
+	if err != nil {
+		t.Fatalf("a stream delivering at its lane's own pace was cut after %s: %v", time.Since(began), err)
+	}
+	if ran := time.Since(began); ran < 10*wall {
+		t.Fatalf("the stream ran %s, want past ten walls of %s — the test proved nothing", ran, wall)
+	}
+	calls := response.Choices[0].Message.ToolCalls
+	if len(calls) != 1 || !strings.HasSuffix(calls[0].Function.Arguments, piece+`"}`) {
+		t.Fatalf("the long reply did not land whole: %+v", calls)
+	}
+}
+
+// TestASilentStreamIsCutAtItsLanesOwnGapAndNotTheFlatOne is the other half of
+// the law, and the half that makes the first half safe: bounding silence by the
+// lane's rate is only patience if it is also strictness.
+//
+// The lane here writes twenty-three thousand tokens a second, so [gapFor] says
+// the biggest honest lump it could be assembling takes a seventh of the flat
+// bound. A stream that names it, writes, and then goes quiet for a quarter of
+// the flat bound is cut — at the DERIVED figure, with the flat one nowhere near
+// elapsed, which is what tells a rate-relative bound from a short constant.
+func TestASilentStreamIsCutAtItsLanesOwnGapAndNotTheFlatOne(t *testing.T) {
+	const flat = 600 * time.Millisecond
+	defer shortenStallBounds(t, flat, flat)()
+	oldFloor := stallGapFloor
+	stallGapFloor = time.Millisecond
+	defer func() { stallGapFloor = oldFloor }()
+
+	// Twenty-three thousand three hundred and thirty-three tokens a second puts
+	// the derived gap at a hundred and fifty milliseconds.
+	const rate = float64(streamGapLumpTokens) / 0.15
+	const tokens = streamGapLumpTokens * 20 / 3
+	if got := gapFor(rate); got > flat/3 {
+		t.Fatalf("the derived gap for %.0f tok/s is %s, not comfortably inside the flat %s — the test is not asking its question", rate, got, flat)
+	}
+
+	server := httptest.NewServer(quietAfterNaming("fast", 4*flat))
+	defer server.Close()
+	client, err := NewClient(Config{APIKey: "k", BaseURL: server.URL, Model: "sim/model"})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	client.velocity = newVelocityLedger()
+	client.velocity.observe("sim/model", "fast", 10*time.Millisecond, tokens, time.Second, 0)
+
+	began := time.Now()
+	_, err = client.CompleteWithMessages(WithStreamObserver(context.Background(), func(StreamEvent) {}), userMessages("write"))
+	ran := time.Since(began)
+	cut, ok := CutFrom(err)
+	if !ok {
+		t.Fatalf("a stream that went quiet past its lane's own gap was not cut: err=%v after %s", err, ran)
+	}
+	if cut.Reason != CutStalled {
+		t.Fatalf("the cut says %q, want a stream that started writing and stopped", cut.Reason.word())
+	}
+	if ran >= flat {
+		t.Fatalf("the cut came after %s, which is the flat bound of %s rather than the lane's own gap — "+
+			"the bound is not rate-relative", ran, flat)
+	}
+	// AND IT NAMES THE FIGURE IT WAS SET TO, which is the other half of the
+	// law: the sentence a person reads has to be the wait they watched.
+	if cut.Waited >= flat {
+		t.Fatalf("the cut says it waited %s, want the derived gap rather than the flat %s", cut.Waited, flat)
+	}
+}
+
+// quietAfterNaming opens a stream, names its lane, writes one fragment of a
+// tool call, and then says nothing at all until it is cancelled or `lasting`
+// has passed. It is the silence the mid-stream bound exists for, as opposed to
+// the drip [writeCallStream] produces.
+func quietAfterNaming(lane string, lasting time.Duration) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flush := func(frame string) {
+			fmt.Fprint(w, "data: "+frame+"\n\n")
+			w.(http.Flusher).Flush()
+		}
+		flush(`{"id":"one","provider":"` + lane + `","choices":[{"index":0,"delta":{"tool_calls":` +
+			`[{"index":0,"id":"call_1","type":"function","function":{"name":"write","arguments":"{\"content\":\"a"}}]}}]}`)
+		// A SECOND FRAGMENT, so the quiet that follows is a MID-STREAM quiet.
+		// The lane is named on the first chunk and the bound narrows onto it
+		// there; the bound being narrowed is the one between two tokens, and a
+		// stream with only one token has not reached it yet.
+		time.Sleep(10 * time.Millisecond)
+		flush(`{"id":"one","provider":"` + lane + `","choices":[{"index":0,"delta":{"tool_calls":` +
+			`[{"index":0,"function":{"arguments":"bcd"}}]}}]}`)
+		select {
+		case <-r.Context().Done():
+		case <-time.After(lasting):
+		}
+	}
+}
+
+// TestTheBufferedCapIsNotTheRolesToStretch is the number that let four streams
+// sit on one machine for six and seven minutes on 2026-09-10.
+//
+// The first two silence bounds are PATIENCE and scaling them by whose errand it
+// is is right. The buffered cap is not patience: it is a measured ceiling on
+// what an ENDPOINT may do — the longest a machine assembling an answer
+// server-side has ever legitimately taken while keeping the line warm — and a
+// machine does not earn the right to babble for longer because nobody is
+// watching. Stretched, it was seven and a half minutes for a task node and
+// fifteen for a standing pass, which is exactly the colon trickler this file's
+// header says the cap exists to stop.
+func TestTheBufferedCapIsNotTheRolesToStretch(t *testing.T) {
+	talk := boundsFor(lanes.RoleTalk)
+	for _, role := range []lanes.Role{lanes.RoleTalk, lanes.RoleLeafUnattended, lanes.RoleStanding, lanes.RoleJudge} {
+		bounds := boundsFor(role)
+		if bounds.buffered != talk.buffered {
+			t.Errorf("role %q may go quiet behind keepalives for %s against a watched turn's %s — "+
+				"the cap is a fact about endpoints, not about who is waiting", role, bounds.buffered, talk.buffered)
+		}
+		// AND THE OTHER TWO STILL SCALE, or this test would be pinning the
+		// wrong thing: patience really is the role's.
+		if role.Facts().Patience > 1 && bounds.first <= talk.first {
+			t.Errorf("role %q waits %s for a first token against a watched turn's %s — patience stopped scaling",
+				role, bounds.first, talk.first)
+		}
+	}
+	if got := boundsFor(lanes.RoleStanding).buffered; got != bufferedQuietBound {
+		t.Errorf("the most patient role's buffered cap is %s, want the flat %s", got, bufferedQuietBound)
+	}
+}

@@ -1,0 +1,373 @@
+package session
+
+// THE MEDIA VERBS TRAVEL, and this file is what says so on every surface that
+// carries a belt.
+//
+// The conversation had them and nothing else reliably did. A task node was
+// handed the client and the resolver and then had its media verbs taken away at
+// the one moment it was ordered to produce; a saved harness was told in writing
+// that image generation was "something a conversation reaches for" and its lint
+// refused the whitelist. Each of those was invisible in exactly the same way: the
+// verb was simply absent, and an absent verb is indistinguishable from a machine
+// with no model for it.
+//
+// So each surface is pinned twice — carries them when a model exists, lacks them
+// when it does not — because a test that only asserted presence would pass just
+// as happily on a belt that had stopped obeying the absence law.
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Agent-Field/codeaf/internal/exec/bare"
+	"github.com/Agent-Field/codeaf/internal/video"
+)
+
+// theFourGenerationVerbs is what "the media family" means everywhere below.
+// view_image is deliberately not in it: it is the LOOKING verb, it is gated on a
+// seer rather than on a generation model, and a surface can honestly have one
+// without the other.
+var theFourGenerationVerbs = []string{"generate_image", "speak", "generate_music", "generate_video"}
+
+// allMediaModels is a resolver that answers for every media modality — the shape
+// of a machine with the media slots filled in. Vision is in it because
+// view_image is gated on the LOOKING slot and not on a generation model, so a
+// belt asked about it needs the resolver to answer that word too.
+func allMediaModels() func(string) string {
+	return mediaModels(map[string]string{
+		modalityImage:  "paint/model",
+		modalitySpeech: "talk/model",
+		modalityMusic:  "compose/model",
+		modalityVideo:  "film/model",
+		modalityVision: "see/model",
+	})
+}
+
+func toolNameSet(tools []bare.Tool) map[string]bool {
+	names := map[string]bool{}
+	for _, tool := range tools {
+		names[tool.Name] = true
+	}
+	return names
+}
+
+// ── (1) the task node ───────────────────────────────────────────────────────
+
+// A TASK NODE IS THE SAME WORKER SOMEWHERE QUIETER, media included. task_run.go
+// passes Media and MediaModel down to the child config; what this holds is that
+// doing so actually buys the verbs, so a wiring mistake there cannot be silent.
+func TestATaskNodeCarriesTheMediaVerbsAndLacksThemWithoutModels(t *testing.T) {
+	wired, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.InTask = true
+		config.Media = &scriptedMedia{}
+		config.MediaModel = allMediaModels()
+	})
+	for _, verb := range theFourGenerationVerbs {
+		if !hasTool(wired, verb) {
+			t.Errorf("a task node with a media client and a resolver is missing %s", verb)
+		}
+	}
+
+	bare, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.InTask = true })
+	for _, verb := range theFourGenerationVerbs {
+		if hasTool(bare, verb) {
+			t.Errorf("a task node with no media wiring carries %s — absent-not-broken", verb)
+		}
+	}
+}
+
+// ── (2) an adaptive run's node ──────────────────────────────────────────────
+
+// AN ADAPTIVE RUN'S NODE IS THE SAME AGENT under a different scheduler
+// (orchestrate.go builds its child from the same Config and the same belt), so
+// the media family reaches it by the same route and under the same condition.
+// The one thing that differs is the write scope, which is a path rule and not a
+// tool rule — a node that may write only under `assets/` still HAS the verb that
+// makes a picture.
+func TestAnAdaptiveRunNodeCarriesTheMediaVerbsAndLacksThemWithoutModels(t *testing.T) {
+	wired, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.InTask = true
+		config.writeScope = []string{"assets/"}
+		config.Media = &scriptedMedia{}
+		config.MediaModel = allMediaModels()
+	})
+	for _, verb := range theFourGenerationVerbs {
+		if !hasTool(wired, verb) {
+			t.Errorf("an adaptive run's node is missing %s", verb)
+		}
+	}
+
+	dry, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.InTask = true
+		config.writeScope = []string{"assets/"}
+	})
+	for _, verb := range theFourGenerationVerbs {
+		if hasTool(dry, verb) {
+			t.Errorf("an adaptive run's node carries %s with no model behind it", verb)
+		}
+	}
+}
+
+// ── (3) the landing turn ────────────────────────────────────────────────────
+
+// THE BUG THIS WHOLE LANE STARTED FROM.
+//
+// A stopped node gets one LAND NOW turn to save what it has, and that turn used
+// to keep two tools chosen by name — write and edit. A node that had spent its
+// whole life painting was therefore told to save its deliverable with the verb
+// that saves one taken away, and answered "I have no image tooling available
+// now." The landing belt retains those saving tools and the read door for
+// evidence archived by compaction; retrieval itself is not a saved deliverable.
+func TestTheLandingBeltKeepsEveryVerbThatSavesADeliverable(t *testing.T) {
+	agent, _ := newMediaAgent(t, &scriptedMedia{}, nil)
+	// THE NARROWING ONLY EVER RUNS OVER A NODE'S BELT, and a node shelves nothing
+	// (tools_capabilities.go states why). So the fixture hands it the whole belt
+	// this machine builds rather than the conversation's carried half, which is
+	// the set a node would actually be holding when it is told to land.
+	landing := toolNameSet(landingBelt(agent.offeredTools()))
+
+	for _, verb := range []string{"write", "edit", "generate_image", "speak"} {
+		if !landing[verb] {
+			t.Errorf("the landing belt dropped %s — a node whose deliverable is made with it cannot produce one", verb)
+		}
+	}
+	// The verbs that answer with a job and land minutes later are OFF the
+	// landing belt: the node is closed the moment the turn ends and Close
+	// kills the render, so handing them out would promise a file that cannot
+	// arrive ([landsLater]).
+	for _, verb := range []string{"generate_video", "generate_music"} {
+		if landing[verb] {
+			t.Errorf("the landing belt kept %s, whose file lands after the node is already closed", verb)
+		}
+	}
+	// Reading retained evidence remains possible, while new searches, commands
+	// and asynchronous jobs are still outside this finishing turn.
+	if !landing["read"] {
+		t.Fatal("finishing cannot retrieve its retained evidence")
+	}
+	for _, verb := range []string{"bash", "grep", "find", "ls"} {
+		if landing[verb] {
+			t.Errorf("the landing belt kept %s; the turn forbids new exploration", verb)
+		}
+	}
+}
+
+// AND THE SENTENCE MATCHES THE BELT. The instruction is generated from the
+// hands that survived, so a machine with no media models is never told it may
+// call a verb it does not have — which is what a hard-coded sentence would do
+// the moment the belt became conditional.
+func TestTheLandingInstructionNamesExactlyTheHandsItKept(t *testing.T) {
+	withMedia, _ := newMediaAgent(t, &scriptedMedia{}, nil)
+	said := landingInstruction(landingBelt(withMedia.offeredTools()))
+	for _, verb := range []string{"generate_image", "speak"} {
+		if !strings.Contains(said, verb) {
+			t.Errorf("the landing instruction never names %s, which the landing belt carries:\n%s", verb, said)
+		}
+	}
+	for _, verb := range []string{"generate_video", "generate_music"} {
+		if strings.Contains(said, verb) {
+			t.Errorf("the landing instruction names %s, which the landing belt does not carry:\n%s", verb, said)
+		}
+	}
+
+	plain, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.InTask = true })
+	quiet := landingInstruction(landingBelt(plain.tools))
+	for _, verb := range theFourGenerationVerbs {
+		if strings.Contains(quiet, verb) {
+			t.Errorf("a machine with no media models was told it could call %s:\n%s", verb, quiet)
+		}
+	}
+	if !strings.Contains(quiet, "edit") || !strings.Contains(quiet, "write") {
+		t.Errorf("the landing instruction lost its two ordinary hands:\n%s", quiet)
+	}
+}
+
+// ── (4) the saved harness ───────────────────────────────────────────────────
+
+// A HARNESS MAY MAKE THINGS. The belt a design is offered, the belt its
+// whitelist is linted against and the belt a run resolves against are one call
+// (harness_belt.go), and the media family is on it under the same condition it
+// is on every other belt.
+func TestTheHarnessBeltCarriesTheMediaVerbsAndLacksThemWithoutModels(t *testing.T) {
+	workspace := t.TempDir()
+
+	wired := HarnessBeltNames(workspace, HarnessBeltSeams{
+		Media: &scriptedMedia{}, MediaModel: allMediaModels(), Seer: &scriptedCompleter{},
+	})
+	for _, verb := range append(theFourGenerationVerbs, "view_image") {
+		if !wired[verb] {
+			t.Errorf("a harness on a machine with media models cannot name %s on its whitelist", verb)
+		}
+	}
+	// The seven wire tools are still all there: the media family was ADDED to
+	// what a harness could always reach, never traded against it.
+	for _, verb := range []string{"read", "bash", "edit", "write", "grep", "find", "ls"} {
+		if !wired[verb] {
+			t.Errorf("the harness belt lost the wire tool %s", verb)
+		}
+	}
+
+	// And the whole belt a conversation carries is still NOT what a harness
+	// gets: a saved procedure must not inherit the person's settings or the task
+	// verbs months after anybody read it.
+	for _, verb := range []string{"change_setting", "settings", "propose_task", "watch", "jobs", "remember"} {
+		if wired[verb] {
+			t.Errorf("a harness inherited %s, which belongs to a conversation and not to a saved procedure", verb)
+		}
+	}
+
+	empty := HarnessBeltNames(workspace, HarnessBeltSeams{})
+	for _, verb := range append(theFourGenerationVerbs, "view_image") {
+		if empty[verb] {
+			t.Errorf("a harness on a machine with no media wiring can name %s — absent-not-broken", verb)
+		}
+	}
+	// The seven wire tools, and edit_video wherever ffmpeg is — it takes no seam
+	// at all, so no media wiring does not take it away. The count is still exact,
+	// because its whole job is to catch a tool that arrived here by accident.
+	wire := 7
+	if video.Available() {
+		wire++
+		if !empty["edit_video"] {
+			t.Error("a harness on a machine with ffmpeg cannot name edit_video, which needs no seam")
+		}
+	}
+	if len(empty) != wire {
+		t.Fatalf("a harness belt with no media seams carries %d tools, want %d: %v", len(empty), wire, empty)
+	}
+}
+
+// A HARNESS IS NOT A LESSER WRITER THAN A CONVERSATION. What it makes lands
+// where the conversation's own films land and gets the same row in `/files` —
+// and until the seams carried a Place and the index, it did neither: the
+// throwaway agent the verbs are built through had a zero Place, so every cut
+// fell to the legacy dot directory under the person's repository, and a nil
+// index recorded nothing at all.
+func TestAHarnessBeltLandsItsCutWhereASessionsWouldAndIndexesIt(t *testing.T) {
+	if !video.Available() {
+		t.Skipf("%s is not on PATH; edit_video is absent everywhere without it", video.Missing())
+	}
+	folder := filepath.Join(t.TempDir(), "session")
+	workspace := t.TempDir()
+	index := filepath.Join(t.TempDir(), "artifacts.jsonl")
+	// A BORROWED session: the workspace is the person's repository, so its
+	// deliverables land in the session's own artifacts/ and nothing of codeaf's
+	// is dropped in the project (landing.go's ladder, second rung).
+	place := Place{Dir: folder, Workspace: workspace}
+
+	one := madeVideo(t, workspace, "one.mp4", 1, false)
+	two := madeVideo(t, workspace, "two.mp4", 1, true)
+	said, isError, err := runHarnessTool(t, HarnessBelt(workspace, HarnessBeltSeams{
+		Place: place, ArtifactsIndex: index,
+	}), "edit_video", fmt.Sprintf(`{"action":"join","clips":[%q,%q]}`, one, two))
+	if err != nil || isError {
+		t.Fatalf("the harness could not join two clips: %v %s", err, said)
+	}
+
+	if cut := onlyFileIn(t, place.Artifacts()); !strings.HasSuffix(cut, ".mp4") {
+		t.Errorf("a harness landed %s in the session's artifacts/, want the cut", cut)
+	}
+	if stray := filesIn(t, filepath.Join(workspace, ".codeaf", "video")); len(stray) != 0 {
+		t.Errorf("a harness dropped %v in the hidden dot directory inside the person's project", stray)
+	}
+	if rows := ReadArtifacts(index); len(rows) != 1 || rows[0].Kind != "video" {
+		t.Fatalf("artifact rows = %+v, want one video row so /files finds a harness's cut", rows)
+	}
+
+	// AND A BELT WITH NO PLACE STILL WRITES SOMEWHERE, honestly and on the rung
+	// the struct's own essay names: a door that genuinely has no session folder
+	// is not a door whose tools may refuse.
+	nowhere := t.TempDir()
+	source := madeVideo(t, nowhere, "only.mp4", 1, false)
+	second := madeVideo(t, nowhere, "also.mp4", 1, false)
+	said, isError, err = runHarnessTool(t, HarnessBelt(nowhere, HarnessBeltSeams{}),
+		"edit_video", fmt.Sprintf(`{"action":"join","clips":[%q,%q]}`, source, second))
+	if err != nil || isError {
+		t.Fatalf("a harness with no seams could not join two clips: %v %s", err, said)
+	}
+	if cut := onlyFileIn(t, filepath.Join(nowhere, ".codeaf", "video")); !strings.HasSuffix(cut, ".mp4") {
+		t.Errorf("a harness with no Place landed %s, want the legacy rung the essay promises", cut)
+	}
+}
+
+// runHarnessTool calls one tool off a harness belt by name — the same hand the
+// run's bridge reaches for it with (cmd/codeaf's chatv3_harness.go).
+func runHarnessTool(t *testing.T, belt []bare.Tool, name, arguments string) (string, bool, error) {
+	t.Helper()
+	for _, tool := range belt {
+		if tool.Name == name {
+			return tool.Execute(context.Background(), json.RawMessage(arguments))
+		}
+	}
+	t.Fatalf("the harness belt carries no %s", name)
+	return "", false, nil
+}
+
+// ── (5) the cutting verb, which travels on a different condition ─────────────
+
+// edit_video reaches every one of those surfaces too, and it is worth its own
+// test because its gate is NOT the one above: it buys nothing, so it is on the
+// belt wherever ffmpeg is and nowhere else, with the person's media settings
+// making no difference either way. A surface that carried the four making verbs
+// and not this one could make clips it had no way to assemble.
+func TestTheCuttingVerbTravelsOnFfmpegAndNotOnAnyModel(t *testing.T) {
+	if !video.Available() {
+		t.Skipf("%s is not on PATH; edit_video is absent everywhere without it", video.Missing())
+	}
+	for _, surface := range []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{"a conversation with no media wiring at all", func(*Config) {}},
+		{"a task node", func(config *Config) { config.InTask = true }},
+		{"an adaptive run's node", func(config *Config) {
+			config.InTask = true
+			config.writeScope = []string{"assets/"}
+		}},
+	} {
+		t.Run(surface.name, func(t *testing.T) {
+			agent, _ := newTestAgent(t, &scriptedCompleter{}, surface.mutate)
+			if !hasTool(agent, "edit_video") {
+				t.Errorf("%s is missing edit_video, which needs no model", surface.name)
+			}
+		})
+	}
+
+	// And the landing turn keeps it, for the reason the landing belt exists: a
+	// node ordered to save the film it has been cutting needs the verb that
+	// joins one.
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.InTask = true })
+	if !toolNameSet(landingBelt(agent.offeredTools()))["edit_video"] {
+		t.Error("the landing belt dropped edit_video — a node landing a cut cannot join one")
+	}
+}
+
+// THE DESIGNER IS TOLD EXACTLY WHAT THE LINT WILL ACCEPT. These were three
+// independent calls to bare.AllTools before, so a verb offered by one was not
+// necessarily a verb the others knew; the property worth pinning is that the
+// guide's list and the lint's set are the same set.
+func TestTheDesignerIsOfferedTheSameBeltTheLintAccepts(t *testing.T) {
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Media = &scriptedMedia{}
+		config.MediaModel = allMediaModels()
+	})
+	offered := agent.harnessMachinery()["tools"]
+	accepted := agent.harnessToolNames()
+	if len(accepted) == 0 {
+		t.Fatal("the lint accepts no tool names at all")
+	}
+	for name := range accepted {
+		if !strings.Contains(offered, name) {
+			t.Errorf("the lint accepts %q but the designer is never shown it", name)
+		}
+	}
+	for _, verb := range theFourGenerationVerbs {
+		if !accepted[verb] {
+			t.Errorf("the harness lint refuses %s on a machine that has the model for it", verb)
+		}
+	}
+}

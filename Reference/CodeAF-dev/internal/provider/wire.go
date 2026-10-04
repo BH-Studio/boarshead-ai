@@ -1,0 +1,693 @@
+package provider
+
+import (
+	"encoding/json"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+)
+
+// reasoningKnob is OpenRouter's unified reasoning control. Three of its fields
+// are modelled — the effort level, the outright disable, and the thinking
+// budget — because they are the economically distinct requests. Everything else
+// it accepts is provider-specific and would reintroduce exactly the per-model
+// branching this adapter avoids.
+type reasoningKnob struct {
+	Effort  Effort `json:"effort,omitempty"`
+	Enabled *bool  `json:"enabled,omitempty"`
+
+	// MaxTokens is the thinking budget, and it is THE OTHER DIALECT OF THE SAME
+	// KNOB rather than a second knob. The effort word is what OpenAI-family
+	// endpoints read; the budget is what Anthropic- and Gemini-family endpoints
+	// read, and the router translates whichever one it is given for the
+	// endpoint that speaks the other.
+	//
+	// THE TWO ARE MUTUALLY EXCLUSIVE ON THE WIRE. A body carrying both is
+	// refused outright — `Only one of "reasoning.effort" and
+	// "reasoning.max_tokens" can be specified` is a 400 on the whole turn — so
+	// exactly one of these fields is ever set. [reasoningFor] is the one place
+	// that decides which.
+	//
+	// It is a plain int and not a pointer: zero is not a budget anybody could
+	// mean, so omitempty says "unset" exactly, and the encode path stays free of
+	// a per-request allocation the allocation laws would have to account for.
+	MaxTokens int `json:"max_tokens,omitempty"`
+}
+
+// reasoningFor maps an effort and its budget onto the wire, and it is THE ONE
+// PLACE that decides which single field carries the request. Off is a disable
+// rather than a level, so it takes the other field, and a disable never carries
+// a budget — a request that suppresses thinking has nothing to spend it on.
+//
+// THE BUDGET WINS WHERE THERE IS ONE. Only the two rungs above high carry a
+// budget, and the budget is the only thing that tells them apart from high: an
+// endpoint asked for the word instead would see the same request for all three,
+// and the top of the ladder would be a rung that costs a keystroke and changes
+// nothing. So a budget travels alone, and the word travels alone when there is
+// no budget. The endpoint that speaks only the other dialect is served by the
+// router's own translation, and the one that refuses a budget outright is
+// served by the memo above — it degrades to high without one.
+func reasoningFor(level Effort, budget int) *reasoningKnob {
+	switch level {
+	case EffortNone:
+		return nil
+	case EffortOff:
+		disabled := false
+		return &reasoningKnob{Enabled: &disabled}
+	default:
+		if budget > 0 {
+			return &reasoningKnob{MaxTokens: budget}
+		}
+		return &reasoningKnob{Effort: level}
+	}
+}
+
+// noteReasoningMandatory remembers that a model's endpoint refused to have its
+// reasoning turned off — see quirks.go for why the catalog cannot answer this
+// and why nothing here is a list of model names.
+//
+// The memo is process-wide rather than per-client because the fact belongs to
+// the model, and one model is served by several clients here: the panel builds
+// one adapter per rung and the config builds more for its own surfaces. What
+// one of them learns the rest should not have to relearn.
+func noteReasoningMandatory(model string) {
+	if quirks.note(model, time.Now().UTC()) {
+		// Off the request path: the call that discovered this is waiting to be
+		// re-sent, and it should not wait on a disk write to do it.
+		quirks.persist()
+	}
+}
+
+// NoteReasoningDisableIgnored remembers that a model accepted the disable but
+// still spent an answer-sized ceiling without returning any answer. The
+// provider adapter cannot infer this from the HTTP exchange alone: the caller
+// owns the promise that the requested ceiling was large enough for its answer.
+func NoteReasoningDisableIgnored(model string) {
+	if quirks.noteDisableIgnored(model, time.Now().UTC()) {
+		// Off the request path for the same reason a rejected disable is: the
+		// caller is about to retry with room and must not wait on the memo.
+		quirks.persist()
+	}
+}
+
+// noteReasoningBudgetRefused remembers that a model's endpoint rejected the
+// thinking budget the two top rungs of the ladder carry.
+//
+// It is a THIRD fact and not a flag on the one above, for the reason quirks.go
+// gives about the two it already holds: the facts are independent. A model may
+// reason unconditionally and take a budget, or take neither, or either one
+// alone, and a record that folded them together would make one discovery lie
+// about the other.
+func noteReasoningBudgetRefused(model string) {
+	if quirks.noteNoReasoningBudget(model, time.Now().UTC()) {
+		// Off the request path, exactly as the memo above is: the call that
+		// discovered this is waiting to be re-sent without the field.
+		quirks.persist()
+	}
+}
+
+// noteReasoningReplayRefused remembers the narrow exception to
+// [ReasoningReplayPolicy]: this model's endpoint explicitly rejected the
+// continuation fields, so only this model loses them on the repaired request.
+func noteReasoningReplayRefused(model string) {
+	if quirks.noteNoReasoningReplay(model, time.Now().UTC()) {
+		quirks.persist()
+	}
+}
+
+func reasoningReplayRefused(model string) bool { return quirks.knowsNoReasoningReplay(model) }
+
+// refusesReasoningReplay recognizes a complaint about assistant-message
+// continuation fields. All three halves are required so a 400 about the
+// request-level reasoning knob cannot accidentally erase transcript state.
+// refusesForeignReasoning reads a refusal for the one complaint a model switch
+// produces: reasoning that was made under a different model. It is a different
+// fact from refusesReasoningReplay — that endpoint does not do replay at all
+// and is remembered; this one does, just not of someone else's — so it is
+// matched on its own wording and never learned.
+func refusesForeignReasoning(payload []byte) bool {
+	text := strings.ToLower(string(payload))
+	if !strings.Contains(text, "reasoning") {
+		return false
+	}
+	for _, refusal := range []string{
+		"different model",
+		"produced under",
+		"endpoint that created",
+		"original model",
+	} {
+		if strings.Contains(text, refusal) {
+			return true
+		}
+	}
+	return false
+}
+
+func refusesReasoningReplay(payload []byte, carried []MessageReasoning) bool {
+	text := strings.ToLower(string(payload))
+	field := strings.Contains(text, "reasoning_details")
+	for _, reasoning := range carried {
+		if reasoning.Field != "reasoning" && strings.Contains(text, reasoning.Field) {
+			field = true
+		}
+		if reasoning.Field == "reasoning" && strings.Contains(text, "reasoning") &&
+			(strings.Contains(text, "message") || strings.Contains(text, "assistant")) {
+			field = true
+		}
+	}
+	if !field {
+		return false
+	}
+	for _, refusal := range []string{"unsupported", "not supported", "unrecognized", "unrecognised", "unknown", "invalid", "extra", "not allowed"} {
+		if strings.Contains(text, refusal) {
+			return true
+		}
+	}
+	return false
+}
+
+// ReasoningBudgetRefused reports that this model's endpoint rejected a thinking
+// budget. Like the fact above it is learned rather than published — no catalog
+// row says it — so it is empty until some call has been told no.
+func ReasoningBudgetRefused(model string) bool { return reasoningBudgetRefused(model) }
+
+func reasoningBudgetRefused(model string) bool { return quirks.knowsNoReasoningBudget(model) }
+
+// refusesReasoningBudget reads a 400 body for the second complaint this adapter
+// can repair by itself: the thinking budget is not a field this endpoint takes.
+//
+// It matches on THREE halves together — reasoning, the field, and a refusal —
+// because the field's name is one an unrelated 400 about the request's own
+// output cap would also mention, and dropping a rung somebody paid for on a
+// coincidence is worse than surfacing the error.
+func refusesReasoningBudget(payload []byte) bool {
+	text := strings.ToLower(string(payload))
+	if !strings.Contains(text, "reasoning") {
+		return false
+	}
+	if !strings.Contains(text, "max_tokens") && !strings.Contains(text, "max tokens") &&
+		!strings.Contains(text, "budget") {
+		return false
+	}
+	for _, refusal := range []string{
+		"unsupported",
+		"not supported",
+		"unrecognized",
+		"unrecognised",
+		"unknown",
+		"invalid",
+		"cannot",
+	} {
+		if strings.Contains(text, refusal) {
+			return true
+		}
+	}
+	return false
+}
+
+// ReasoningMandatory reports that this model's endpoint has refused to have its
+// reasoning turned off. It is learned rather than published — no catalog field
+// says it — so it is empty until some call has been told no, and then it stays
+// known across processes (see [LoadQuirks]). A surface should show exactly
+// that: a fact when there is one, and nothing when there is not.
+func ReasoningMandatory(model string) bool { return reasoningMandatory(model) }
+
+func reasoningMandatory(model string) bool { return quirks.knows(model) }
+
+// ReasoningDisableIgnored reports that a model accepted the disable but still
+// consumed the caller's whole answer budget before returning any text.
+func ReasoningDisableIgnored(model string) bool { return quirks.knowsDisableIgnored(model) }
+
+// ReasoningUnavoidable reports either observed way a model has shown that its
+// thinking pass cannot be removed. Callers that reserve a small answer budget
+// need the combined fact; request encoding still reads the two facts separately
+// because only a rejected disable must be omitted from the wire.
+func ReasoningUnavoidable(model string) bool {
+	return reasoningMandatory(model) || quirks.knowsDisableIgnored(model)
+}
+
+// normalizeModel keys the memo on the model itself rather than on how it was
+// written. The leading "~" is codeaf's own routing marker, not part of the
+// slug, so "~minimax/minimax-m2.7" and "minimax/minimax-m2.7" are one model.
+func normalizeModel(model string) string {
+	return strings.ToLower(strings.TrimPrefix(strings.TrimSpace(model), "~"))
+}
+
+// refusesDisabledReasoning reads a 400 body for the one complaint this adapter
+// can repair by itself. It matches on the two halves together — the subject and
+// the refusal — so an unrelated 400 that merely mentions reasoning is left to
+// surface as the error it is.
+func refusesDisabledReasoning(payload []byte) bool {
+	text := strings.ToLower(string(payload))
+	if !strings.Contains(text, "reasoning") {
+		return false
+	}
+	for _, refusal := range []string{
+		"mandatory",
+		"cannot be disabled",
+		"can not be disabled",
+		"cannot be turned off",
+		"must be enabled",
+		"required for this endpoint",
+	} {
+		if strings.Contains(text, refusal) {
+			return true
+		}
+	}
+	return false
+}
+
+// wireRequest is the serialized body. It shadows the SDK's max_tokens so the
+// adapter, not the SDK, decides which output-limit field a given endpoint gets,
+// and adds the three fields the SDK's Request type has no home for.
+type wireRequest struct {
+	*requestAlias
+
+	// Messages and Tools shadow the SDK's own fields for one reason: a cache
+	// breakpoint has to be written INSIDE them, and neither ai.Message nor
+	// ai.ToolDefinition has a field for it. Serializing them here — element by
+	// element, through the SDK's own marshaller for everything unmarked — is how
+	// the adapter expresses a wire fact the pinned SDK type cannot hold, without
+	// forking the SDK or reshaping anything the harness above it sees.
+	//
+	// Both are populated on EVERY request, marked or not. Go resolves a shadowed
+	// JSON field at the type level, so an empty shadow would delete the embedded
+	// field rather than fall through to it; leaving them unset would send a
+	// request with no messages at all.
+	Messages []json.RawMessage `json:"messages"`
+	Tools    []json.RawMessage `json:"tools,omitempty"`
+
+	MaxTokens           *int `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int `json:"max_completion_tokens,omitempty"`
+
+	// PromptCacheKey is the request-body half of prompt-cache affinity. Paired
+	// with the session-affinity header it asks the router to keep one lineage on
+	// one warm instance instead of scattering a byte-stable prefix across
+	// providers that each have to write the cache from cold. The lineage is the
+	// leaf rather than the run — see provider.WithLeafCacheKey for why a fan-out
+	// sharing one key is what made the prefix miss in the first place.
+	PromptCacheKey string `json:"prompt_cache_key,omitempty"`
+
+	// Reasoning is omitted entirely unless the model is known to accept it or
+	// the caller marked it required. An unsupported knob is a 400, and a 400 on
+	// every optional economy is a worse failure than a model thinking too hard.
+	Reasoning *reasoningKnob `json:"reasoning,omitempty"`
+
+	// Provider is the routing preference object: how to choose among the
+	// endpoints serving this model, and which of them this process has already
+	// measured as slow (velocity.go). Nil on every non-router endpoint and
+	// whenever the routing row is off.
+	Provider *providerPrefs `json:"provider,omitempty"`
+}
+
+type requestAlias ai.Request
+
+// encodeRequest applies outbound hygiene and the economy fields, then
+// serializes. It is deterministic in the messages: the same request and knobs
+// always produce the same conversation bytes, which is what keeps the
+// transcript layer's byte-stable prefix byte-stable all the way to the wire.
+//
+// The routing preferences are the one field that legitimately varies between
+// two otherwise identical requests, because they carry what the ledger has
+// learned since the last one. They cost the prefix nothing: a cache is keyed on
+// the conversation, and `provider` is a routing instruction rather than
+// content.
+func (c *Client) encodeRequest(request *ai.Request, knobs callKnobs) ([]byte, error) {
+	scrubbed := *request
+	scrubbed.Messages = sanitizeMessages(request.Messages)
+
+	// What the endpoint-refusal chain has told this encode to leave out
+	// (endpoints.go). Every branch is a no-op on the zero relaxSet, which is
+	// every call that has not been refused.
+	if knobs.relaxed.has(relaxImages) {
+		scrubbed.Messages = dropAttachments(scrubbed.Messages)
+	}
+	if knobs.relaxed.has(relaxTools) {
+		scrubbed.Tools = nil
+		scrubbed.ToolChoice = nil
+	}
+	// A CHOICE AMONG NO TOOLS IS NOT SENT. The SDK sets "auto" beside even an
+	// empty belt — a conversation on a model with no tools carries one
+	// (internal/session's chatpage.go) — and an endpoint that validates the
+	// pair refuses tool_choice without tools.
+	if len(scrubbed.Tools) == 0 {
+		scrubbed.ToolChoice = nil
+	}
+	if knobs.relaxed.has(relaxResponseFormat) {
+		scrubbed.ResponseFormat = nil
+	}
+	if knobs.relaxed.has(relaxMaxTokens) {
+		scrubbed.MaxTokens = nil
+	}
+
+	// OpenRouter only reports cache reads, cache writes, and native cost when
+	// the request opts into usage accounting. Without it the single largest
+	// lever on a long run's bill is invisible, so it is never optional here.
+	if scrubbed.Usage == nil {
+		scrubbed.Usage = &ai.RequestUsage{Include: true}
+	}
+
+	model := c.modelFor(&scrubbed)
+	// A request without definitions must not replay tool protocol messages to
+	// an endpoint that cannot accept them. The conversion precedes encoding so
+	// the budget counts the text that actually goes out.
+	if len(scrubbed.Tools) == 0 && (knobs.relaxed.has(relaxTools) || c.publishesNoTools(model) || c.toolless.learned(model)) {
+		scrubbed.Messages = readableToolHistory(scrubbed.Messages)
+	}
+
+	// The dialect is resolved once per encode rather than cached on the client,
+	// because the model can be pinned per request by the router and the learned
+	// refusal below can change the answer mid-run.
+	dialect := c.dialectFor(model)
+	// Through the memo rather than straight at the encoders: the answer is the
+	// same bytes either way, and the unchanged prefix of a transcript this
+	// client has already sent is not re-derived to produce them (memo.go).
+	messages, err := c.encodes.encodeMessages(scrubbed.Messages, dialect)
+	if err != nil {
+		return nil, err
+	}
+	if !reasoningReplayRefused(model) {
+		messages, err = attachMessageReasoning(messages, knobs.reasoning, model)
+		if err != nil {
+			return nil, err
+		}
+	}
+	tools, err := c.encodes.encodeTools(scrubbed.Tools, dialect)
+	if err != nil {
+		return nil, err
+	}
+
+	wire := wireRequest{
+		requestAlias:   (*requestAlias)(&scrubbed),
+		Messages:       messages,
+		Tools:          tools,
+		PromptCacheKey: knobs.cacheKey,
+	}
+	// The knob is decided here and written after the context budget below,
+	// which may shrink the thinking budget to what the window leaves.
+	sentEffort, thinking := EffortNone, 0
+	if !knobs.relaxed.has(relaxReasoning) {
+		sentEffort = c.resolveEffort(model, knobs.effort)
+		thinking = c.resolveReasoningBudget(model, knobs.effort)
+	}
+	// The ceiling that travels is the caller's answer plus the thinking pass's
+	// room (thinking.go's ceilingFor), read here and again by the transport so
+	// the request and its wait describe the same reply. The request itself
+	// keeps the caller's figure: that is what an empty answer is judged
+	// against (client.go's learnFromAnswer).
+	ceiling, hasCeiling := c.ceilingFor(&scrubbed, knobs)
+	// Read HERE, at encode time, because encode is the last thing that happens
+	// before the send: a demotion earned by the answer that came back thirty
+	// seconds ago applies to the request being written now.
+	//
+	// THE COMPOSITION IS NAMED ONCE AND LIVES IN velocity.go, because the
+	// endpoint-refusal ladder has to decide its first rung from the SAME object
+	// this line writes ([Client.relaxationPlan]). It read only the ledger's half
+	// of it for a while, could not see the demand a rescue adds, and offered a
+	// pinned request no first rung at all (issue #266).
+	wire.Provider = c.wirePreferences(model, knobs)
+	// AND WHETHER THE ASK WAS REALLY MADE IS RECORDED WHERE IT IS REALLY
+	// WRITTEN. A base answers the #433 question with what comes back from a
+	// request that carried a preference, and the widened retry that follows a
+	// refusal carries none — so this is set at the one line that puts the
+	// object on the bytes, true or false, and nowhere earlier (prefcarry.go).
+	c.prefWentOut(wire.Provider != nil)
+	ceiling, hasCeiling, thinking, err = c.budgetWire(&scrubbed, knobs, messages, tools, wire.Provider, ceiling, hasCeiling, thinking)
+	if err != nil {
+		return nil, err
+	}
+	if !knobs.relaxed.has(relaxReasoning) {
+		wire.Reasoning = reasoningFor(sentEffort, thinking)
+	}
+	if hasCeiling {
+		if needsMaxCompletionTokens(model) && isVouchedRewriteEndpoint(c.config.BaseURL) {
+			wire.MaxCompletionTokens = &ceiling
+		} else {
+			wire.MaxTokens = &ceiling
+		}
+	}
+	return json.Marshal(wire)
+}
+
+// effortAsked is what this call really asks for after the client's own pinned
+// effort has been folded into the caller's request. The seat's pin outranks an
+// ordinary per-call or run-wide economy, while a request marked required is a
+// correctness bound on this particular answer and wins. A pin is explicit so
+// an unknown catalog row cannot erase an operator's own choice, and it never
+// carries a budget because class-value notation has no budget form. The wall
+// and the lane are not the caller's economy but facts about the completion, so
+// they survive the pin: a pinned word still stands, and a pin that sends
+// nothing still leaves a pass the wall has to speak for.
+func (c *Client) effortAsked(requested effortRequest) effortRequest {
+	if c.config.Effort == EffortNone || requested.required {
+		return requested
+	}
+	return effortRequest{effort: c.config.Effort, explicit: true, wall: requested.wall, lane: requested.lane}
+}
+
+// resolveEffort decides whether the knob may travel, and in what shape.
+func (c *Client) resolveEffort(model string, requested effortRequest) Effort {
+	requested = c.effortAsked(requested)
+	effort := c.requestedEffort(model, requested)
+	// A model that reasons unconditionally answers the disable with a 400, and
+	// no amount of operator intent changes that. What travels instead is the
+	// lowest effort the model takes (thinking.go) — NOT nothing, because
+	// nothing leaves the model at its published default, which can be the top
+	// of its ladder, and a caller who asked for off is then paying for the
+	// longest pass the model has.
+	if effort == EffortOff && c.reasoningUnstoppable(model) {
+		return c.lowestEffort(model)
+	}
+	// A WALL THAT SPEAKS NEEDS A LEVEL TO RIDE ON, and the level is the one the
+	// pass runs at anyway: a request that sent nothing to a model that thinks
+	// regardless carries its wall's budget ([Client.wallBudget]) on the level
+	// that model would have thought at, so nothing about the depth changes but
+	// where it ends. The budget is the half that travels (reasoningFor).
+	if effort == EffortNone && c.wallBudget(model, requested) > 0 {
+		return c.runningEffort(model, EffortNone)
+	}
+	return effort
+}
+
+// resolveReasoningBudget decides whether the thinking budget may travel.
+//
+// IT RIDES ON THE EFFORT'S OWN DECISION AND NEVER TRAVELS ALONE: a request that
+// is not sending a level is not sending a budget either, because a budget with
+// no level is a shape nothing above this layer ever asked for. Past that it
+// answers to the memo — a model this process has already watched reject the
+// field gets the rung it can actually serve, which is high without a budget.
+//
+// THE SMALLER ALLOWANCE WINS when a rung states one and a wall implies another,
+// because both are ceilings on the same pass and a pass given the larger would
+// be cut by the smaller.
+func (c *Client) resolveReasoningBudget(model string, requested effortRequest) int {
+	requested = c.effortAsked(requested)
+	if c.resolveEffort(model, requested) == EffortNone || reasoningBudgetRefused(model) {
+		return 0
+	}
+	walled := c.wallBudget(model, requested)
+	if requested.budget > 0 && (walled == 0 || requested.budget < walled) {
+		return requested.budget
+	}
+	return walled
+}
+
+// requestedEffort applies the catalog gate. The catalog is consulted first
+// because it is the only authority that can say "this model would reject it";
+// when the catalog is cold or silent, only a configured or required request
+// gets sent, so an optional economy can never break a run on an unknown model.
+func (c *Client) requestedEffort(model string, requested effortRequest) Effort {
+	if requested.effort == EffortNone {
+		return EffortNone
+	}
+	if c.config.SupportsParameter != nil {
+		if supported, known := c.config.SupportsParameter(model, "reasoning"); known {
+			if !supported {
+				return EffortNone
+			}
+			return requested.effort
+		}
+	}
+	if requested.explicit {
+		return requested.effort
+	}
+	return EffortNone
+}
+
+// sanitizeMessages is the outbound hygiene pass for multi-backend routing.
+// It is a pure function and a no-op on already-clean input, so a transcript
+// that never needed repair keeps producing byte-identical requests.
+func sanitizeMessages(messages []ai.Message) []ai.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+	// Copy on first write. The no-op is the overwhelmingly common case — codeaf
+	// writes conservative ids itself, and a transcript is only ever dirty when
+	// it came from somewhere else — so the array copy is built at the first
+	// message that actually changes, rather than built on every call and thrown
+	// away at the bottom.
+	var cleaned []ai.Message
+	for index, message := range messages {
+		id := scrubToolCallID(message.ToolCallID)
+		calls, callsChanged := scrubToolCalls(message.ToolCalls)
+		content, dropped := dropEmptyTextParts(message.Role, message.Content, len(message.ToolCalls) > 0)
+		if id == message.ToolCallID && !callsChanged && !dropped {
+			continue
+		}
+		if cleaned == nil {
+			cleaned = make([]ai.Message, len(messages))
+			copy(cleaned, messages)
+		}
+		cleaned[index].ToolCallID = id
+		if callsChanged {
+			cleaned[index].ToolCalls = calls
+		}
+		if dropped {
+			cleaned[index].Content = content
+		}
+	}
+	if cleaned == nil {
+		return messages
+	}
+	return cleaned
+}
+
+// scrubToolCalls is [scrubToolCallID] over an assistant's tool_calls, and
+// reports whether any id actually moved. Same copy-on-first-write shape as its
+// caller and for the same reason: an assistant turn whose ids are already clean
+// — every turn this process wrote itself — must not pay for a slice nobody
+// reads.
+func scrubToolCalls(calls []ai.ToolCall) ([]ai.ToolCall, bool) {
+	var scrubbed []ai.ToolCall
+	for index, call := range calls {
+		id := scrubToolCallID(call.ID)
+		if id == call.ID {
+			continue
+		}
+		if scrubbed == nil {
+			scrubbed = make([]ai.ToolCall, len(calls))
+			copy(scrubbed, calls)
+		}
+		scrubbed[index].ID = id
+	}
+	return scrubbed, scrubbed != nil
+}
+
+// scrubToolCallID maps an id onto the conservative charset every OpenAI-
+// compatible backend accepts. Disallowed bytes become a hex escape rather than
+// a shared placeholder so two distinct ids can never collapse into one and
+// orphan a tool result. Applied identically to the assistant's tool_calls[].id
+// and to the matching tool message's tool_call_id, the pairing always survives.
+func scrubToolCallID(id string) string {
+	if id == "" || !needsScrub(id) {
+		return id
+	}
+	const hexDigits = "0123456789abcdef"
+	var scrubbed strings.Builder
+	scrubbed.Grow(len(id))
+	for index := 0; index < len(id); index++ {
+		character := id[index]
+		switch {
+		case character >= 'a' && character <= 'z',
+			character >= 'A' && character <= 'Z',
+			character >= '0' && character <= '9',
+			character == '_', character == '-':
+			scrubbed.WriteByte(character)
+		default:
+			scrubbed.WriteByte('_')
+			scrubbed.WriteByte('x')
+			scrubbed.WriteByte(hexDigits[character>>4])
+			scrubbed.WriteByte(hexDigits[character&0x0f])
+		}
+	}
+	return scrubbed.String()
+}
+
+func needsScrub(id string) bool {
+	for index := 0; index < len(id); index++ {
+		character := id[index]
+		switch {
+		case character >= 'a' && character <= 'z',
+			character >= 'A' && character <= 'Z',
+			character >= '0' && character <= '9',
+			character == '_', character == '-':
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// dropEmptyTextParts removes assistant content blocks with no text. Several
+// strict backends reject an empty content block outright, and an assistant turn
+// that is pure tool calls legitimately produces one. The last empty part is
+// kept when nothing else would remain and the message carries no tool calls, so
+// a content-less assistant message never changes shape on the wire.
+func dropEmptyTextParts(role string, content []ai.ContentPart, hasToolCalls bool) ([]ai.ContentPart, bool) {
+	if !strings.EqualFold(strings.TrimSpace(role), "assistant") || len(content) == 0 {
+		return content, false
+	}
+	// Copy on first drop, for the same reason [sanitizeMessages] copies on first
+	// write: this runs once per assistant message per request, and an assistant
+	// message with nothing to drop is the ordinary one. Building the kept slice
+	// only when a part is actually dropped takes that allocation off every
+	// request that needed no repair at all.
+	var kept []ai.ContentPart
+	for index, part := range content {
+		if part.Type == "text" && part.Text == "" && part.ImageURL == nil && part.VideoURL == nil && part.InputAudio == nil && part.InputFile == nil {
+			if kept == nil {
+				kept = make([]ai.ContentPart, index, len(content)-1)
+				copy(kept, content[:index])
+			}
+			continue
+		}
+		if kept != nil {
+			kept = append(kept, part)
+		}
+	}
+	if kept == nil {
+		return content, false
+	}
+	if len(kept) == 0 && !hasToolCalls {
+		return content, false
+	}
+	return kept, true
+}
+
+// needsMaxCompletionTokens mirrors the SDK's rewrite rule so owning the wire
+// body does not silently drop an output cap for newer OpenAI-family models.
+// The legacy families that still take max_tokens are a closed set; everything
+// else in the gpt-* and o-series lines takes max_completion_tokens.
+func needsMaxCompletionTokens(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	if index := strings.LastIndex(normalized, "/"); index >= 0 {
+		normalized = normalized[index+1:]
+	}
+	if normalized == "gpt-4" || strings.HasPrefix(normalized, "gpt-4-") || strings.HasPrefix(normalized, "gpt-3") {
+		return false
+	}
+	if strings.HasPrefix(normalized, "gpt-") {
+		return true
+	}
+	return len(normalized) >= 2 && normalized[0] == 'o' && normalized[1] >= '0' && normalized[1] <= '9'
+}
+
+var vouchedRewriteDomains = []string{"openai.com", "openai.azure.com", "openrouter.ai"}
+
+func isVouchedRewriteEndpoint(baseURL string) bool {
+	return hostIn(baseURL, vouchedRewriteDomains)
+}
+
+// hostOf reads the host out of a configured base URL, empty when there is not
+// one to read. Every endpoint-shape decision in this package is made on the host
+// rather than on the whole string, so that a path or a query cannot vouch for a
+// domain it merely mentions.
+func hostOf(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(parsed.Hostname())
+}

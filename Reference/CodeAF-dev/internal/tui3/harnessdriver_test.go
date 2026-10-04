@@ -1,0 +1,938 @@
+package tui3
+
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// THE LAW: A HARNESS PAYS NO DEADLINE FOR A WAITER ITS OWNER KNOWS CANNOT
+// ANSWER. An owner may register an exact channel, say that no goroutine writes
+// it, and report that its queue is open and empty. Only then does the harness
+// drop the waiter immediately. A queued value and a close still travel through
+// the command, and every unregistered owner or family stays on the old road.
+// Waiters on that road still overlap: three parked waiters cost one budget
+// between them instead of three, because the harness starts all three and then
+// waits once.
+//
+// WHY THIS IS THE FIX AND NOT A SHORTER BUDGET. The note above [cmdBudget] is
+// right and is not reopened: #463 measured that these waiters do answer, usually
+// out of buffered channels, and a budget tuned to their observed microseconds
+// turns a delivered event into a drop when the scheduler is busy. The seam
+// removes that timing guess by asking the synchronous fake about work already
+// queued. No knob shortens [cmdBudget], and an owner that cannot state the fact
+// gets every microsecond of it.
+//
+// WHAT IS ALLOWED TO OVERLAP IS EXACTLY [blockingCommands], MINUS TWO. Running
+// two commands beside each other is only safe when neither touches anything the
+// other can see, and this package's waiters are written to one shape: receive
+// from a channel, wrap what came off it in a message, return. They read no field
+// of [app] and call nothing that does — [waitEvent]'s fold loop is the longest
+// of them and it touches only locals, [foldsInto] and [isLump]. So they may run
+// together, and everything else on the belt still runs one at a time exactly
+// where it did, because a command that reads a fake or writes the surface would
+// be a data race the moment it had company.
+//
+// The two exceptions are [app.watchDriving] and [app.watchFollowing], whose
+// commands CALL A FUNCTION THE TEST SUPPLIED (`<-changed()`, `<-follow()`)
+// rather than receiving from a channel they were handed. What that function
+// does is the test's business, so it is not this file's to run concurrently.
+// They keep the old serial path and pay the old price.
+var overlapExceptions = map[string]bool{
+	"watchDriving":   true,
+	"watchFollowing": true,
+}
+
+// harnessQueueState is a synchronous fake owner's reading of its own channel.
+// A ready queue may hold a value or be closed; both must run so the waiter can
+// turn that fact into its ordinary message. Only an open, empty queue is free to
+// drop.
+type harnessQueueState uint8
+
+const (
+	harnessQueueUnknown harnessQueueState = iota
+	harnessQueueEmpty
+	harnessQueueReady
+)
+
+// harnessWaiterOwner is the test-only registration seam. The owner receives the
+// exact channels the current surface has associated with one waiter family and
+// recognises only channels it handed out itself.
+//
+// IMPLEMENTING THIS INTERFACE IS A DECLARATION THAT NO GOROUTINE WRITES THOSE
+// CHANNELS. That makes [len] and the non-blocking close probe in
+// [synchronousEventQueues] facts read on the test goroutine rather than timing
+// bets. A fake with a writer goroutine must not implement the family.
+type harnessWaiterOwner interface {
+	harnessWaiterQueue(family string, lanes []<-chan session.Event) (harnessQueueState, bool)
+}
+
+// synchronousEventQueues reports what exact, synchronously owned queues can do
+// now. The len check cannot distinguish an empty closed channel, so the probe
+// after it receives only the close. Receiving a value there would mean a writer
+// raced the test goroutine and the owner's declaration was false; panic names
+// that broken test seam rather than silently eating the value.
+func synchronousEventQueues(lanes []<-chan session.Event) harnessQueueState {
+	for _, lane := range lanes {
+		if lane == nil {
+			// A nil channel is the synthetic reducer tests' spelling of "there is
+			// no standing lane." It cannot receive, close or acquire a writer, so it
+			// is a stronger empty fact than an allocated queue.
+			continue
+		}
+		if len(lane) > 0 {
+			return harnessQueueReady
+		}
+		select {
+		case _, open := <-lane:
+			if open {
+				panic("a registered harness waiter owner had a writer goroutine")
+			}
+			return harnessQueueReady
+		default:
+		}
+	}
+	return harnessQueueEmpty
+}
+
+// AND THE TICK DOES NOT START A WALL TIMER, WHICH IS WHERE MOST OF THE TIME WAS.
+//
+// The measurement of 2026-09-08, over the whole package at 564s: 447s of it was
+// spent on commands the harness dropped, and bubbletea's tick was 197s of that
+// — one line, more than every waiter put together. Another 84s went on ticks
+// that did answer, and the answer is usually [frameMsg], which [drive] throws
+// away. A tick is a timer that was started when the command was BUILT
+// (bubbletea's Tick calls time.NewTimer before it returns the closure), so its
+// wait is running whether the harness is standing over it or not; standing over
+// it is pure loss.
+//
+// A tick can use the harness clock because this package's tick callbacks do
+// nothing: every one
+// of them is `func(time.Time) tea.Msg { return someMsg{…} }` over values captured
+// when the command was built. [TestEveryTickCallbackIsAMessageAndNothingElse]
+// reads the package's own source and holds that. [harnessTick] delivers callbacks
+// through the harness immediately when their delay was inside [tickBudget], and
+// does not call callbacks for polls the old harness could not receive.
+//
+// THE ONE EXCEPTION IS taskmention.go's, which calls the reader the surface was
+// handed (`read()`). It is inside the budget and therefore runs synchronously
+// on the harness's own path, never beside the test.
+
+// overlappable reports whether a command may be left running while the harness
+// gets on with the next message.
+//
+// It recognises the command by the runtime symbol behind the closure, the same
+// key [budgetFor] prices by. A waiter's closure is named for the function that
+// built it — `…tui3.(*app).flyPilot.waitPilot.func1` — so the test is whether
+// one of [blockingCommands]'s names appears as a whole segment in front of the
+// closure's own. [TestTheHarnessOverlapsEveryWaiterItNames] builds real
+// commands from the surface and holds this to them, so the convention cannot
+// drift silently.
+func (d *harnessDriver) overlappable(cmd tea.Cmd) bool {
+	symbol := cmdSymbol(cmd)
+	if symbol == "" {
+		return false
+	}
+	if !waiterSymbol(symbol) {
+		return false
+	}
+	// The table says this command may never answer; the exceptions say which of
+	// those may not be left running beside another one, and they are the whole
+	// difference between the two readings of it.
+	for name := range overlapExceptions {
+		if strings.Contains(symbol, "."+name+".func") {
+			return false
+		}
+	}
+	return true
+}
+
+// ownedEmpty reports the one condition that can bypass a waiter's deadline:
+// the current agent registered this family, recognised every exact channel the
+// surface is waiting on, and found all of them open and empty.
+func (d *harnessDriver) ownedEmpty(cmd tea.Cmd) bool {
+	if d.app == nil || d.app.agent == nil {
+		return false
+	}
+	family := waiterName(cmdSymbol(cmd))
+	lanes := d.waiterLanes(family)
+	if len(lanes) == 0 {
+		return false
+	}
+	owner, ok := d.app.agent.(harnessWaiterOwner)
+	if !ok {
+		return false
+	}
+	state, registered := owner.harnessWaiterQueue(family, lanes)
+	return registered && state == harnessQueueEmpty
+}
+
+// waiterLanes resolves only the families whose synchronous fakes register an
+// owner today. The default is deliberately no channels: watchDriving and
+// watchFollowing call test-supplied functions, while waitRing, waitWake and
+// waitStir are product-written lanes, so each keeps the full-budget road.
+func (d *harnessDriver) waiterLanes(family string) []<-chan session.Event {
+	switch family {
+	case "waitEvent":
+		return []<-chan session.Event{d.app.stream}
+	case "waitRoom":
+		if d.app.room != nil {
+			return []<-chan session.Event{d.app.room.lane}
+		}
+	case "waitTask":
+		return []<-chan session.Event{d.app.taskLane}
+	case "waitPilot":
+		lanes := make([]<-chan session.Event, 0, len(d.app.pilots))
+		for _, pilot := range d.app.pilots {
+			if pilot != nil && pilot.lane != nil {
+				lanes = append(lanes, pilot.lane)
+			}
+		}
+		return lanes
+	}
+	return nil
+}
+
+// inlineSpin is how long the harness gives a command it has just started before
+// it moves on to the next message.
+//
+// IT IS AN ORDERING AID AND NEVER A DROP DECISION. A command that does not
+// answer inside it is not dropped and is not billed for it: it keeps every
+// microsecond of its own budget and is collected the moment it answers. All the
+// spin buys is that a waiter answering out of an already-full channel — which is
+// what the measurement says almost every answer is — lands in the queue at the
+// same place it landed before this file existed, so a suite whose assertions
+// were written against the old order still reads the old order. Missing it costs
+// a message its position in the queue, which real bubbletea does not promise
+// either, and costs nothing else.
+//
+// The wait is a spin on the scheduler rather than a timer because that is what
+// the question is: has the goroutine that was just started had a turn yet. On an
+// idle box it has after one or two, and a command that will never answer costs
+// the whole spin — tens of microseconds against a budget of 150 milliseconds.
+const inlineSpin = 200 * time.Microsecond
+
+// harnessDriver owns the commands one [drive] call has in flight.
+//
+// It is not safe for concurrent use and does not need to be: the harness runs on
+// one goroutine and the commands it starts never touch it. The only crossing is
+// each command's own [inflight], written by its goroutine before it sends and
+// read by the harness after it receives — which the channel orders.
+type harnessDriver struct {
+	// app is the surface being driven, or nil for a bare [runCmd]. It is kept
+	// current by [drive] on every step for commands whose waiter classification
+	// depends on the current surface.
+	app  *app
+	live []*inflight
+	// accounting is the driver's own proof of which road a command took. Tests
+	// assert these counters rather than measuring elapsed time and thereby
+	// turning the harness contract into another scheduler bet.
+	accounting harnessAccounting
+	// doorbell is how a command that answered wakes a harness that is waiting on
+	// a deadline. It is one slot and the send never blocks: a token already in it
+	// is a wake-up already owed, and [harnessDriver.settle] re-checks everything
+	// it is holding every time it wakes, so a coalesced wake loses nothing.
+	doorbell chan struct{}
+}
+
+// harnessAccounting records decisions made by one driver. dropWait is the
+// budget charged to dropped commands, not a stopwatch reading: an immediate
+// owner-proven drop adds zero and a deadline drop adds its full price.
+type harnessAccounting struct {
+	answered, dropped int
+	dropWait          time.Duration
+	deadlineWaits     int
+}
+
+// inflight is one command the harness has started and not yet finished with.
+type inflight struct {
+	cmd      tea.Cmd
+	started  time.Time
+	deadline time.Time
+	// answer carries the command's message. It is buffered so that a command
+	// which answers after the harness has given up on it still ends rather than
+	// parking on a send nobody will take.
+	answer chan tea.Msg
+	// at is when the command answered, written before the send on `answer` and
+	// therefore safe to read after the receive. It is compared against the
+	// deadline so that a waiter which came back late is dropped exactly as the
+	// old harness dropped it; ordinary work crossing its larger ceiling is named
+	// as stuck instead of disappearing. Ticks use the synchronous harness clock
+	// and never enter this set.
+	at time.Time
+}
+
+func newHarnessDriver() *harnessDriver {
+	return &harnessDriver{doorbell: make(chan struct{}, 1)}
+}
+
+// busy reports whether anything is still running.
+func (d *harnessDriver) busy() bool { return len(d.live) > 0 }
+
+// run executes one command and returns whatever it produced right away.
+//
+// A command that may overlap is started and left running, so this returns
+// nothing for it and [harnessDriver.collect] or [harnessDriver.settle] delivers
+// its message later. Everything else runs here and now, blocking for its whole
+// budget, which is what the harness always did.
+func (d *harnessDriver) run(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	if cmdSymbol(cmd) == harnessTickSymbol {
+		// The harness clock is already resolved: no goroutine, timer or waiter
+		// exists to overlap. Short ticks return their message and long polls nil.
+		return d.expand(cmd())
+	}
+	if d.ownedEmpty(cmd) {
+		// Starting this command would only leave a goroutine parked. Its registered
+		// owner has stated that no other goroutine can change the empty queue; the
+		// test goroutine cannot fill it until this drive returns, after the old
+		// deadline would already have dropped it. Not starting it therefore keeps
+		// the observable message sequence and avoids both the wait and the leak.
+		d.note(cmd, 0, false)
+		return nil
+	}
+	if d.overlappable(cmd) {
+		p := d.start(cmd)
+		// The spin is the ordering aid described above [inlineSpin]: if the
+		// answer is already there, it is delivered from here, in the place it
+		// would have been delivered from before.
+		if msg, ok := d.spin(p); ok {
+			d.forget(p)
+			return d.expand(msg)
+		}
+		return nil
+	}
+	return d.expand(runInline(cmd))
+}
+
+// note records one command on both the optional package profile and this
+// driver's deterministic account.
+func (d *harnessDriver) note(cmd tea.Cmd, waited time.Duration, answered bool) {
+	noteCommand(cmd, waited, answered)
+	if answered {
+		d.accounting.answered++
+		return
+	}
+	d.accounting.dropped++
+	d.accounting.dropWait += waited
+}
+
+// expand turns one command's message into the messages the harness queues: a
+// batch is opened and each member run in its turn, and everything else is
+// itself.
+func (d *harnessDriver) expand(msg tea.Msg) []tea.Msg {
+	switch produced := msg.(type) {
+	case nil:
+		return nil
+	case tea.BatchMsg:
+		noteBatch(len(produced))
+		var out []tea.Msg
+		for _, one := range produced {
+			out = append(out, d.run(one)...)
+		}
+		return out
+	default:
+		return []tea.Msg{produced}
+	}
+}
+
+// start puts a command on its own goroutine with its own deadline.
+func (d *harnessDriver) start(cmd tea.Cmd) *inflight {
+	now := time.Now()
+	p := &inflight{
+		cmd:      cmd,
+		started:  now,
+		deadline: now.Add(budgetFor(cmd)),
+		answer:   make(chan tea.Msg, 1),
+	}
+	doorbell := d.doorbell
+	go func() {
+		msg := cmd()
+		p.at = time.Now()
+		p.answer <- msg
+		select {
+		case doorbell <- struct{}{}:
+		default:
+		}
+	}()
+	d.live = append(d.live, p)
+	return p
+}
+
+// spin gives a just-started command the scheduler's attention for [inlineSpin]
+// and reports whether it answered in that time.
+func (d *harnessDriver) spin(p *inflight) (tea.Msg, bool) {
+	until := time.Now().Add(inlineSpin)
+	for {
+		select {
+		case msg := <-p.answer:
+			d.note(p.cmd, p.at.Sub(p.started), true)
+			return msg, true
+		default:
+		}
+		if time.Now().After(until) {
+			return nil, false
+		}
+		runtime.Gosched()
+	}
+}
+
+// forget drops one command from the live set, because it has been dealt with.
+func (d *harnessDriver) forget(gone *inflight) {
+	kept := d.live[:0]
+	for _, p := range d.live {
+		if p != gone {
+			kept = append(kept, p)
+		}
+	}
+	d.live = kept
+}
+
+// collect takes every command that has answered and reaps every one whose
+// budget has run out. IT NEVER BLOCKS.
+//
+// The live set is walked in the order the commands were started, so the messages
+// come back in that order and a run of this harness is repeatable.
+func (d *harnessDriver) collect() []tea.Msg {
+	if len(d.live) == 0 {
+		return nil
+	}
+	now := time.Now()
+	var ready []tea.Msg
+	kept := make([]*inflight, 0, len(d.live))
+	for _, p := range d.live {
+		select {
+		case msg := <-p.answer:
+			if p.at.After(p.deadline) {
+				// It came back after its budget. The old harness had already
+				// stopped listening by then and returned nothing, so this
+				// returns nothing too: a message the suite has never been given
+				// is not one to start giving it here.
+				//
+				// ONLY A NAMED WAITER CAN REACH HERE, because the harness clock is
+				// resolved synchronously and waiters are the only commands
+				// [harnessDriver.run] leaves running. [droppedWork] is the guard on
+				// that: widening [overlappable] to something that finishes would
+				// otherwise put a silent drop back on this line without a word.
+				waited := p.at.Sub(p.started)
+				d.note(p.cmd, waited, false)
+				droppedWork(p.cmd, waited)
+				continue
+			}
+			d.note(p.cmd, p.at.Sub(p.started), true)
+			ready = append(ready, msg)
+		default:
+			if now.After(p.deadline) {
+				// Dropped, exactly as before, and its goroutine stays parked on
+				// the channel nobody will write to — see [TestMain]'s count. The
+				// same guard as above: nothing but a named waiter is running here
+				// today, and [droppedWork] is what keeps that true.
+				d.note(p.cmd, budgetFor(p.cmd), false)
+				droppedWork(p.cmd, now.Sub(p.started))
+				continue
+			}
+			kept = append(kept, p)
+		}
+	}
+	d.live = kept
+	// The expansion happens after the live set has been rebuilt, because opening
+	// a batch starts more commands and may not write into the slice being read.
+	var out []tea.Msg
+	for _, msg := range ready {
+		out = append(out, d.expand(msg)...)
+	}
+	return out
+}
+
+// settle blocks until the harness has something to show for its live commands:
+// at least one answer, or at least one budget run out. It is what makes the
+// waiting overlap — every live command is waited for in the same breath, and the
+// wait is over as soon as the FIRST of them is decided.
+//
+// It always makes progress. Either a command answers, in which case
+// [harnessDriver.collect] takes it out of the live set, or the earliest deadline
+// passes, in which case that command is reaped. The doorbell may wake it with
+// nothing to do — a token left by a command collected already — and then it
+// simply waits again, which can happen at most once per answer.
+func (d *harnessDriver) settle() []tea.Msg {
+	for len(d.live) > 0 {
+		earliest := d.live[0].deadline
+		for _, p := range d.live[1:] {
+			if p.deadline.Before(earliest) {
+				earliest = p.deadline
+			}
+		}
+		if wait := time.Until(earliest); wait > 0 {
+			timer := time.NewTimer(wait)
+			select {
+			case <-d.doorbell:
+			case <-timer.C:
+				d.accounting.deadlineWaits++
+			}
+			timer.Stop()
+		}
+		before := len(d.live)
+		if out := d.collect(); len(out) > 0 {
+			return out
+		}
+		if len(d.live) == before {
+			// A doorbell token from a command that was already collected. Wait
+			// again; the token is gone now and the deadline is still coming.
+			continue
+		}
+		return nil
+	}
+	return nil
+}
+
+// droppedWork is the harness admitting that it gave up on real work. Only a
+// tick or a waiter [blockingCommands] names is allowed to disappear at its
+// deadline; every other command is work that finishes, so silence after
+// [workBudget] is a hang whose runtime symbol and actual wait belong in the
+// failure and its goroutine dump.
+//
+// IT IS CALLED FROM EVERY PLACE A COMMAND CAN BE GIVEN UP ON, which today means
+// it fires only out of [runInline] — the two in [harnessDriver.collect] stand
+// over named waiters, because the harness clock never enters the live set. That
+// is the point of putting it in all three: the silent drop this fixes was not a
+// line anybody wrote on purpose, it was a deadline that had grown to cover more
+// than it was meant to, and a guard on one of the three exits would let the same
+// thing happen again.
+func droppedWork(cmd tea.Cmd, waited time.Duration) {
+	symbol := cmdSymbol(cmd)
+	if symbol == teaTickSymbol || waiterSymbol(symbol) {
+		return
+	}
+	panic(fmt.Sprintf("the harness waited %s for %s and it never answered. Only bubbletea's tick and the waiters blockingCommands names may be given up on — everything else is work that finishes, so this is a command that is stuck. Read the goroutine dump rather than raising workBudget.", waited, symbol))
+}
+
+// runInline is the harness's old body, kept for every command that may not
+// overlap. A named waiter is still given up on when its budget is gone; ordinary
+// work receives [workBudget], after which [droppedWork] names it as stuck.
+func runInline(cmd tea.Cmd) tea.Msg {
+	started := time.Now()
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+	select {
+	case msg := <-done:
+		noteCommand(cmd, time.Since(started), true)
+		return msg
+	case <-time.After(budgetFor(cmd)):
+		waited := time.Since(started)
+		noteCommand(cmd, waited, false)
+		droppedWork(cmd, waited)
+		return nil
+	}
+}
+
+// slowHarnessMsg is what the two tests below send through the harness. It
+// carries a word rather than being empty so that the message can be asserted by
+// VALUE — a count of one proves the harness returned something, and only the
+// value proves it returned the thing the command actually produced.
+type slowHarnessMsg struct{ answer string }
+
+// TestTheHarnessDeliversACommandThatAnsweredHowLongItTook is the law this file's
+// budget is for: A COMMAND THAT ANSWERS IS DELIVERED.
+//
+// The harness used to price every command at [cmdBudget] and return nothing for
+// one that answered later, saying nothing about it. On a busy box that turned a
+// record write — draftkeep.go's [app.keepDrafts], whose own comment is "IT
+// ALWAYS ANSWERS" — into a message the suite never saw, and the test waiting for
+// it went on to accuse the surface of never sending the correction it had in
+// fact sent (#702). Two hundred milliseconds is a scheduler's business; whether
+// the message arrives at all is not.
+func TestTheHarnessDeliversACommandThatAnsweredHowLongItTook(t *testing.T) {
+	want := slowHarnessMsg{answer: "finished"}
+	cmd := func() tea.Msg {
+		time.Sleep(2 * cmdBudget)
+		return want
+	}
+
+	got := runCmd(cmd)
+	if len(got) != 1 {
+		t.Fatalf("the harness returned %d messages for a command that answered, want 1", len(got))
+	}
+	if got[0] != want {
+		t.Fatalf("the harness returned %#v, want %#v", got[0], want)
+	}
+}
+
+// TestTheHarnessStillGivesUpOnTheWaitersItNames is the other half, and it is
+// what keeps the fix above from being a way to hang the suite.
+//
+// A waiter parks on a channel this package's fakes usually never write to and
+// never close, so giving up on it is not a guess — it is the only end it has.
+// That is what [cmdBudget] is for and it does not move. The three prices are
+// asserted together because they are one decision: the tick is a timer, the
+// named waiters may never answer, and everything else finishes.
+func TestTheHarnessStillGivesUpOnTheWaitersItNames(t *testing.T) {
+	waiter := waitEvent(make(chan session.Event), 1)
+	tick := tea.Tick(time.Hour, func(time.Time) tea.Msg { return nil })
+	work := func() tea.Msg { return slowHarnessMsg{} }
+	if got := budgetFor(waiter); got != cmdBudget {
+		t.Fatalf("budgetFor(waitEvent) = %s, want %s", got, cmdBudget)
+	}
+	if got := budgetFor(tick); got != tickBudget {
+		t.Fatalf("budgetFor(tea.Tick) = %s, want %s", got, tickBudget)
+	}
+	if got := budgetFor(work); got != workBudget {
+		t.Fatalf("budgetFor(ordinary work) = %s, want %s", got, workBudget)
+	}
+
+	started := time.Now()
+	got := runCmd(waiter)
+	waited := time.Since(started)
+	if len(got) != 0 {
+		t.Fatalf("the harness returned %d messages for a waiter whose channel nobody writes to, want 0", len(got))
+	}
+	if waited < cmdBudget {
+		t.Errorf("the harness gave up on waitEvent after %s, before its %s budget", waited, cmdBudget)
+	}
+	if waited >= workBudget/2 {
+		t.Errorf("the harness spent %s giving up on waitEvent, want comfortably less than the %s work budget", waited, workBudget)
+	}
+}
+
+// harnessStreamDriver puts one exact stream under both the surface and the fake
+// that synchronously owns it. These tests drive the waiter seam directly so the
+// counters describe one decision and no unrelated surface command.
+func harnessStreamDriver(ch chan session.Event) *harnessDriver {
+	agent := &fakeAgent{live: ch}
+	d := newHarnessDriver()
+	d.app = &app{agent: agent, stream: ch}
+	return d
+}
+
+// finishHarnessDriver collects every command still on the old deadline road.
+func finishHarnessDriver(d *harnessDriver, out []tea.Msg) []tea.Msg {
+	for d.busy() {
+		out = append(out, d.settle()...)
+	}
+	return out
+}
+
+// TestARegisteredEmptyWaiterCostsNoDeadlineWait is the owner fact's contract:
+// an exact open queue with no work and no writer costs zero deadline waits.
+func TestARegisteredEmptyWaiterCostsNoDeadlineWait(t *testing.T) {
+	ch := make(chan session.Event, 1)
+	d := harnessStreamDriver(ch)
+
+	got := finishHarnessDriver(d, d.run(waitEvent(ch, 1)))
+	if len(got) != 0 {
+		t.Fatalf("an empty registered waiter delivered %d messages, want none", len(got))
+	}
+	if d.accounting.deadlineWaits != 0 || d.accounting.dropWait != 0 {
+		t.Fatalf("an empty registered waiter took %d deadline waits and charged %s, want neither", d.accounting.deadlineWaits, d.accounting.dropWait)
+	}
+	if d.accounting.dropped != 1 {
+		t.Fatalf("an empty registered waiter recorded %d drops, want 1", d.accounting.dropped)
+	}
+}
+
+// TestARegisteredWaiterStillDeliversItsQueuedAnswer holds the other state of
+// the same queue: registration is never permission to discard work already in
+// it, and the driver's account must call the command answered.
+func TestARegisteredWaiterStillDeliversItsQueuedAnswer(t *testing.T) {
+	want := session.Event{Kind: session.EventTextDelta, Text: "already queued"}
+	ch := make(chan session.Event, 1)
+	ch <- want
+	d := harnessStreamDriver(ch)
+
+	got := finishHarnessDriver(d, d.run(waitEvent(ch, 7)))
+	if len(got) != 1 {
+		t.Fatalf("a queued registered waiter delivered %d messages, want 1", len(got))
+	}
+	msg, ok := got[0].(streamEventMsg)
+	if !ok || msg.gen != 7 || msg.ev.Kind != want.Kind || msg.ev.Text != want.Text {
+		t.Fatalf("a queued registered waiter delivered %#v, want generation 7 event %#v", got[0], want)
+	}
+	if d.accounting.answered != 1 || d.accounting.dropped != 0 {
+		t.Fatalf("a queued registered waiter recorded answered=%d dropped=%d, want 1 and 0", d.accounting.answered, d.accounting.dropped)
+	}
+}
+
+// TestAnUnregisteredWaiterKeepsTheFullBudgetRoad asserts the default by the
+// driver's bill, not by a stopwatch. The fake owns another channel, so this
+// exact waiter is unknown even though its family is recognised.
+func TestAnUnregisteredWaiterKeepsTheFullBudgetRoad(t *testing.T) {
+	unknown := make(chan session.Event, 1)
+	agent := &doorlessAgent{Agent: &fakeAgent{}}
+	d := newHarnessDriver()
+	d.app = &app{agent: agent, stream: unknown}
+
+	got := finishHarnessDriver(d, d.run(waitEvent(unknown, 1)))
+	if len(got) != 0 {
+		t.Fatalf("an unregistered waiter delivered %d messages, want none", len(got))
+	}
+	if d.accounting.deadlineWaits != 1 || d.accounting.dropWait != cmdBudget {
+		t.Fatalf("an unregistered waiter took %d deadline waits and charged %s, want 1 and %s", d.accounting.deadlineWaits, d.accounting.dropWait, cmdBudget)
+	}
+}
+
+// TestARegisteredClosedWaiterStillAnswersAtOnce prevents an empty closed queue
+// from being mistaken for an open empty one. The waiter itself translates the
+// close into the same [streamClosedMsg] the surface has always received.
+func TestARegisteredClosedWaiterStillAnswersAtOnce(t *testing.T) {
+	ch := make(chan session.Event, 1)
+	close(ch)
+	d := harnessStreamDriver(ch)
+
+	got := finishHarnessDriver(d, d.run(waitEvent(ch, 11)))
+	if len(got) != 1 {
+		t.Fatalf("a closed registered waiter delivered %d messages, want 1", len(got))
+	}
+	msg, ok := got[0].(streamClosedMsg)
+	if !ok || msg.gen != 11 {
+		t.Fatalf("a closed registered waiter delivered %#v, want streamClosedMsg generation 11", got[0])
+	}
+	if d.accounting.answered != 1 || d.accounting.deadlineWaits != 0 {
+		t.Fatalf("a closed registered waiter recorded answered=%d deadline-waits=%d, want 1 and 0", d.accounting.answered, d.accounting.deadlineWaits)
+	}
+}
+
+// TestTheWaiterMatcherNamesEveryCommandTheTableHolds holds [waiterSymbol] to
+// [blockingCommands], NAME BY NAME AND EXCEPTIONS INCLUDED.
+//
+// The matcher is the one source of truth for "this command may never answer":
+// [budgetFor] asks it what to charge and [harnessDriver.overlappable] asks it
+// what may run beside something else. A name it silently stopped recognising
+// would be a waiter charged [workBudget] — a hundred and fifty milliseconds of
+// waiting turned into five seconds, or a panic naming a command that is doing
+// exactly what it was written to do. [TestTheHarnessOverlapsEveryWaiterItNames]
+// asks the same question of real built commands; this one asks it of every row.
+func TestTheWaiterMatcherNamesEveryCommandTheTableHolds(t *testing.T) {
+	for _, name := range blockingCommands {
+		symbol := "github.com/Agent-Field/codeaf/internal/tui3.(*app)." + name + ".func1"
+		if !waiterSymbol(symbol) {
+			t.Errorf("waiterSymbol(%q) = false, and blockingCommands names %s — a waiter the matcher does not recognise is charged the whole %s and named as stuck when it does what it was written to do", symbol, name, workBudget)
+		}
+	}
+}
+
+// TestTheHarnessNamesOrdinaryWorkThatNeverAnswers is the third outcome: a
+// command that is neither a tick nor a waiter and never answers at all.
+//
+// It is a hang, and the harness says which command by name rather than handing
+// the test nothing and letting a later assertion invent a reason. THE SEAM IS
+// CALLED DIRECTLY rather than through [runCmd] on purpose: reaching it the long
+// way costs a real [workBudget] of wall clock, and a five-second test earns
+// nothing here that this one does not already say. The three exits that call it
+// are covered by reading, and named in its own comment.
+func TestTheHarnessNamesOrdinaryWorkThatNeverAnswers(t *testing.T) {
+	cmd := func() tea.Msg { return nil }
+	waited := workBudget + 23*time.Millisecond
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		droppedWork(cmd, waited)
+	}()
+	if recovered == nil {
+		t.Fatal("droppedWork returned after the harness gave up on ordinary work, want a panic")
+	}
+	message, ok := recovered.(string)
+	if !ok {
+		t.Fatalf("droppedWork panicked with %#v, want a sentence", recovered)
+	}
+	if symbol := cmdSymbol(cmd); !strings.Contains(message, symbol) {
+		t.Errorf("droppedWork panic %q does not name command %q", message, symbol)
+	}
+	if !strings.Contains(message, waited.String()) {
+		t.Errorf("droppedWork panic %q does not name waited duration %s", message, waited)
+	}
+}
+
+// TestTheHarnessOverlapsEveryWaiterItNames builds a real command from each of
+// the waiters this package declares and holds [overlappable] to it.
+//
+// THE MATCHER IS A STRING TEST AGAINST A RUNTIME SYMBOL, which is exactly the
+// kind of thing that goes quietly wrong: a waiter renamed, a closure the
+// compiler decided to name differently, an entry added to [blockingCommands]
+// whose command turns out never to match. Any of those would leave a waiter
+// paying the old serial price with nothing failing, so the harness would get
+// slower one waiter at a time and nobody would be told. Here it is told.
+//
+// The commands are built and never called — a called waiter would park — so the
+// channels they are handed are only ever closed.
+func TestTheHarnessOverlapsEveryWaiterItNames(t *testing.T) {
+	events := make(chan session.Event)
+	stirs := make(chan behindStirMsg)
+	wakes := make(chan (<-chan session.Event))
+	var a app
+
+	// One command per name in [blockingCommands] that is not an exception.
+	// The map is written out rather than derived so that a waiter added to the
+	// table without a case here fails this test rather than slipping through.
+	built := map[string]tea.Cmd{
+		"waitDesign":         waitDesign(events, 1),
+		"waitEvent":          waitEvent(events, 1),
+		"waitGuestNotices":   waitGuestNotices(events, 1),
+		"waitGuestQuestions": waitGuestQuestions(events, 1),
+		"waitPilot":          waitPilot(events, 1, 1),
+		"waitQuestion":       waitQuestion(events, 1),
+		"waitRing":           newDoorbell(newsMsg{}).waitRing(),
+		"waitRoom":           waitRoom(events, 1),
+		"waitRun":            waitRun(events, 1),
+		"waitSteerLane":      waitSteerLane(events, 1),
+		"waitStir":           waitStir(stirs),
+		"waitTask":           waitTask(events, 1),
+		"waitTitle":          waitTitle(events, 1),
+		"waitWake":           waitWake(wakes, 1),
+	}
+	d := newHarnessDriver()
+	for name, cmd := range built {
+		if !d.overlappable(cmd) {
+			t.Errorf("%s builds a command the harness will not overlap — its symbol is %q, and [overlappable] looks for %q in it, so every call of it pays a whole %s on its own", name, cmdSymbol(cmd), "."+name+".func", cmdBudget)
+		}
+	}
+	// Every name in the table is either built here or an exception. A waiter in
+	// neither is one this test is silently not covering.
+	for _, name := range blockingCommands {
+		if overlapExceptions[name] {
+			continue
+		}
+		if _, ok := built[name]; ok {
+			continue
+		}
+		if strings.HasPrefix(name, "watch") {
+			// A watch* builds and returns one of the wait* above, so its
+			// command's symbol is that waiter's and it is covered by it.
+			continue
+		}
+		t.Errorf("blockingCommands names %s and this test builds no command from it — add one, or the harness may be failing to overlap it", name)
+	}
+
+	// And the two exceptions really are refused, because a test's own function
+	// runs inside those and this harness does not run a test's code beside
+	// itself.
+	a.link.DrivingChanged = func() <-chan struct{} { return make(chan struct{}) }
+	a.link.Follow = func() <-chan Following { return make(chan Following) }
+	for name, cmd := range map[string]tea.Cmd{
+		"watchDriving":   a.watchDriving(),
+		"watchFollowing": a.watchFollowing(),
+	} {
+		if cmd == nil {
+			t.Fatalf("%s built no command, so this test is asserting nothing", name)
+		}
+		if d.overlappable(cmd) {
+			t.Errorf("%s is overlapped, and it calls a function the test supplied — two of them could run at once on a fake written for one", name)
+		}
+	}
+
+	// And the harness tick is resolved synchronously rather than overlapped.
+	tick := harnessTick(time.Millisecond, func(time.Time) tea.Msg { return frameMsg{} })
+	if symbol := cmdSymbol(tick); symbol != harnessTickSymbol {
+		t.Fatalf("harnessTickSymbol is %q but the harness clock builds %q", harnessTickSymbol, symbol)
+	}
+	if d.overlappable(tick) {
+		t.Error("the harness clock was put on the channel-waiter overlap path")
+	}
+	if got := d.run(tick); len(got) != 1 {
+		t.Fatalf("the harness clock delivered %d messages, want one", len(got))
+	}
+	long := harnessTick(cmdBudget, func(time.Time) tea.Msg { return frameMsg{} })
+	if got := d.run(long); len(got) != 0 {
+		t.Fatalf("a tick outside the old tick budget delivered %d messages", len(got))
+	}
+
+	// A test that waits a long tick out on purpose gets its message, and the
+	// budget is back where it was for the very next command.
+	if _, ok := waitOut(long).(frameMsg); !ok {
+		t.Fatal("waitOut did not deliver a tick longer than the harness budget")
+	}
+	if got := d.run(long); len(got) != 0 {
+		t.Fatalf("after waitOut the harness delivered %d messages for a long tick, want none", len(got))
+	}
+}
+
+// tickCallbackCallers names the ONE place in this package whose surfaceTick
+// callback does something other than name a message.
+//
+// A short callback is run synchronously by [harnessTick], and a long callback is
+// skipped. Keeping callbacks as messages ensures the harness clock does not hide
+// work that production delays. This table names the one callback whose delayed
+// message genuinely includes a read.
+var tickCallbackCallers = map[string]string{
+	"tasksLoaded": "calls the far task index the surface was handed; the 100ms callback runs synchronously on the harness path",
+}
+
+// TestEveryTickCallbackIsAMessageAndNothingElse reads the surface's own source
+// and fails when a surfaceTick has grown a callback that does work.
+func TestEveryTickCallbackIsAMessageAndNothingElse(t *testing.T) {
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, ".", func(f os.FileInfo) bool {
+		return !strings.HasSuffix(f.Name(), "_test.go")
+	}, 0)
+	if err != nil {
+		t.Fatalf("reading the surface's source: %v", err)
+	}
+	seen := map[string]bool{}
+	ticks := 0
+	for _, pkg := range pkgs {
+		for path, file := range pkg.Files {
+			// The enclosing declaration is carried down so a failure can name a
+			// function rather than a line number nobody can hold a table to.
+			for _, decl := range file.Decls {
+				fn, ok := decl.(*ast.FuncDecl)
+				if !ok || fn.Name == nil {
+					continue
+				}
+				ast.Inspect(fn, func(n ast.Node) bool {
+					call, ok := n.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					id, ok := call.Fun.(*ast.Ident)
+					if !ok || id.Name != "surfaceTick" {
+						return true
+					}
+					ticks++
+					if len(call.Args) != 2 {
+						return true
+					}
+					body, ok := call.Args[1].(*ast.FuncLit)
+					if !ok {
+						t.Errorf("%s: %s passes surfaceTick a callback that is not written out here, so nothing can say what the harness clock would skip or deliver", filepath.Base(path), fn.Name.Name)
+						return true
+					}
+					pure := true
+					ast.Inspect(body.Body, func(inner ast.Node) bool {
+						if _, ok := inner.(*ast.CallExpr); ok {
+							pure = false
+							return false
+						}
+						return true
+					})
+					if pure {
+						return true
+					}
+					seen[fn.Name.Name] = true
+					if _, known := tickCallbackCallers[fn.Name.Name]; !known {
+						t.Errorf("%s: %s arms a surfaceTick whose callback CALLS SOMETHING. The harness clock skips long ticks and delivers short ones synchronously, so delayed work would disappear from tests. Make it return a message and nothing else, or add %q to tickCallbackCallers in harnessdriver_test.go with the reason the callback is safe to resolve immediately", filepath.Base(path), fn.Name.Name, fn.Name.Name)
+					}
+					return true
+				})
+			}
+		}
+	}
+	if ticks == 0 {
+		t.Error("nothing in the package calls surfaceTick any more, so this law and [tickBudget] are dead — delete them")
+	}
+	for name := range tickCallbackCallers {
+		if !seen[name] {
+			t.Errorf("tickCallbackCallers names %s, whose surfaceTick callback no longer calls anything — remove the exception", name)
+		}
+	}
+}

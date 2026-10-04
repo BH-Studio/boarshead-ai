@@ -1,0 +1,906 @@
+package tui3
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/Agent-Field/codeaf/internal/config"
+	"github.com/Agent-Field/codeaf/internal/connect"
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// CONNECTING AN ACCOUNT, from the four sides a person meets it: the offer and
+// its two keys, the browser handoff and the link it writes down, the outcome
+// that settles in place, and the panel /connect opens.
+
+// ── the scripted session's connect methods ──────────────────────────────────
+//
+// They live here rather than beside [fakeAgent] because they arrived with this
+// wave: the plain fake answers them the way a session with nothing to say does,
+// and [connectAgent] below is the one that records.
+
+func (f *fakeAgent) ResolveConnect(string, bool)      {}
+func (f *fakeAgent) ResolveConnectKey(string, string) {}
+func (f *fakeAgent) NoteConnected(string, string)     {}
+
+// connectAgent records the two answers this wave sends back into the session.
+type connectAgent struct {
+	*fakeAgent
+	resolved []connectAnswer
+	noted    []connectAnswer
+}
+
+type connectAnswer struct {
+	id      string
+	approve bool
+	account string
+	// key is what the key path sent back, and keyed says it took that path at
+	// all — the difference between "no key" and "a decline", which are the same
+	// empty string and not the same answer.
+	key   string
+	keyed bool
+}
+
+func (c *connectAgent) ResolveConnect(id string, approve bool) {
+	c.resolved = append(c.resolved, connectAnswer{id: id, approve: approve})
+}
+
+func (c *connectAgent) ResolveConnectKey(id string, key string) {
+	c.resolved = append(c.resolved, connectAnswer{
+		id: id, approve: key != "", key: key, keyed: true,
+	})
+}
+
+func (c *connectAgent) NoteConnected(service, account string) {
+	c.noted = append(c.noted, connectAnswer{id: service, account: account})
+}
+
+// ONE DOOR, which is where every answer on the block goes
+// ([session.Agent.ResolveQuestion]).
+func (c *connectAgent) ResolveQuestion(answer session.Answer) error {
+	return resolveThroughLanes(c, answer)
+}
+
+// fakeConnections is the door onto the accounts, scripted.
+type fakeConnections struct {
+	rows []connect.Status
+	err  error
+	// began and dropped are what the panel asked for, in order.
+	began   []string
+	answers []connectAnswer
+	dropped []string
+	// keyed is every (service, key) pair the panel handed over, and keyErr is
+	// what the far end says about them.
+	keyed  []connectAnswer
+	keyErr error
+
+	// The capability half of the door (connectcaps.go). caps is what each
+	// service may be asked to do, states where each of those stands, set what
+	// the surface asked for — in order, with the exact arguments — and setErr a
+	// refusal the engine hands back.
+	// reads counts how many times the catalog was asked for, which is what the
+	// once-per-read discipline is asserted against (connectcaps.go).
+	reads  int
+	caps   map[string][]connect.Capability
+	states map[string]connect.CapabilityState
+	set    []capChange
+	setErr error
+}
+
+// capChange is one SetCapabilityState call, recorded whole.
+type capChange struct {
+	service    string
+	capability string
+	state      connect.CapabilityState
+}
+
+func (f *fakeConnections) Services() []connect.Status {
+	f.reads++
+	return f.rows
+}
+
+func (f *fakeConnections) BeginAuth(ctx context.Context, id, answer string) (*connect.Flow, error) {
+	f.began = append(f.began, id)
+	f.answers = append(f.answers, connectAnswer{id: id, key: answer})
+	// A nil flow is what a stubbed engine hands back, and the surface treats it
+	// as nothing to wait on — which is exactly the shape these tests want: the
+	// ASK is what the panel owns, and the answer arrives as its own message.
+	return nil, f.err
+}
+
+func (f *fakeConnections) ConnectKey(ctx context.Context, id string, key string) (connect.Status, error) {
+	f.keyed = append(f.keyed, connectAnswer{id: id, key: key})
+	if f.keyErr != nil {
+		return connect.Status{}, f.keyErr
+	}
+	for i := range f.rows {
+		if f.rows[i].ID != id {
+			continue
+		}
+		f.rows[i].Connected, f.rows[i].Account = true, "jane@example.com"
+		return f.rows[i], nil
+	}
+	return connect.Status{}, nil
+}
+
+func (f *fakeConnections) Disconnect(id string) error {
+	f.dropped = append(f.dropped, id)
+	for i := range f.rows {
+		if f.rows[i].ID == id {
+			f.rows[i].Connected, f.rows[i].Account = false, ""
+		}
+	}
+	return nil
+}
+
+func (f *fakeConnections) Capabilities(service string) []connect.Capability {
+	return f.caps[service]
+}
+
+// CapabilityState answers what was last set, and otherwise the default the
+// contract states: looking is yes, acting asks first.
+func (f *fakeConnections) CapabilityState(service, capability string) connect.CapabilityState {
+	if state, ok := f.states[capKey(service, capability)]; ok {
+		return state
+	}
+	for _, may := range f.caps[service] {
+		if may.ID == capability && may.Acts {
+			return connect.StateAsk
+		}
+	}
+	return connect.StateYes
+}
+
+func (f *fakeConnections) SetCapabilityState(service, capability string, state connect.CapabilityState) error {
+	f.set = append(f.set, capChange{service: service, capability: capability, state: state})
+	if f.setErr != nil {
+		return f.setErr
+	}
+	if f.states == nil {
+		f.states = map[string]connect.CapabilityState{}
+	}
+	f.states[capKey(service, capability)] = state
+	return nil
+}
+
+func capKey(service, capability string) string { return service + "/" + capability }
+
+// connectApp is a surface with a recording session behind it, and no browser in
+// front of it: every handoff lands in opened rather than on the machine running
+// the test.
+func connectApp(t *testing.T) (*connectAgent, *app, *[]string) {
+	t.Helper()
+	agent := &connectAgent{fakeAgent: &fakeAgent{model: "m"}}
+	a := newTestApp(agent)
+	opened := new([]string)
+	was := processOpener
+	processOpener = func(target string) error {
+		*opened = append(*opened, target)
+		return nil
+	}
+	t.Cleanup(func() { processOpener = was })
+	return agent, a, opened
+}
+
+// askConnectEvent is the session's own offer.
+func askConnectEvent(id, service, name string) session.Event {
+	return session.Event{
+		Kind: session.EventConnectAsk, ConnectID: id, Service: service, ServiceName: name,
+	}
+}
+
+// connectBlock is the question block as a reader sees it, laid out at the
+// frame's width. The offer has no block of its own any more — it is a card on
+// the one every question is drawn by (question.go).
+func connectBlock(a *app) []string {
+	out := make([]string, 0, 6)
+	for _, line := range a.questionRows(a.width) {
+		out = append(out, plain(line))
+	}
+	return out
+}
+
+// connectSettled puts the offer past the settle guard, which is where a person
+// is before their first key: drawn, and [questionSettle] gone by (question.go's
+// THE SETTLE GUARD). The DRAW is what stamps a question as seen, so the stamp is
+// walked back rather than the clock forward.
+func connectSettled(t *testing.T, a *app) {
+	t.Helper()
+	_ = a.questionRows(a.width)
+	for i := range a.questions {
+		a.questions[i].shown = a.questions[i].shown.Add(-questionSettle - time.Millisecond)
+	}
+}
+
+// ── 1. the offer ────────────────────────────────────────────────────────────
+
+// THE CARD SAYS THREE THINGS AND STOPS: which account, why it is being asked,
+// and the two answers. No scopes, no provider machinery, no third answer.
+func TestTheConnectOfferNamesTheAccountAndTwoAnswers(t *testing.T) {
+	_, a, _ := connectApp(t)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+
+	joined := strings.Join(connectBlock(a), "\n")
+	if !strings.Contains(joined, "connect your Google account?") {
+		t.Fatalf("the head does not name the account:\n%s", joined)
+	}
+	if !strings.Contains(joined, session.ConnectAskReason) {
+		t.Fatalf("the card never says why it is asking:\n%s", joined)
+	}
+	for _, want := range []string{"1 connect", "2 not now"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("the card is missing %q:\n%s", want, joined)
+		}
+	}
+	// NO MACHINERY, ANYWHERE ON THE CARD. These are the words a person should
+	// never have to read to connect their own account.
+	for _, banned := range []string{"OAuth", "oauth", "token", "scope", "URL", "redirect"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("the offer says %q:\n%s", banned, joined)
+		}
+	}
+	// And the block is counted the way it is drawn: a frame whose geometry
+	// disagreed with its layout puts the caret a row off the box.
+	if got, rows := a.questionHeight(), len(connectBlock(a)); got != rows {
+		t.Fatalf("the block is %d rows and counts itself as %d", rows, got)
+	}
+}
+
+// THE DIGITS ANSWER, and the answer goes back to the session with the token it
+// came with.
+//
+// `enter`, `y` and `n` USED TO ANSWER IT AND DO NOT ANY MORE, and `esc` used to
+// be the outright no. One grammar for every question: the number beside the
+// answer takes it, and `esc` means *later*.
+func TestTheConnectOfferIsAnsweredByOneKey(t *testing.T) {
+	for _, test := range []struct {
+		key     string
+		approve bool
+	}{
+		{"1", true}, {"2", false},
+	} {
+		agent, a, _ := connectApp(t)
+		drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+		connectSettled(t, a)
+		drive(t, a, key(test.key))
+
+		if a.asksConnect() {
+			t.Fatalf("%q left the offer on screen", test.key)
+		}
+		if len(agent.resolved) != 1 {
+			t.Fatalf("%q sent %d answers to the session", test.key, len(agent.resolved))
+		}
+		if got := agent.resolved[0]; got.id != "c1" || got.approve != test.approve {
+			t.Fatalf("%q answered %+v, want c1/%v", test.key, got, test.approve)
+		}
+	}
+}
+
+// AND `esc` IS LATER RATHER THAN A NO. Nothing is decided, the session is told
+// nothing, and the chip goes on counting it.
+func TestEscOnTheConnectOfferDecidesNothing(t *testing.T) {
+	agent, a, _ := connectApp(t)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+	drive(t, a, key("esc"))
+	if len(agent.resolved) != 0 {
+		t.Fatalf("esc answered the offer: %+v", agent.resolved)
+	}
+	if !a.asksConnect() {
+		t.Fatal("esc took the offer away instead of putting it off")
+	}
+	if a.questionCount() != 1 {
+		t.Fatalf("the chip counts %d questions after one was put off", a.questionCount())
+	}
+}
+
+// A DECLINE RECORDS NOTHING. Nothing happened, and a line saying "you said not
+// now" would be the surface keeping a note about a thing it did not do.
+func TestDecliningTheConnectOfferWritesNothingDown(t *testing.T) {
+	_, a, _ := connectApp(t)
+	before := len(a.entries)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+	drive(t, a, key("2"))
+	if len(a.entries) != before {
+		t.Fatalf("declining wrote %d rows into the transcript", len(a.entries)-before)
+	}
+}
+
+// THE OFFER LEAVES THE DRAFT ALONE, which is the opposite of what it used to do.
+//
+// It owned the keyboard: every key that was not one of its two answers typed
+// nothing at all. The block is NOT MODAL (question.go), so the letters are the
+// person's — and the moment there are words in the box the digits are theirs
+// too, which is this surface's own law about letters.
+func TestTheConnectOfferLeavesTheDraftAlone(t *testing.T) {
+	_, a, _ := connectApp(t)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+	drive(t, a, key("h"), key("i"))
+	if got := a.input.String(); got != "hi" {
+		t.Fatalf("the draft took %q while an offer was up, want \"hi\"", got)
+	}
+	if !a.asksConnect() {
+		t.Fatal("typing answered the offer")
+	}
+}
+
+// C6: Words at a browser connect question move the turn on; they never open a
+// key-check report for an account that did not ask for a key.
+func TestWordsAtABrowserConnectQuestionOpenNoKeyCard(t *testing.T) {
+	agent, a, _ := connectApp(t)
+	a.width = 100
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+	typeLine(t, a, "actually just tell me what 2+2 is")
+
+	if len(agent.resolved) != 1 || !agent.resolved[0].keyed {
+		t.Fatalf("the words did not reach the connect lane: %+v", agent.resolved)
+	}
+	if got := strings.Join(plainRows(a), "\n"); strings.Contains(got, "checking your Google key") {
+		t.Fatalf("a browser question opened a key card:\n%s", got)
+	}
+	if cards := connectEntries(a); len(cards) != 0 {
+		t.Fatalf("moving past the browser question opened %d connect reports", len(cards))
+	}
+}
+
+// THEY QUEUE, oldest first, and what is behind the one on screen is on screen.
+func TestConnectOffersQueue(t *testing.T) {
+	agent, a, _ := connectApp(t)
+	drive(t, a,
+		streamOf(a, askConnectEvent("c1", "google", "Google")),
+		streamOf(a, askConnectEvent("c2", "slack", "Slack")),
+	)
+	if !strings.Contains(strings.Join(connectBlock(a), "\n"), "1 more") {
+		t.Fatalf("the queue behind the offer is not on screen:\n%s",
+			strings.Join(connectBlock(a), "\n"))
+	}
+	connectSettled(t, a)
+	drive(t, a, key("1"))
+	connectSettled(t, a)
+	if got := strings.Join(connectBlock(a), "\n"); !strings.Contains(got, "Slack") {
+		t.Fatalf("the second offer did not come forward:\n%s", got)
+	}
+	drive(t, a, key("2"))
+	if len(agent.resolved) != 2 || agent.resolved[0].id != "c1" || agent.resolved[1].id != "c2" {
+		t.Fatalf("the queue was answered as %+v, want c1 then c2", agent.resolved)
+	}
+}
+
+// THE POINTER ANSWERS IT TOO, and the whole answer row is the target.
+func TestTheConnectOfferIsAnsweredByThePointer(t *testing.T) {
+	agent, a, _ := connectApp(t)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+
+	// THE ANSWER'S OWN CELLS ARE THE TARGET on a question drawn as one row: the
+	// spans the layout wrote say where they are (question.go's [choiceSpan]),
+	// exactly as the bands do on the panel.
+	y := connectAnswerY(t, a, "1 connect")
+	if len(a.questionSpans) == 0 {
+		t.Fatal("the row recorded no answer to press")
+	}
+	drive(t, a, tea.MouseClickMsg{X: a.questionSpans[0].from + 1, Y: y, Button: tea.MouseLeft})
+	if len(agent.resolved) != 1 || !agent.resolved[0].approve {
+		t.Fatalf("the press answered %+v, want an approval", agent.resolved)
+	}
+}
+
+// AND A PRESS THAT MISSES EVERY ANSWER FALLS THROUGH, which is the block's
+// not-modal law said to the pointer. It used to be swallowed, because the block
+// underneath it owned the frame while it was up.
+func TestAPressThatMissesTheConnectAnswersFallsThrough(t *testing.T) {
+	agent, a, _ := connectApp(t)
+	drive(t, a, streamOf(a, askConnectEvent("c1", "google", "Google")))
+	connectSettled(t, a)
+	if _, took := a.questionPress(a.width-1, 0); took {
+		t.Fatal("a press on a row the block never drew was taken by it")
+	}
+	if len(agent.resolved) != 0 {
+		t.Fatalf("a press on nothing answered the offer: %+v", agent.resolved)
+	}
+}
+
+// connectAnswerY is the screen row one of the offer's answers is drawn on,
+// derived the way [app.chromeAt] derives it backwards so the test and the
+// surface cannot disagree about where the row is.
+func connectAnswerY(t *testing.T, a *app, want string) int {
+	t.Helper()
+	rows := a.questionRows(a.width)
+	_, marks, _, _ := a.chrome(a.width)
+	for at, mark := range marks {
+		if mark.kind != chromeQuestion || mark.index >= len(rows) {
+			continue
+		}
+		if strings.Contains(plain(rows[mark.index]), want) {
+			return at + a.height - len(marks)
+		}
+	}
+	t.Fatalf("no row of the frame draws %q", want)
+	return -1
+}
+
+// ── 2. the browser handoff ──────────────────────────────────────────────────
+
+const testAuthLink = "https://accounts.example.com/sign-in?state=abcdef"
+
+// THE LINK GOES TO THE PLATFORM AND ONTO THE SCREEN. Both, always: a browser
+// opened on the far end of an ssh connection is a browser nobody is sitting at.
+func TestTheHandoffOpensTheBrowserAndWritesTheLinkDown(t *testing.T) {
+	_, a, opened := connectApp(t)
+	a.width = 100
+	drive(t, a, streamOf(a, session.Event{
+		Kind: session.EventConnectAuth, Service: "google", AuthURL: testAuthLink,
+	}))
+
+	if len(*opened) != 1 || (*opened)[0] != testAuthLink {
+		t.Fatalf("the browser was handed %v, want the link once", *opened)
+	}
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, "waiting in your browser") {
+		t.Fatalf("the surface does not say what it is waiting for:\n%s", screen)
+	}
+	if !strings.Contains(screen, testAuthLink) {
+		t.Fatalf("the link is not on screen as text:\n%s", screen)
+	}
+	// AND IT IS A HYPERLINK where the sequence is safe — the plain text above is
+	// what a person selects, this is what a modern terminal makes clickable.
+	painted := strings.Join(rowTexts(a), "\n")
+	if !strings.Contains(painted, "\x1b]8;;"+testAuthLink) {
+		t.Fatal("the link on screen carries no hyperlink")
+	}
+	// The waiting block is the one thing on this surface that keeps the paint
+	// clock turning with no turn running.
+	if !a.connectAnimating() {
+		t.Fatal("a sign-in in flight does not ask for frames")
+	}
+}
+
+// A PLATFORM THAT CANNOT OPEN A BROWSER STILL SHOWS THE LINK. The handoff is not
+// the feature; reaching the sign-in is.
+func TestAFailedHandoffStillLeavesTheLink(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	processOpener = func(string) error { return errNoBrowser }
+	drive(t, a, streamOf(a, session.Event{
+		Kind: session.EventConnectAuth, Service: "google", AuthURL: testAuthLink,
+	}))
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, testAuthLink) {
+		t.Fatalf("a failed handoff took the link with it:\n%s", screen)
+	}
+}
+
+// ── 3. the outcome ──────────────────────────────────────────────────────────
+
+// IT SETTLES IN PLACE: the waiting block becomes the line, rather than a second
+// block being written under it.
+func TestAFinishedSignInSettlesTheWaitingBlock(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	drive(t, a,
+		streamOf(a, askConnectEvent("c1", "google", "Google")),
+		key("enter"),
+		streamOf(a, session.Event{
+			Kind: session.EventConnectAuth, Service: "google", AuthURL: testAuthLink,
+		}),
+	)
+	blocks := connectEntries(a)
+	if len(blocks) != 1 {
+		t.Fatalf("the handoff wrote %d blocks", len(blocks))
+	}
+	drive(t, a, streamOf(a, session.Event{
+		Kind: session.EventConnectDone, Service: "google", Account: "jane@example.com",
+	}))
+	if blocks = connectEntries(a); len(blocks) != 1 {
+		t.Fatalf("the outcome wrote a second block: %d in all", len(blocks))
+	}
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, glyphConnected+" Google connected as jane@example.com") {
+		t.Fatalf("the tick line is not what settled:\n%s", screen)
+	}
+	if strings.Contains(screen, "waiting in your browser") {
+		t.Fatalf("the waiting line survived the outcome:\n%s", screen)
+	}
+	if strings.Contains(screen, testAuthLink) {
+		t.Fatalf("the link survived the sign-in it was for:\n%s", screen)
+	}
+	if a.connectAnimating() {
+		t.Fatal("a settled sign-in still asks for frames")
+	}
+}
+
+// THE EMPTINESS LAW. No account reported is no parenthetical, no "unknown", and
+// no gap where one would have been.
+func TestAConnectionWithNoAccountSaysNothingExtra(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	drive(t, a, streamOf(a, session.Event{
+		Kind: session.EventConnectDone, Service: "google", ServiceName: "Google",
+	}))
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, glyphConnected+" Google connected") {
+		t.Fatalf("the connection was not reported at all:\n%s", screen)
+	}
+	if strings.Contains(screen, " as ") {
+		t.Fatalf("a connection with no account still says who:\n%s", screen)
+	}
+}
+
+// A FAILURE IS QUIET AND HONEST, and it does not spend the failure glyph — which
+// on this surface means a call that broke.
+func TestAnUnfinishedSignInSaysSoQuietly(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	drive(t, a,
+		streamOf(a, session.Event{
+			Kind: session.EventConnectAuth, Service: "google", AuthURL: testAuthLink,
+		}),
+		streamOf(a, session.Event{Kind: session.EventConnectDone, Service: "google", Failed: true}),
+	)
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, "connection didn't complete") {
+		t.Fatalf("a failed sign-in said nothing:\n%s", screen)
+	}
+	if strings.Contains(screen, glyphBad) {
+		t.Fatalf("a connection that did not finish is drawn as a broken call:\n%s", screen)
+	}
+}
+
+// C5: Any browser wait still open when its turn ends settles to the existing
+// incomplete wording, stops animating, and no longer bypasses the render cache.
+func TestATurnEndingSettlesItsBrowserWait(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	a.turn = 7
+	drive(t, a, streamOf(a, session.Event{
+		Kind: session.EventConnectAuth, Service: "google", ServiceName: "Google", AuthURL: testAuthLink,
+	}))
+	if !a.connectAnimating() {
+		t.Fatal("the browser wait was not live before the turn ended")
+	}
+
+	drive(t, a, streamOf(a, session.Event{Kind: session.EventTurnDone}))
+	screen := strings.Join(plainRows(a), "\n")
+	if strings.Contains(screen, "waiting in your browser") {
+		t.Fatalf("the dead browser wait still claims it is live:\n%s", screen)
+	}
+	if !strings.Contains(screen, "Google connection didn't complete") {
+		t.Fatalf("the dead browser wait did not settle honestly:\n%s", screen)
+	}
+	if a.connectAnimating() {
+		t.Fatal("the settled browser wait still asks for frames")
+	}
+	if cards := connectEntries(a); len(cards) != 1 || cards[0].state != connectFailed {
+		t.Fatalf("the browser report did not rejoin the cached settled state: %+v", cards)
+	}
+}
+
+// THE NAME SURVIVES THE EVENTS THAT DO NOT CARRY ONE. Only the offer names a
+// service; the two events after it carry an id, and the block still reads
+// "Google".
+func TestTheServiceKeepsItsNameAcrossTheLane(t *testing.T) {
+	_, a, _ := connectApp(t)
+	a.width = 100
+	drive(t, a,
+		streamOf(a, askConnectEvent("c1", "google", "Google")),
+		key("enter"),
+		streamOf(a, session.Event{
+			Kind: session.EventConnectAuth, Service: "google", AuthURL: testAuthLink,
+		}),
+		streamOf(a, session.Event{
+			Kind: session.EventConnectDone, Service: "google", Account: "jane@example.com",
+		}),
+	)
+	if screen := strings.Join(plainRows(a), "\n"); !strings.Contains(screen, "Google connected") {
+		t.Fatalf("the service lost its name on the way:\n%s", screen)
+	}
+}
+
+// connectEntries is every sign-in block in the conversation.
+func connectEntries(a *app) []*connectCard {
+	out := make([]*connectCard, 0, 2)
+	for i := range a.entries {
+		if a.entries[i].kind == entryConnect {
+			out = append(out, a.entries[i].conn)
+		}
+	}
+	return out
+}
+
+// rowTexts is the conversation with its styling on, which is where the
+// hyperlink lives.
+func rowTexts(a *app) []string {
+	out := make([]string, 0, 8)
+	for _, r := range rows(a) {
+		out = append(out, r.text)
+	}
+	return out
+}
+
+var errNoBrowser = errConnect("this machine has no way to open a browser")
+
+type errConnect string
+
+func (e errConnect) Error() string { return string(e) }
+
+// ── 4. the panel ────────────────────────────────────────────────────────────
+
+// panelApp is a surface with a scripted set of connections behind /connect.
+//
+// NOTHING HERE CONSTRUCTS A [connect.Flow], deliberately: the flow is the
+// engine's object, and a test that reached into it would be a test pinned to a
+// stub rather than to the contract. The two halves of a sign-in are exercised
+// where the surface actually owns them — what it ASKED the engine for, and what
+// it does with the answer ([connectResultMsg]).
+func panelApp(t *testing.T, rows []connect.Status) (*connectAgent, *app, *fakeConnections) {
+	t.Helper()
+	agent, a, _ := connectApp(t)
+	conns := &fakeConnections{rows: rows}
+	a.conns = conns
+	return agent, a, conns
+}
+
+var twoServices = []connect.Status{
+	{Service: connect.Service{ID: "google", Name: "Google", Blurb: "your calendar and mail"}},
+	{
+		Service:   connect.Service{ID: "slack", Name: "Slack", Blurb: "your channels"},
+		Connected: true, Account: "jane@example.com",
+	},
+}
+
+// EACH ROW IS TWO GLYPHS AND A NAME, with whichever fact it actually has beside
+// it: the account where there is one, the blurb where there is not.
+func TestTheConnectPanelDrawsWhatEachServiceHas(t *testing.T) {
+	_, a, _ := panelApp(t, twoServices)
+	a.width = 100
+	typeLine(t, a, "/connect")
+	if !a.connPanel.open {
+		t.Fatal("/connect opened nothing")
+	}
+	screen := strings.Join(plainOverlay(a), "\n")
+	if !strings.Contains(screen, glyphIdle+" Google") ||
+		!strings.Contains(screen, "your calendar and mail") {
+		t.Fatalf("an unconnected row is not a dot, a name and its blurb:\n%s", screen)
+	}
+	if !strings.Contains(screen, glyphConnected+" Slack") ||
+		!strings.Contains(screen, "jane@example.com") {
+		t.Fatalf("a connected row is not a tick, a name and the account:\n%s", screen)
+	}
+	// The connected row says the account and NOT the blurb: one fact per row, and
+	// the one that is true of this profile.
+	if strings.Contains(screen, "your channels") {
+		t.Fatalf("a connected row is still advertising itself:\n%s", screen)
+	}
+	drive(t, a, key("esc"))
+	if a.connPanel.open {
+		t.Fatal("esc did not close the panel")
+	}
+}
+
+// ENTER ON AN UNCONNECTED ROW STARTS THE SIGN-IN and gets out of the way: the
+// panel closes, because what happens next is a browser and a waiting block.
+func TestTheConnectPanelStartsTheSignIn(t *testing.T) {
+	_, a, conns := panelApp(t, twoServices)
+	a.width = 100
+	typeLine(t, a, "/connect")
+	// The connected account sits at the top of the list now, so the row on offer
+	// is the one under it (connectcaps.go's [groupConnections], which is what the
+	// panel groups through).
+	drive(t, a, key("down"), key("enter"))
+
+	if len(conns.began) != 1 || conns.began[0] != "google" {
+		t.Fatalf("the panel began %v, want one google sign-in", conns.began)
+	}
+	if len(conns.answers) != 1 || conns.answers[0].key != "" {
+		t.Fatalf("an ordinary browser row carried %+v", conns.answers)
+	}
+	if a.connPanel.open {
+		t.Fatal("the panel stayed up over the sign-in it started")
+	}
+}
+
+func TestTheConnectPanelAsksForABrowserAddressBeforeItStarts(t *testing.T) {
+	row := connect.Status{Service: connect.Service{
+		ID: "datadog", Name: "Datadog", Auth: connect.AuthBrowser,
+		Blank: "Site", Answers: datadogAnswers, KeyAsk: datadogAsk,
+		Blurb: "your metrics, logs and monitors",
+	}}
+	rows := append(bigCatalog(40), row)
+	_, a, conns := panelApp(t, rows)
+	a.width = 80
+	typeLine(t, a, "/connect")
+	for _, r := range "datadog" {
+		drive(t, a, key(string(r)))
+	}
+	panel := strings.Join(plainOverlay(a), "\n")
+	if !strings.Contains(panel, "Datadog") || !strings.Contains(panel, signInTag) {
+		t.Fatalf("the rendered Datadog row does not carry the sign-in tag:\n%s", panel)
+	}
+	drive(t, a, key("enter"))
+	if len(conns.began) != 0 {
+		t.Fatalf("the browser started before the site answer: %v", conns.began)
+	}
+	if a.connPanel.entry == nil || a.connPanel.entry.secret {
+		t.Fatalf("enter opened %+v, want an unmasked entry", a.connPanel.entry)
+	}
+	box, _, _ := a.inputBlock(a.width)
+	shown := plain(strings.Join(box, "\n"))
+	if strings.Count(shown, datadogAsk) != 1 {
+		t.Fatalf("the question appears %d times, want once:\n%s", strings.Count(shown, datadogAsk), shown)
+	}
+	for _, answer := range datadogAnswers {
+		if !strings.Contains(shown, answer) {
+			t.Errorf("the 80-column box does not name %q:\n%s", answer, shown)
+		}
+	}
+	if len(box) != 4 {
+		t.Fatalf("the wrapped question, box and site list take %d rows, want four:\n%s", len(box), shown)
+	}
+	drive(t, a, tea.PasteMsg{Content: "datadoghq.eu"})
+	box, _, _ = a.inputBlock(a.width)
+	if shown := plain(strings.Join(box, "\n")); !strings.Contains(shown, "datadoghq.eu") {
+		t.Fatalf("the site is masked: %s", shown)
+	}
+	drive(t, a, key("enter"))
+	if len(conns.answers) != 1 || conns.answers[0].id != "datadog" || conns.answers[0].key != "datadoghq.eu" {
+		t.Fatalf("BeginAuth received %+v", conns.answers)
+	}
+	if len(conns.keyed) != 0 {
+		t.Fatalf("the browser answer took the key connection path: %+v", conns.keyed)
+	}
+}
+
+// AND WHAT COMES BACK SETTLES THE BLOCK AND TELLS THE SESSION — which is the
+// whole point of this door: a conversation that gave up on an account learns it
+// has one, so the next thing that reaches for it does not ask again.
+func TestAPanelSignInSettlesAndTellsTheSession(t *testing.T) {
+	agent, a, _ := panelApp(t, twoServices)
+	a.width = 100
+	a.openConnectFlow("google", "Google", testAuthLink)
+	drive(t, a, connectResultMsg{
+		service: "google", name: "Google",
+		status: connect.Status{
+			Service:   connect.Service{ID: "google", Name: "Google"},
+			Connected: true, Account: "jane@example.com",
+		},
+	})
+
+	screen := strings.Join(plainRows(a), "\n")
+	if !strings.Contains(screen, glyphConnected+" Google connected as jane@example.com") {
+		t.Fatalf("the panel's sign-in did not settle into the tick line:\n%s", screen)
+	}
+	if len(agent.noted) != 1 || agent.noted[0].id != "google" ||
+		agent.noted[0].account != "jane@example.com" {
+		t.Fatalf("the session was told %+v", agent.noted)
+	}
+}
+
+// A SIGN-IN THAT CAME BACK WITH NOTHING IS A SIGN-IN THAT DID NOT HAPPEN, and
+// the session is told nothing at all.
+func TestAnAbandonedPanelSignInTellsTheSessionNothing(t *testing.T) {
+	agent, a, _ := panelApp(t, twoServices)
+	a.width = 100
+	a.openConnectFlow("google", "Google", testAuthLink)
+	drive(t, a, connectResultMsg{service: "google", name: "Google"})
+
+	if len(agent.noted) != 0 {
+		t.Fatalf("an unfinished sign-in was reported as connected: %+v", agent.noted)
+	}
+	if !strings.Contains(strings.Join(plainRows(a), "\n"), "connection didn't complete") {
+		t.Fatalf("it settled as something other than unfinished:\n%s",
+			strings.Join(plainRows(a), "\n"))
+	}
+}
+
+// DISCONNECTING TAKES TWO PRESSES. An account another window may be using is not
+// a one-keystroke decision.
+func TestTheConnectPanelAsksBeforeItDisconnects(t *testing.T) {
+	_, a, conns := panelApp(t, twoServices)
+	a.width = 100
+	typeLine(t, a, "/connect")
+	// The connected account is the first row, so the cursor opens on it.
+	drive(t, a, key("enter"))
+
+	if len(conns.dropped) != 0 {
+		t.Fatalf("one press disconnected %v", conns.dropped)
+	}
+	if !strings.Contains(strings.Join(plainOverlay(a), "\n"), "enter again to disconnect") {
+		t.Fatalf("the panel disconnected silently:\n%s", strings.Join(plainOverlay(a), "\n"))
+	}
+	// esc un-asks the question rather than closing the panel: the nearest thing
+	// to dismiss is the confirmation standing on the row.
+	drive(t, a, key("esc"))
+	if !a.connPanel.open {
+		t.Fatal("esc closed the panel instead of the question on it")
+	}
+	drive(t, a, key("enter"), key("enter"))
+	if len(conns.dropped) != 1 || conns.dropped[0] != "slack" {
+		t.Fatalf("the second press disconnected %v", conns.dropped)
+	}
+	if strings.Contains(strings.Join(plainOverlay(a), "\n"), "jane@example.com") {
+		t.Fatalf("the panel still shows the account it dropped:\n%s",
+			strings.Join(plainOverlay(a), "\n"))
+	}
+}
+
+// A SURFACE WITH NO DOOR ONTO CONNECTIONS SAYS SO, rather than opening an empty
+// list somebody has to dismiss before it can be told it was useless.
+func TestConnectSaysSoWhenThereIsNoDoor(t *testing.T) {
+	_, a, _ := connectApp(t)
+	typeLine(t, a, "/connect")
+	if a.connPanel.open {
+		t.Fatal("a surface with no connections opened a panel anyway")
+	}
+	if !strings.Contains(strings.Join(plainRows(a), "\n"), connectUnavailableWord) {
+		t.Fatalf("nothing was said:\n%s", strings.Join(plainRows(a), "\n"))
+	}
+}
+
+// plainOverlay is whatever list is open, as a reader sees it.
+func plainOverlay(a *app) []string {
+	out := make([]string, 0, 8)
+	for _, line := range a.overlayRows(a.width, a.overlayHeight()) {
+		out = append(out, plain(line))
+	}
+	return out
+}
+
+// ── 5. the command, and the settings rows ───────────────────────────────────
+
+// /connect IS ON THE LIST AND IN /help, which is one table read twice
+// (commands.go).
+func TestConnectIsOnTheCommandList(t *testing.T) {
+	found := false
+	for _, c := range commands {
+		found = found || c.name == "connect"
+	}
+	if !found {
+		t.Fatal("/connect is not on the command list")
+	}
+	if !strings.Contains(helpText("", chordSpelling{}), "/connect") {
+		t.Fatal("/connect is not in /help")
+	}
+}
+
+// THE THREE SIGN-IN ROWS HAVE A HOME, a label and a line — the same three things
+// the completeness gate asks of every registry row (chrome_test.go).
+func TestTheSignInRowsAreInThePanel(t *testing.T) {
+	for _, key := range []string{config.KeyGoogleOAuthClient, config.KeyGoogleOAuthSecret, config.KeySlackOAuthClient} {
+		meta, ok := settingUI[key]
+		if !ok {
+			t.Fatalf("row %q has no place in the settings panel", key)
+		}
+		if meta.tab == "" || meta.label == "" || meta.about == "" {
+			t.Fatalf("row %q reaches the panel as %+v", key, meta)
+		}
+		placed := false
+		for _, tab := range settingTabs {
+			placed = placed || tab == meta.tab
+		}
+		if !placed {
+			t.Fatalf("row %q sits on unknown tab %q", key, meta.tab)
+		}
+		// No machinery in the words a person reads.
+		words := meta.label + " " + meta.about
+		for _, banned := range []string{"OAuth", "oauth", "token", "client id", "PKCE", "pkce"} {
+			if strings.Contains(words, banned) {
+				t.Fatalf("row %q says %q: %s", key, banned, words)
+			}
+		}
+	}
+}
+
+// ── the lane, in the shape the surface reads it ─────────────────────────────
+
+// streamOf is one session event arriving on this surface's turn stream, which is
+// where the connect lane's three kinds land.
+func streamOf(a *app, ev session.Event) tea.Msg {
+	return streamEventMsg{gen: a.gen, ev: ev}
+}

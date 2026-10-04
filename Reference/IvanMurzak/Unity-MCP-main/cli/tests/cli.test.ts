@@ -1,0 +1,373 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { execFileSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { fileURLToPath } from 'url';
+import { antigravityConfigPaths, createTempHome, type TempHome } from './helpers/temp-home.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLI_PATH = path.resolve(__dirname, '..', 'bin', 'unity-mcp-cli.js');
+
+function runCli(
+  args: string[],
+  options?: { cwd?: string; env?: NodeJS.ProcessEnv },
+): { stdout: string; exitCode: number } {
+  try {
+    const stdout = execFileSync('node', [CLI_PATH, ...args], {
+      encoding: 'utf-8',
+      timeout: 10000,
+      cwd: options?.cwd,
+      env: options?.env,
+    });
+    return { stdout, exitCode: 0 };
+  } catch (err: unknown) {
+    const error = err as { stdout?: string; stderr?: string; status?: number };
+    return {
+      stdout: (error.stdout ?? '') + (error.stderr ?? ''),
+      exitCode: error.status ?? 1,
+    };
+  }
+}
+
+describe('CLI integration', () => {
+  // --- Global CLI behavior ---
+
+  describe('global options', () => {
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('unity-mcp-cli');
+      expect(stdout).toContain('create-project');
+      expect(stdout).toContain('install-unity');
+      expect(stdout).toContain('open');
+      expect(stdout).toContain('install-plugin');
+      expect(stdout).toContain('remove-plugin');
+      expect(stdout).toContain('configure');
+      expect(stdout).toContain('run-tool');
+      // connect command was merged into open — no separate 'connect' command listed
+      // (the word 'connect' may appear in descriptions, but not as a standalone command)
+    });
+
+    it('lists commands in alphabetical order', () => {
+      const { stdout, exitCode } = runCli(['--help']);
+      expect(exitCode).toBe(0);
+      // Extract command names from help output
+      const commandNames = ['configure', 'create-project', 'install-plugin', 'install-unity', 'open', 'remove-plugin', 'run-tool'];
+      const positions = commandNames.map(name => stdout.indexOf(name));
+      // Verify each command appears after the previous one (alphabetical order)
+      for (let i = 1; i < positions.length; i++) {
+        expect(positions[i]).toBeGreaterThan(positions[i - 1]);
+      }
+    });
+
+    it('shows version with --version', () => {
+      const { stdout, exitCode } = runCli(['--version']);
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+    });
+  });
+
+  // --- setup-mcp command (project keys §7 flags) ---
+  // Only paths that can never resolve a project key run here: the CLI process reads the REAL
+  // ~/.ai-game-dev login, so a default Cloud run could mint a real key against production.
+
+  describe('setup-mcp', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-mcp-cli-setup-mcp-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('documents --oauth and --regenerate-key in --help', () => {
+      const { stdout, exitCode } = runCli(['setup-mcp', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--oauth');
+      expect(stdout).toContain('--regenerate-key');
+    });
+
+    it('--oauth writes a URL-only config and reports no credential', () => {
+      const { stdout, exitCode } = runCli(['setup-mcp', 'claude-code', tmpDir, '--oauth']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('none (URL-only');
+      const raw = fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf-8');
+      expect(raw).not.toContain('Authorization');
+    });
+
+    it('--regenerate-key is refused together with --oauth (the flag reaches cli-core)', () => {
+      const { stdout, exitCode } = runCli(['setup-mcp', 'claude-code', tmpDir, '--oauth', '--regenerate-key']);
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('--regenerate-key');
+    });
+
+    // Antigravity's two config files live under $HOME — run the CLI against a temp home only.
+    describe('antigravity (two config files under $HOME)', () => {
+      let home: TempHome;
+      const configFiles = (): string[] => antigravityConfigPaths(home.dir);
+
+      beforeEach(() => {
+        home = createTempHome();
+      });
+
+      afterEach(() => {
+        home.dispose();
+      });
+
+      it('writes both files and prints both paths', () => {
+        const { stdout, exitCode } = runCli(['setup-mcp', 'antigravity', tmpDir, '--oauth'], { env: home.env });
+        expect(exitCode).toBe(0);
+        for (const file of configFiles()) {
+          expect(fs.existsSync(file)).toBe(true);
+          expect(stdout).toContain(file);
+        }
+      });
+
+      it('exits 1 naming the file when one of the two writes fails', () => {
+        const blocked = configFiles()[1];
+        fs.mkdirSync(blocked, { recursive: true }); // a directory where the file should be
+        const { stdout, exitCode } = runCli(['setup-mcp', 'antigravity', tmpDir, '--oauth'], { env: home.env });
+        expect(exitCode).toBe(1);
+        expect(stdout).toContain('Failed to write config');
+        expect(stdout).toContain(blocked);
+      });
+    });
+  });
+
+  // --- install-plugin command ---
+
+  describe('install-plugin', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-mcp-cli-test-'));
+      fs.mkdirSync(path.join(tmpDir, 'Packages'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['install-plugin', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--path');
+      expect(stdout).toContain('--plugin-version');
+    });
+
+    it('fails when project path has no manifest.json', () => {
+      const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'empty-'));
+      const { stdout, exitCode } = runCli([
+        'install-plugin',
+        '--path', emptyDir,
+        '--plugin-version', '0.51.6',
+      ]);
+      expect(exitCode).toBe(1);
+      // T5/B1: the helpful failure lists exactly what marker was checked for.
+      expect(stdout.toLowerCase()).toContain('not a valid unity project');
+      expect(stdout).toContain(path.join('Packages', 'manifest.json'));
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    });
+
+    it('installs plugin into a fresh manifest', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'Packages', 'manifest.json'),
+        JSON.stringify({ dependencies: {} }, null, 2)
+      );
+
+      const { stdout, exitCode } = runCli([
+        'install-plugin',
+        '--path', tmpDir,
+        '--plugin-version', '0.51.6',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Installing Unity-MCP plugin');
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, 'Packages', 'manifest.json'), 'utf-8')
+      );
+      expect(manifest.dependencies['com.ivanmurzak.unity.mcp']).toBe('0.51.6');
+      expect(manifest.scopedRegistries).toBeDefined();
+      expect(manifest.scopedRegistries[0].name).toBe('package.openupm.com');
+    });
+  });
+
+  // --- remove-plugin command ---
+
+  describe('remove-plugin', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-mcp-cli-test-'));
+      fs.mkdirSync(path.join(tmpDir, 'Packages'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['remove-plugin', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--path');
+    });
+
+    it('fails when project path has no manifest.json', () => {
+      const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'empty-'));
+      const { stdout, exitCode } = runCli([
+        'remove-plugin',
+        '--path', emptyDir,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('Not a valid Unity project');
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    });
+
+    it('removes plugin from manifest', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'Packages', 'manifest.json'),
+        JSON.stringify({
+          dependencies: {
+            'com.unity.ugui': '1.0.0',
+            'com.ivanmurzak.unity.mcp': '0.51.6',
+          },
+          scopedRegistries: [
+            {
+              name: 'package.openupm.com',
+              url: 'https://package.openupm.com',
+              scopes: ['com.ivanmurzak'],
+            },
+          ],
+        }, null, 2)
+      );
+
+      const { stdout, exitCode } = runCli([
+        'remove-plugin',
+        '--path', tmpDir,
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Removing Unity-MCP plugin');
+
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, 'Packages', 'manifest.json'), 'utf-8')
+      );
+      expect(manifest.dependencies['com.ivanmurzak.unity.mcp']).toBeUndefined();
+      expect(manifest.dependencies['com.unity.ugui']).toBe('1.0.0');
+      // Scoped registries should be preserved
+      expect(manifest.scopedRegistries).toBeDefined();
+      expect(manifest.scopedRegistries[0].name).toBe('package.openupm.com');
+    });
+  });
+
+  // --- configure command ---
+
+  describe('configure', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-mcp-cli-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['configure', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--enable-tools');
+      expect(stdout).toContain('--disable-tools');
+      expect(stdout).toContain('--list');
+    });
+
+    it('creates default config and lists it', () => {
+      const { stdout, exitCode } = runCli([
+        'configure',
+        '--path', tmpDir,
+        '--list',
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Current configuration');
+      expect(stdout).toContain('Host:');
+      expect(stdout).toContain('localhost');
+    });
+
+    it('enables and disables tools', () => {
+      // First create default config
+      runCli(['configure', '--path', tmpDir, '--enable-tools', 'tool-a,tool-b']);
+
+      const { stdout } = runCli(['configure', '--path', tmpDir, '--list']);
+      expect(stdout).toContain('[enabled] tool-a');
+      expect(stdout).toContain('[enabled] tool-b');
+
+      // Now disable one
+      runCli(['configure', '--path', tmpDir, '--disable-tools', 'tool-a']);
+      const { stdout: stdout2 } = runCli(['configure', '--path', tmpDir, '--list']);
+      expect(stdout2).toContain('[disabled] tool-a');
+      expect(stdout2).toContain('[enabled] tool-b');
+    });
+
+    it('fails when project path does not exist', () => {
+      const { exitCode, stdout } = runCli([
+        'configure',
+        '--path', '/nonexistent/path/12345',
+        '--list',
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('does not exist');
+    });
+  });
+
+  // --- open command (merged open + connect) ---
+
+  describe('open', () => {
+    it('shows help with --help including connection options', () => {
+      const { stdout, exitCode } = runCli(['open', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--path');
+      expect(stdout).toContain('--unity');
+      expect(stdout).toContain('--no-connect');
+      expect(stdout).toContain('--url');
+      expect(stdout).toContain('--tools');
+      expect(stdout).toContain('--token');
+      expect(stdout).toContain('--auth');
+      expect(stdout).toContain('--keep-connected');
+      expect(stdout).toContain('--transport');
+      expect(stdout).toContain('--start-server');
+    });
+
+    it('falls back to cwd and fails when cwd is not a Unity project', () => {
+      // With no arguments the CLI defaults to process.cwd(); when the cwd
+      // is not a Unity project it should exit 1 with a helpful message.
+      const { exitCode, stdout } = runCli(['open']);
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('Current directory is not a Unity project');
+    });
+  });
+
+  // --- create-project command ---
+
+  describe('create-project', () => {
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['create-project', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--path');
+      expect(stdout).toContain('--unity');
+    });
+  });
+
+  // --- install-unity command ---
+
+  describe('install-unity', () => {
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['install-unity', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('[version]');
+      expect(stdout).toContain('Omit to install latest stable release');
+      expect(stdout).toContain('--path');
+    });
+  });
+});

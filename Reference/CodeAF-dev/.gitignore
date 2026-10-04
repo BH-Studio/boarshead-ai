@@ -1,0 +1,43 @@
+bin/
+# The furrow the build fetches, and the copy it stages for go:embed. Both are
+# six megabytes of somebody else's release; internal/furrowbin/pin.json is the
+# committed, auditable half and these are rebuilt from it by `make furrow`.
+third_party/
+internal/furrowbin/cache/furrow-*.gz
+.obs/
+*.log
+# macOS Finder leaves this litter behind, and one copy was committed once.
+.DS_Store
+.claude/
+!internal/skills/testdata/**/.claude/
+/codeaf
+bench-results/
+.codeaf/
+!internal/skills/testdata/**/.codeaf/
+__pycache__/
+*.pyc
+*.aux
+harnesses/
+bench/swarm/results/
+# The timing report is diagnostic evidence for one run. Several sessions share
+# this checkout, and an untracked file at its root is what another lane's
+# `git add` sweeps up.
+/test-report.json
+# The prompt-diet bench writes its evidence and its builds OUTSIDE any checkout
+# (~/bench-diet-out and ~/bench-diet-build), because a cell's workspace nested
+# inside this repository hands the model the harness instead of its fixture.
+# This line is the backstop for an --out somebody points back in here anyway.
+bench/prompt-diet/out/
+# The manuals are generated for packed release builds. Their Markdown folders
+# are the tracked source; committing these shared binaries causes every branch
+# that documents a feature to conflict with every other one.
+internal/manual/chat.pack.gz
+internal/manual/pages.pack.gz
+# The engine writes the ids of the workspace it opens into .furrow/ — family-id
+# and workspace-id, which name this machine and not this repository. Every
+# checkout a run has lived in therefore carries one, and an untracked directory
+# at the root is what the next lane's `git add -A` sweeps up: two of these were
+# committed that way on #1173 and had to be taken back out.
+.furrow/
+bench/idle-surface/runs/
+work/

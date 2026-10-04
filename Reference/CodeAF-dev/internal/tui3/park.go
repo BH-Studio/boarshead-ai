@@ -1,0 +1,429 @@
+package tui3
+
+import (
+	"context"
+	"strings"
+	"unicode"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// THE PARKED MESSAGE: what plain enter does while an answer is still coming.
+//
+// THE DEFECT THIS FILE EXISTS FOR. A person watched a long answer stream, typed
+// "do much more of a deep research please" and pressed enter — and their
+// sentence was drawn INTO THE MIDDLE OF THE ANSWER, sandwiched between two
+// paragraphs of the same flowing reply. It read as though the model had quoted
+// them mid-thought. Worse, the words often went nowhere: enter sent the line
+// straight to the session as steering, and the session's steering only reaches
+// the model AT A STEP BOUNDARY — so a message typed at a turn whose last request
+// has already gone out lands in the transcript with nothing left to answer it.
+//
+// So plain enter no longer sends while a turn is open. IT PARKS: the message is
+// held HERE, on the surface, in its own block between the answer and the box,
+// and it goes when the answer is finished — as a turn of its own, which is a
+// turn the model always answers. Held on the surface rather than handed to the
+// session is what makes the other things possible: it can still be edited or
+// taken back, and a conversation switch can keep it with the turn it follows.
+//
+//	enter    park it. The answer keeps streaming, the box is clear again.
+//	ctrl+c   stop the answer and drop what is parked.
+//	↑        with an empty box, pull the parked message back in to edit it.
+//	click    the same, on the block itself.
+//
+// AND THE FIRST TWO OF THOSE AS ONE ACT: `ctrl+shift+enter` parks the draft and
+// stops the answer in one gesture, which is the way somebody actually
+// interrupts — by speaking (bargein.go). It is built ON this queue rather than
+// beside it, so everything below is what happens to the message afterwards.
+//
+// ONE AT A TIME, in the order they were typed — the session's own law for its
+// follow-up queue (internal/session's agent.go), said about this queue: each
+// finished turn sends exactly one parked message, and the rest wait for the end
+// of the turn that one starts. A drain that started three turns at once, or
+// spliced three sentences into one message, would be a decision nobody made.
+//
+// ctrl+enter is still its own key and still means something else: a follow-up
+// is handed to the SESSION the moment it is typed (followup.go) — and, since
+// 2026-09-30, one that can be taken back out of the session's queue before its
+// turn starts. A parked message is still yours until it goes.
+
+// parked is one message typed while a turn was open: the words, and the
+// pictures that were in the tray with them.
+//
+// The chips travel with it because the tray is emptied when enter is pressed —
+// the person has moved on from attaching — and a parked message that lost its
+// pictures on the way would make them go and find the files again.
+type parked struct {
+	text   string
+	chips  []chip
+	pastes []pasteChip
+	// sending belongs only to the oldest message while a held conversation's
+	// submit is crossing back to the surface. It prevents a return during that
+	// crossing from treating the same message as unsent and sending it twice.
+	sending bool
+	// standing says the person MARKED this one as something to keep true
+	// (standmark.go). It travels with the words for the chips' own reason: the
+	// gesture was made when the message was typed, and a queue that forgot it
+	// would send the sentence as ordinary work minutes later.
+	standing bool
+	// plain is every slash tag the person backspaced to plain words before
+	// pressing enter, as offsets into text. IT WAITS WITH THE WORDS for the
+	// mark's reason: the demotion was made when the message was typed, and a
+	// queue that forgot it would chip the word again in the transcript the
+	// moment the message went (slashchip.go's [transcriptCommandSpans]).
+	plain []segment
+}
+
+// parking reports whether plain enter parks rather than sends.
+//
+// It asks the STATE rather than the stream, and the difference matters for
+// exactly the seconds render.go's [app.waitingWords] is about: a turn that has
+// been submitted and has no channel back from the provider yet is a turn that is
+// open, and a message typed into that gap belongs behind it just as much as one
+// typed mid-paragraph.
+func (a *app) parking() bool { return a.state == stateWorking }
+
+// park holds one message until the answer is over. It is [app.submit]'s door
+// with the sending left out: the tray is spent, the draft is remembered and the
+// draft file is done with, exactly as a sent message spends them, because from
+// the person's side they have said the thing — it is only the model that has not
+// heard it yet.
+//
+// plain is the demoted tags as offsets into text, and they are rebased here by
+// whatever leading space the trim takes off, so they still name the same words.
+func (a *app) park(text string, standing bool, plain []segment) tea.Cmd {
+	trimmed := strings.TrimLeftFunc(text, unicode.IsSpace)
+	plain = shiftSegments(plain, len([]rune(text))-len([]rune(trimmed)))
+	text = strings.TrimSpace(trimmed)
+	chips := append([]chip(nil), a.chips...)
+	if text == "" && len(chips) == 0 {
+		return nil
+	}
+	a.chips = nil
+	a.parks = append(a.parks, parked{text: text, chips: chips, pastes: a.pastes, standing: standing, plain: plain})
+	a.pastes = nil
+	a.follow()
+	a.touch()
+	return nil
+}
+
+// sendParked sends the oldest parked message, if there is one and if nothing
+// else has taken the turn.
+//
+// It runs at every stream close, AFTER the follow-up queue is offered the same
+// moment (app.go's streamClosedMsg): a follow-up was handed to the session
+// before this message was parked in the ordinary case, and a message that
+// jumped a queue the person filled first would be this surface reordering their
+// sentences. Whichever starts, the rest stay parked and go at the next close.
+func (a *app) sendParked() tea.Cmd {
+	// A pending take-back can leave the surface between pumps while the
+	// session's next turn is already running. Its queue settles first; parked
+	// words must not open a second turn in that gap.
+	if a.stream != nil || len(a.follows) > 0 || a.parkSending || len(a.parks) == 0 {
+		return nil
+	}
+	next := a.parks[0]
+	a.parks = a.parks[1:]
+	shown := next.text
+	spoken := next.spoken()
+	if len(next.chips) > 0 {
+		// The tray is refilled for exactly as long as the submit takes to read
+		// it, because [app.submitImages] is the door and the tray is what it
+		// reads. It empties the tray itself.
+		//
+		// IT HOLDS THE PARKED MESSAGE'S OWN PICTURES AND NOTHING ELSE, and what
+		// was attached while it waited is put back afterwards. The parked
+		// sentence says `[image #1]` about the first picture IT was written with
+		// (imagepaste.go), so a tray that still carried something attached
+		// during the wait would renumber the person's own words underneath them
+		// — and would spend, on a message they had already sent, pictures they
+		// were plainly still composing with.
+		held := a.chips
+		a.chips = next.chips
+		cmd := a.submitImagesShown(spoken, shown, next.plain)
+		a.chips = held
+		return cmd
+	}
+	// A MARKED MESSAGE GOES THROUGH THE MARKED DOOR, however long it waited
+	// (standmark.go).
+	if next.standing {
+		return a.submitStandingShown(spoken, shown, next.plain)
+	}
+	return a.submitShown(spoken, shown, next.plain)
+}
+
+// parkedStart turns one waiting message into the same engine call a front send
+// makes, without drawing anything on the surface that happens to be in front.
+// The returned words let a caller that came forward during the call draw the
+// ordinary user line if its earlier replay could not have seen it.
+func parkedStart(agent Agent, ctx context.Context, hosted bool, p parked) (spoken, shown string, start func() (<-chan session.Event, error)) {
+	spoken, shown = p.spoken(), p.text
+	if len(p.chips) > 0 {
+		return attachmentStart(agent, ctx, hosted, spoken, shown, p.chips)
+	}
+	if p.standing {
+		return spoken, shown, standingStart(agent, ctx, spoken)
+	}
+	return spoken, shown, submitStart(agent, ctx, spoken)
+}
+
+// dropParked forgets everything parked and says so, because the person typed
+// those words. It is the one thing on this queue that loses a message, so it is
+// called only where the CONVERSATION IS REPLACED under it — /new (app.go's
+// [app.renew]) and a session opened from the welcome box — where a message
+// parked against a reply that no longer exists has nowhere to go and no turn end
+// coming to send it.
+func (a *app) dropParked() {
+	n := len(a.parks)
+	if n == 0 {
+		return
+	}
+	a.parks = nil
+	if n == 1 {
+		a.note("1 waiting message dropped")
+	} else {
+		a.note(itoa(n) + " waiting messages dropped")
+	}
+	a.touch()
+}
+
+// recallParked pulls the NEWEST parked message back into the box and reports
+// whether there was one.
+//
+// The newest rather than the oldest: it is the thing the person just typed and
+// the thing a typo is in, and ↑ over an empty box means "the last thing I said"
+// everywhere else on this surface (recall.go).
+//
+// The words are not re-remembered on the way in — enter already put them in the
+// recall history when it parked them — and the pictures go back on the tray they
+// came off, so what comes back is the message exactly as it was.
+func (a *app) recallParked() bool {
+	if len(a.parks) == 0 {
+		return false
+	}
+	last := a.parks[len(a.parks)-1]
+	if last.sending {
+		return false
+	}
+	a.parks = a.parks[:len(a.parks)-1]
+	a.input.setText(last.text)
+	// AND A TAG MADE PLAIN COMES BACK PLAIN. The words go into the box exactly
+	// as they were parked, so the parked offsets are the box's offsets.
+	a.input.demotedTags = append([]segment(nil), last.plain...)
+	a.chips = append(a.chips, last.chips...)
+	a.stick = true
+	a.touch()
+	return true
+}
+
+// recallParkedAt pulls ONE parked message back by its position in the queue,
+// which is what a click on its block asks for: the pointer named a message, so
+// the pointer's answer is that message and not the newest one.
+func (a *app) recallParkedAt(i int) bool {
+	if i < 0 || i >= len(a.parks) {
+		return false
+	}
+	one := a.parks[i]
+	if one.sending {
+		return false
+	}
+	a.parks = append(a.parks[:i], a.parks[i+1:]...)
+	a.input.setText(one.text)
+	a.input.demotedTags = append([]segment(nil), one.plain...)
+	a.chips = append(a.chips, one.chips...)
+	a.stick = true
+	a.touch()
+	return true
+}
+
+// ── the block ───────────────────────────────────────────────────────────────
+//
+// IT IS DRAWN WHERE IT WILL LAND AND NOWHERE ELSE: under everything that has
+// already happened, above the box it was typed into. That position is the whole
+// answer to the defect — a message pinned below the conversation cannot be
+// spliced into the middle of it, whatever the stream does next.
+//
+// It wears the person's own hue and the person's own glyph, because it is the
+// person's own message; the dim line under it says what is going to happen to it
+// and which keys change that.
+
+// parkedHint is the dim line under the block, in the three pieces it is trimmed
+// down through on a narrow frame. Each piece is dropped from the right, because
+// what the message is DOING outranks what you can do about it.
+// AND THE MIDDLE PIECES ARE CONDITIONAL, which is what the `stops` and `steers`
+// arguments below buy. There is a window — the seconds between a person's ctrl+c
+// and the engine letting go of the turn (render.go's [app.windingDown]) — in
+// which a message is still parked and ctrl+c does NOTHING: [app.interrupt] returns
+// at its first line outside [stateWorking], and [app.sendParked] stands down
+// while the stream is open. A line offering a key that is inert for three
+// seconds is the surface lying at the exact moment a person is pressing keys
+// because they think it is not listening.
+//
+// AND THE THIRD PIECE IS THE OTHER THING THAT CAN HAPPEN TO A WAITING MESSAGE:
+// it does not have to wait. `→` over an empty box promotes it INTO the answer
+// that is running. A streaming generation stops there and keeps what arrived;
+// a long bash becomes a job; a short tool is allowed to reach its boundary
+// (steer.go). It is drawn between the stop and the edit because those are the
+// three available choices for the waiting sentence, and it is dropped by the
+// same question the stop is, because a turn that is winding down has no
+// boundary left to steer into either.
+var parkedHint = []string{
+	"waits for this answer", "esc stops and drops", steerArrowWord, "↑ or click to edit",
+}
+
+// parkedHeight is how many rows the block takes: the messages, then the one dim
+// line. Zero when nothing is parked, which is every frame of an ordinary
+// conversation.
+func (a *app) parkedHeight() int {
+	width, _ := a.size()
+	return len(a.parkedRows(width))
+}
+
+// parkedRows draws the block.
+func (a *app) parkedRows(width int) []string {
+	// THE DOOR'S COLUMNS BELONG TO THE FRAME THAT DREW THEM, so they are cleared
+	// here rather than only where the line is laid out — [app.inputBlock] clears
+	// the thinking dial's span at its own head for exactly this reason: every
+	// early return below draws no line at all, and a span left over from the
+	// frame before would leave a column pressable on a screen with nothing on it
+	// (steer.go's [app.steerDoorPress]).
+	a.steerDoor = hudSpan{}
+	if len(a.parks) == 0 || width < 4 {
+		return nil
+	}
+	out := make([]string, 0, len(a.parks)+1)
+	for at, p := range a.parks {
+		// THE WHOLE MESSAGE LIGHTS, NOT THE ROW THE POINTER IS ON. The press pulls
+		// that message back into the box whole ([app.parkPress]), so what a person is
+		// about to act on is the block and not the line — and a sentence that wrapped
+		// over three rows with one of them banded would read as three things
+		// (hover.go: the set that lights is the set the press acts on).
+		hot := a.hoveringParked(at)
+		shown := userLine(p.text, p.chips, a.pal)
+		body, bodyAt := wrapWithOffsets(shown, width-2)
+		// Attachment markers follow the words, so their suffix cannot move a
+		// demotion. Tabs are rebased against the same text the block wraps.
+		plain := tabExpandedSegments(p.plain, shown)
+		for i, line := range body {
+			lead := "  "
+			if i == 0 {
+				lead = a.pal.accent(a.pal.youGlyph())
+			}
+			spans := transcriptCommandSpans([]rune(line), plain, bodyAt[i])
+			text := lead + paintCommandSpans(line, spans, a.pal, a.pal.accent)
+			if hot {
+				text = a.hoverRow(text, width)
+			}
+			out = append(out, text)
+		}
+	}
+	// THE BLOCK AND THE HINT SLOT ASK THE SAME QUESTION (render.go's
+	// [app.hintWord] gates its own parked case on the same predicate), so the two
+	// lines about this queue that share one screen cannot say different things
+	// about the same key.
+	line := parkedWord(len(a.parks), width-2, a.parking(), a.steerParkOffered())
+	// WHERE THE DOOR LANDED, for the press that may follow. It is written HERE,
+	// as the line is laid out, for the reason render.go's [app.legendLine] gives
+	// about the door home: a column read from anywhere else is a column from the
+	// frame before this one. A line that did not draw the clause records nothing,
+	// which is what makes the span its own answer to "was it drawn"
+	// (steer.go's [app.steerDoorPress]).
+	if at := strings.Index(line, steerArrowWord); at >= 0 {
+		from := 2 + ansi.StringWidth(line[:at])
+		a.steerDoor = hudSpan{from: from, to: from + ansi.StringWidth(steerArrowWord)}
+	}
+	return append(out, a.pal.dim(fit("  "+line, width)))
+}
+
+// parkedWord is the dim line's sentence, trimmed to what fits. The count is
+// only spelled when there is more than one message waiting — one message
+// counted is a number that says nothing the block above it does not.
+//
+// stops says ctrl+c still has a turn to stop. When it does not — the turn was
+// stopped a moment ago and is winding down — the middle pieces are dropped
+// rather than reworded: what is left is still exactly true (the message waits
+// for this answer, and it can still be edited), and there is no key to name,
+// which is the same silence [stoppingWord] keeps in the status line for the same
+// seconds. A turn with no boundary left to reach takes the arrow down with the
+// stop, because a steer into it would be refused for the same reason the stop is
+// inert (steer.go).
+//
+// steers says the arrow's clause is true besides: this session has the verb at
+// all, and the message at the front of the queue is one that can take it — words
+// alone, unmarked. A message of pictures waits and goes through its own door,
+// and the line does not offer a key that would decline it.
+func parkedWord(n, width int, stops, steers bool) string {
+	pieces := append([]string(nil), parkedHint...)
+	if !steers {
+		pieces = append(pieces[:2], pieces[3:]...)
+	}
+	if !stops {
+		pieces = append(pieces[:1], pieces[len(pieces)-1:]...)
+	}
+	if n > 1 {
+		pieces[0] = itoa(n) + " wait for this answer"
+	}
+	for len(pieces) > 1 {
+		// MEASURED, NOT COUNTED. The last piece opens with "↑", which is three
+		// bytes and one cell, and a budget spent in bytes drops a piece that fits.
+		line := strings.Join(pieces, " · ")
+		if ansi.StringWidth(line) <= width {
+			return line
+		}
+		pieces = pieces[:len(pieces)-1]
+	}
+	return pieces[0]
+}
+
+// parkPress is a click on the block: the message that row belongs to comes back
+// into the box, exactly as ↑ brings it back, and the block loses that row.
+//
+// It answers by ROW ALONE. Every other column-aware target on this surface
+// shares its line with something else; this one is a sentence in the person's
+// own hue with nothing beside it, so anywhere along it is the same gesture. A
+// press on the dim line under the block is marked with nothing and falls through
+// untouched, because that line is a statement rather than a message.
+func (a *app) parkPress(y int) (tea.Cmd, bool) {
+	if len(a.parks) == 0 {
+		return nil, false
+	}
+	mark, ok := a.chromeAt(y)
+	if !ok || mark.kind != chromeParked {
+		return nil, false
+	}
+	if !a.recallParkedAt(mark.index) {
+		return nil, false
+	}
+	return a.edited(), true
+}
+
+// parkedMark is the pointer's answer for one row of the block: which parked
+// message that row belongs to, so a click can pull that one back.
+//
+// THE DIM LINE AT THE FOOT BELONGS TO NO MESSAGE and still carries a mark of its
+// own, because one clause on it is a door: `→ steers it in` is pressable, and
+// the mark is how the press finds the row before it asks about the column
+// (steer.go's [app.steerDoorPress]). It is a SEPARATE KIND rather than a
+// [chromeParked] with no index, so that nothing which acts on a waiting message
+// by row — the press that pulls one back, the hover that lights one whole — can
+// reach this line by accident.
+func (a *app) parkedMark(row, width int) chromeRow {
+	if len(a.parks) == 0 {
+		return chromeRow{}
+	}
+	at := 0
+	for i, p := range a.parks {
+		height := len(wrap(userLine(p.text, p.chips, a.pal), width-2))
+		if height < 1 {
+			height = 1
+		}
+		if row >= at && row < at+height {
+			return chromeRow{kind: chromeParked, index: i}
+		}
+		at += height
+	}
+	return chromeRow{kind: chromeParkedHint}
+}

@@ -1,0 +1,484 @@
+package tui3
+
+// ANSWER THE QUESTION WITHOUT OPENING THE WINDOW IT IS IN.
+//
+// Home already says which conversation is stopped on somebody: the row wears
+// `▲`, sorts to the top of its project, and the state band spells out the one
+// line it is stopped on (homebands.go's [drawStateBand]). Up to here that is a
+// SIGN POST — it tells you where to walk. This band is the other half: the
+// answers the card in that window is offering, under the line it is asking, as
+// chips a digit or a click gives.
+//
+// ── WHY IT IS WORTH DOING AT ALL ──
+//
+// The whole cost of a question in another terminal is the walk: find the window,
+// read the card back from the top because you have lost the thread of it, answer
+// three keys' worth of it, walk back. The answer itself was never the work. A
+// person glancing at home already has the one line in front of them — that line
+// is what the card leads with too — and for `allow once`, `yes` and `deny` there
+// is nothing more to know. So those go here, and everything that needs more of
+// the card than one line stays in the window that has the card.
+//
+// ── THE FOUR LAWS ──
+//
+//   - IT DRAWS WHAT THE SESSION OFFERED, NEVER WHAT THIS BUILD KNOWS. The chips
+//     come off [session.PresenceQuestion.Options], written by the session that
+//     is waiting, so this surface can never advertise a key that session would
+//     drop (answers.go states the same law from the writing end).
+//
+//   - IT NEVER REPEATS THE QUESTION. The line the session is stopped on is the
+//     state band's, one row above, in ink. Printing it again here would be the
+//     same sentence twice in the same colour on one small card — and home's
+//     density is omission, never repetition. This band is the ANSWERS.
+//
+//   - A STALE WINDOW IS NOT ANSWERED. Every key and every click asks
+//     [session.SessionPresence.Fresh] again, at the instant of the press and not
+//     at the instant of the last reading: a window killed with a card on screen
+//     leaves a file claiming a question nobody is waiting for, and an answer
+//     sent into it would be a keystroke that quietly did nothing.
+//
+//   - THE ANSWER IS NOT THE ACT. Home leaves the answer on the other session's
+//     doorstep and that session applies it on its own beat (answers.go), which
+//     is a second or two later. So the band says `answered · waiting for it to
+//     pick that up` until the question stops being in that session's presence,
+//     which is the only proof this surface will ever have that it landed.
+
+import (
+	"strings"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+func init() {
+	registerHomeBand(homeBand{name: "answer", order: bandOrderAnswer, draw: drawAnswerBand})
+}
+
+// The words this band says, quoted in the manual exactly as they are spelled
+// here.
+const (
+	// answerSentWord opens home's message line after a key lands, with the
+	// answer's own label after it — `answered · allow once`.
+	answerSentWord = "answered · "
+	// answerWaitingWord is the band while the other session has not picked it
+	// up yet. It says what is true: the answer is on its way to a process that
+	// looks for it every few seconds.
+	answerWaitingWord = "answered · waiting for it to pick that up"
+	// answerFailedWord is a doorstep that would not take it — a folder that is
+	// gone, a disk that is read-only. It names the one thing left to do.
+	answerFailedWord = "could not leave that answer — open the conversation and answer it there"
+	// answerChipGap separates the chips, the same middot every other row of
+	// answers on this surface uses.
+	answerChipGap = " · "
+)
+
+// answerHoldFor is how long this window keeps saying it answered when the other
+// session never picks it up. It is generous — a session drains on its presence
+// heartbeat, and a machine under load can miss a few — and it exists only so
+// that a window somebody killed one instant after being answered does not leave
+// a line on this card for the rest of the day.
+const answerHoldFor = time.Minute
+
+// homeAnswered is one answer this window has already sent, kept by the session
+// folder it was sent to.
+//
+// IT IS A CLAIM ABOUT THIS SCREEN AND NOT A RECORD OF ANYTHING. The record is
+// the other session's transcript, where the card settles with the word it was
+// answered with; this is only what lets the band stop offering chips for a
+// question already answered from here.
+type homeAnswered struct {
+	kind  session.QuestionKind
+	id    uint64
+	label string
+	at    time.Time
+}
+
+// answerable is the question one row is stopped on, when there is one this
+// surface may draw answers for.
+//
+// The three conditions are separate facts and each is checked here rather than
+// by the callers: the session says it is waiting, the claim is still fresh AT
+// NOW, and the lane that raised it offered answers ([PresenceQuestion.Answerable]
+// — the stuck-turn question deliberately does not).
+func answerable(row session.SessionRow, now time.Time) (session.PresenceQuestion, bool) {
+	if !row.NeedsPerson() || !row.Presence.Fresh(now) {
+		return session.PresenceQuestion{}, false
+	}
+	question := row.Presence.Question
+	if !question.Answerable() {
+		return session.PresenceQuestion{}, false
+	}
+	return question, true
+}
+
+// answerSent is what this window already sent for one row's question, when it
+// sent one and the question is still the same question.
+func (a *app) answerSent(row session.SessionRow, question session.PresenceQuestion) (homeAnswered, bool) {
+	sent, ok := a.answered[answerSlot(row.Dir, question)]
+	if !ok || sent.kind != question.Kind || sent.id != question.ID {
+		return homeAnswered{}, false
+	}
+	return sent, true
+}
+
+// answerSlot is the key this window remembers one answer under: the session
+// folder AND the question inside it.
+//
+// ONE SLOT PER QUESTION, NOT PER CONVERSATION. A conversation used to have at
+// most one answerable row on this screen, so its folder was identity enough.
+// `unread` gives one conversation a row per landing it is holding
+// (homepanel_needs.go), and a single slot meant answering the second landing
+// forgot the first — whose chips came back, and whose key could be pressed
+// again, sending a second answer for a question already answered from here.
+func answerSlot(dir string, question session.PresenceQuestion) string {
+	return strings.TrimSpace(dir) + "\x00" + string(question.Kind) + ":" + itoa64(question.ID)
+}
+
+// drawAnswerBand is the chips, or the line that says they have been pressed.
+//
+// A WINDOW THAT CANNOT ANSWER DRAWS NOTHING (the absence law): with no seam
+// wired there is nowhere to leave the answer, and chips that did nothing would
+// be worse than the walk they promised to save.
+func drawAnswerBand(a *app, ctx bandContext) []string {
+	row, pal := ctx.subject.row, ctx.pal
+	question, ok := answerable(row, ctx.now)
+	if !ok {
+		return nil
+	}
+	if sent, ok := a.answerSent(row, question); ok {
+		if ctx.now.Sub(sent.at) < answerHoldFor {
+			return []string{pal.dim(fit(answerWaitingWord, ctx.width))}
+		}
+		return nil
+	}
+	if a.leaveAnswer == nil && !a.answeringHere(row) {
+		return nil
+	}
+	if a.answersStepAside(row) {
+		return nil
+	}
+	lines := a.answerChipLines(question, ctx.width, pal)
+	if len(lines) == 0 {
+		return nil
+	}
+	return lines
+}
+
+// answersStepAside is whether the row's own answers stay off the screen for now
+// — the card band's chips and the foot's strip both ask it, so the two cannot
+// come to disagree.
+//
+// NOT WHILE HOME'S OWN CARD IS UP ON THIS ROW. Enter on a held row raises `Move
+// this conversation here?` beside it (homeconfirm.go), and that card takes the
+// digits first — so chips promising `1 publish it` under a card where `1` is
+// `move it here` would be two questions on one keyboard. The chips step aside
+// while the card stands and are back the moment it is answered or put down.
+func (a *app) answersStepAside(row session.SessionRow) bool {
+	return a.home.ask != nil && a.home.armed == row.Transcript
+}
+
+// answerChip is one chip as it is drawn and as it is pressed: the key and its
+// complete label stay together whichever row the packer gives them.
+type answerChip struct {
+	key   string
+	text  string
+	label string
+}
+
+// answerChips names the complete chips before the card packs them into rows.
+func answerChips(question session.PresenceQuestion) []answerChip {
+	chips := make([]answerChip, 0, len(question.Options))
+	for _, option := range question.Options {
+		if strings.TrimSpace(option.Key) == "" {
+			continue
+		}
+		text := option.Key + " " + option.Label
+		chips = append(chips, answerChip{
+			key: option.Key, text: text, label: option.Label,
+		})
+	}
+	return chips
+}
+
+// answerChipLines paints them: the KEY in the payload hue and the word beside it
+// in ordinary ink. Whole chips move to following rows when needed; a card never
+// hides an answer merely because the answers cannot share a row.
+//
+// IT IS THE PANEL'S GRAMMAR ON A CARD (owner ruling 2026-09-11, colour pick C).
+// The whole chip used to be amber, on the argument that home's one meaning of
+// "waiting on you" is the warn hue — and the result was a card where the words a
+// person has to READ were the same colour as the mark that says to read them.
+// The amber stays on the marks: home's `?` on the row, the pointer, the pick.
+// consent.go's [app.paintOffer] draws the same shape and cannot be borrowed — it
+// asks whether the pointer is over the block it belongs to, and there is no
+// block here, only a card in a column.
+func (a *app) answerChipLines(question session.PresenceQuestion, width int, pal palette) []string {
+	chips := answerChips(question)
+	if len(chips) == 0 {
+		return nil
+	}
+	painted := make([]string, 0, len(chips))
+	for _, chip := range chips {
+		painted = append(painted, pal.data(chip.key)+pal.ink(" "+chip.label))
+	}
+	return bandClauses(width, 0, func(s string) string { return s }, painted...)
+}
+
+// ── answering ───────────────────────────────────────────────────────────────
+
+// answerKey is the digit keys, read from home's own key hook with nothing typed
+// (home.go). It answers only for the row UNDER THE CURSOR, and it reports
+// whether it took the key — a digit that is not one of this question's answers
+// falls through and is typed, exactly as it would be on any other row.
+func (a *app) answerKey(key string) (tea.Cmd, bool) {
+	subject, ok := a.homeSubject()
+	if !ok || subject.kind != bandKindSession {
+		return nil, false
+	}
+	return a.answerRowKey(subject.row, key)
+}
+
+// answerRowKey is one digit sent to one conversation's question, and false when
+// that conversation is not asking or never offered that key. It is the whole
+// door both the cursor's digits and the grid's top question ride
+// (homegrid.go's [app.homeGridAnswer]), so the two cannot answer differently.
+func (a *app) answerRowKey(row session.SessionRow, key string) (tea.Cmd, bool) {
+	question, ok := answerable(row, time.Now())
+	if !ok {
+		return nil, false
+	}
+	if _, sent := a.answerSent(row, question); sent {
+		// ONE ANSWER PER QUESTION. The first one is on its way; a second press
+		// would be a second line on the doorstep for a question that is already
+		// answered, and the row is still saying so.
+		return nil, false
+	}
+	// THE LIST IS THE ONE THAT SESSION OFFERED and not what this build knows
+	// the kind can take (this file's first law). A one-off reminder's card has
+	// no `3`, and a `3` pressed over its row is a character being typed.
+	if question.Label(key) == "" {
+		return nil, false
+	}
+	return a.sendAnswer(row, question, key)
+}
+
+// answerPress is the same thing under the pointer: a click on a chip is the
+// chip's key.
+//
+// It finds the chip by REBUILDING THE FRAME the way [app.homePress] does and
+// looking for the chip line's plain text on the row that was clicked. Nothing
+// is recorded at draw time, which is the point: the only thing that could go
+// wrong with a remembered span is that it is a frame out of date.
+func (a *app) answerPress(x, y int) (tea.Cmd, bool) {
+	if !a.at(pageHome) || y < 0 {
+		return nil, false
+	}
+	subject, ok := a.homeSubject()
+	if !ok || subject.kind != bandKindSession {
+		return nil, false
+	}
+	row := subject.row
+	question, ok := answerable(row, time.Now())
+	if !ok {
+		return nil, false
+	}
+	if _, sent := a.answerSent(row, question); sent {
+		return nil, false
+	}
+	chips := answerChips(question)
+	if len(chips) == 0 {
+		return nil, false
+	}
+	width, height := a.size()
+	lines, _, _, _ := a.homeFrame(width, height)
+	if y >= len(lines) {
+		return nil, false
+	}
+	// The painted row with its colour taken off, and the chip found inside it:
+	// each chip may have moved to its own row, so the clicked row is the source
+	// of truth rather than offsets from the former single-line layout.
+	plain := ansi.Strip(lines[y])
+	for _, chip := range chips {
+		at := strings.Index(plain, chip.text)
+		if at < 0 {
+			continue
+		}
+		start := ansi.StringWidth(plain[:at])
+		if x >= start && x < start+ansi.StringWidth(chip.text) {
+			return a.sendAnswer(row, question, chip.key)
+		}
+	}
+	return nil, false
+}
+
+// sendAnswer gives one answer, and says on the message line what it just did.
+//
+// THE TWO ROUTES ARE ONE DECISION MADE ONCE, here, so neither the keyboard nor
+// the pointer has to know there are two: a question in THIS window is answered
+// through the resolver this window already holds, and every other window's is
+// left on its doorstep for it to pick up.
+func (a *app) sendAnswer(row session.SessionRow, question session.PresenceQuestion, key string) (tea.Cmd, bool) {
+	label := question.Label(key)
+	if label == "" {
+		return nil, false
+	}
+	if a.answeringHere(row) {
+		cmd, took := a.answerHere(question, key)
+		if !took {
+			return nil, false
+		}
+		a.home.say(answerSentWord+label, "")
+		return cmd, true
+	}
+	dir := strings.TrimSpace(row.Dir)
+	if a.leaveAnswer == nil || dir == "" {
+		return nil, false
+	}
+	if err := a.leaveAnswer(dir, question.Kind, question.ID, key); err != nil {
+		a.home.say(answerFailedWord, row.Dir)
+		return nil, true
+	}
+	a.rememberAnswered(dir, question, label)
+	a.home.say(answerSentWord+label, "")
+	return nil, true
+}
+
+// rememberAnswered records what was sent, and forgets what has gone quiet. The
+// sweep is here rather than on a clock because this is the only line that grows
+// the map, so it is the only place it can be kept small.
+func (a *app) rememberAnswered(dir string, question session.PresenceQuestion, label string) {
+	now := time.Now()
+	if a.answered == nil {
+		a.answered = map[string]homeAnswered{}
+	}
+	for at, sent := range a.answered {
+		if now.Sub(sent.at) >= answerHoldFor {
+			delete(a.answered, at)
+		}
+	}
+	a.answered[answerSlot(dir, question)] = homeAnswered{kind: question.Kind, id: question.ID, label: label, at: now}
+}
+
+// answeringHere reports that the row on home IS the conversation this window is
+// holding, so the question is one this process can answer in its own hands. The
+// comparison is the transcript's path, which is how every other line on this
+// screen tells its own row apart from the rest (home.go).
+func (a *app) answeringHere(row session.SessionRow) bool {
+	return row.Transcript != "" && row.Transcript == a.file
+}
+
+// answerHere answers this window's own question through the paths its own card
+// answers through.
+//
+// THE CARD ON SCREEN IS SETTLED WHERE THERE IS ONE. The engine would take the
+// answer either way — the resolvers are keyed by id and do not care who calls
+// them — but a card left on screen for a question already answered is a surface
+// telling a person something untrue about their own session. So the card's own
+// answer path is preferred and the bare resolver is the fallback for a question
+// whose card this surface never held.
+//
+// In practice this is a guard rather than a lane a person walks down: a question
+// arriving while home is up CLOSES home (app.go), because a session blocked
+// behind a fullscreen page is a question nobody can see. What is left is the
+// narrow case where the two crossed, and the honest thing there is to answer
+// rather than to write into a folder this process is itself holding open.
+func (a *app) answerHere(question session.PresenceQuestion, key string) (tea.Cmd, bool) {
+	action, ok := session.AnswerFromKey(question.Kind, key)
+	if !ok {
+		// EVERY OTHER LANE GOES THROUGH THE ONE DOOR. [session.AnswerFromKey]
+		// knows the three lanes that were answerable from home before questions
+		// became one object, and it is deliberately not being taught the other
+		// eight: the object the session left in its presence file carries its
+		// own answers, and [session.Agent.ResolveQuestion] reads the lane off
+		// the answer and hands it to that lane's own resolver. So a question
+		// this build has never heard of is still answerable from home, which is
+		// the whole point of there being one object.
+		return a.answerWholeQuestion(question, key)
+	}
+	switch action.Kind {
+	case session.QuestionConsent:
+		if a.consentAsking(question.ID) {
+			// AND IT IS THE BLOCK'S OWN ANSWER, not a second one beside it
+			// (consent.go's [app.answerWith]): the same receipt, the same record
+			// and the same annotated row as the same answer pressed in front of
+			// the question.
+			return a.answerWith(action.Allow, action.Scope), true
+		}
+		if a.agent != nil {
+			// FROM A COMMAND, NEVER FROM THE LOOP (offloop.go): home's band
+			// answers over the same wire the block's keys do.
+			agent := a.agent
+			return a.offLoop(func() func(bool) tea.Cmd {
+				agent.ResolveConsentRemember(question.ID, action.Allow, action.Scope)
+				return nil
+			}), true
+		}
+	case session.QuestionTask:
+		if cmd, took := a.answerTaskWith(question.ID, key); took {
+			return cmd, true
+		}
+		if agent, ok := a.tasker(); ok {
+			return a.offLoop(func() func(bool) tea.Cmd {
+				agent.ResolveTask(question.ID, action.Task)
+				return nil
+			}), true
+		}
+	case session.QuestionStanding:
+		if card := a.stand; card != nil && card.id == question.ID && !card.settled() {
+			// AND IT IS THE BLOCK'S OWN ANSWER, not a second one beside it: the
+			// same receipt, the same record and the same settled row as the same
+			// answer pressed in front of the card (standing.go). The words the
+			// row keeps are read off the answer that settled it, so they cannot
+			// drift from what the engine was told.
+			if open := a.questionOpenOn(session.QuestionStanding, question.ID); open != nil {
+				return a.answerQuestion(*open, session.Answer{Key: key}), true
+			}
+			switch {
+			case action.Standing.Once:
+				return a.answerStanding(action.Standing, standOnceApproved, standOnceWord), true
+			case action.Standing.Approved:
+				return a.answerStanding(action.Standing, standSetWord, standYesWord), true
+			default:
+				return a.answerStanding(action.Standing, standNoWord, ""), true
+			}
+		}
+		if agent, ok := a.stander(); ok {
+			return a.offLoop(func() func(bool) tea.Cmd {
+				agent.ResolveStanding(question.ID, action.Standing)
+				return nil
+			}), true
+		}
+	}
+	return nil, false
+}
+
+// answerWholeQuestion answers from the object the session left behind, for the
+// lanes home has no older path for.
+//
+// IT DRAWS ITS ANSWER OUT OF THE QUESTION AND NEVER OUT OF THE KEY. The key is
+// looked up in that question's OWN options ([session.Question.Option]), so a
+// digit this question did not offer answers nothing rather than answering
+// whatever the kind's general table says a digit means.
+func (a *app) answerWholeQuestion(question session.PresenceQuestion, key string) (tea.Cmd, bool) {
+	whole := question.Full
+	if whole == nil {
+		return nil, false
+	}
+	if _, ok := whole.Option(key); !ok {
+		return nil, false
+	}
+	// AND IT GOES THROUGH THE ONE ANSWERING DOOR (question.go's
+	// [app.answerQuestions]). Home had its own copy of the road — its own
+	// [app.offLoop], its own refusal sentence — and a second copy of a road is a
+	// second set of rules about what an answer does: this one wrote no receipt,
+	// left no sent stamp, and so read its own answer coming back down the
+	// questions lane as another window's. The question was never drawn on this
+	// page, so there is no row here to put back; everything else about answering
+	// is the same act and is now the same code.
+	return a.answerQuestion(questionShown{question: *whole}, session.Answer{
+		Key: key, Picked: []string{key},
+	}), true
+}

@@ -1,0 +1,3540 @@
+// Package session is the v3 conversational agent: a working loop
+// you talk to, not a dispatcher. It owns one conversation against one
+// workspace: the person submits messages, the agent works (read, bash, edit,
+// write, grep, find, ls, todo) and streams what it does as events.
+//
+// The seams are deliberate and narrow. The agent talks to a provider through
+// Completer (one method), and to the person through a channel of Events. The
+// tasker does not exist here yet: when it attaches, it arrives as extra tools
+// (task/change/stop → store.RequestCommand) registered beside the working
+// ones, and nothing in this file changes.
+//
+// The loop's wire behavior — message assembly, stop condition, retry
+// schedule, tool parallelism — follows internal/exec/bare, with
+// three deliberate differences: it is interactive (Submit between turns, not
+// one task to the end), interruptible (Interrupt cancels the in-flight turn
+// and keeps the partial), and its compaction follows docs/CHAT-V3.md
+// Decision 9 (omp's architecture: threshold = window − max(15%, 16k), keep
+// 20k tokens verbatim, one LLM summary with omp's section contract, the pass
+// journaled as a transcript marker).
+package session
+
+import (
+	"context"
+	"github.com/Agent-Field/codeaf/internal/config"
+	"github.com/Agent-Field/codeaf/internal/crewroute"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/approval"
+	"github.com/Agent-Field/codeaf/internal/connect"
+	"github.com/Agent-Field/codeaf/internal/delegate"
+	"github.com/Agent-Field/codeaf/internal/effort"
+	"github.com/Agent-Field/codeaf/internal/exec"
+	"github.com/Agent-Field/codeaf/internal/exec/bare"
+	"github.com/Agent-Field/codeaf/internal/modelsource"
+	"github.com/Agent-Field/codeaf/internal/offpath"
+	"github.com/Agent-Field/codeaf/internal/provider"
+	"github.com/Agent-Field/codeaf/internal/roles"
+	"github.com/Agent-Field/codeaf/internal/search"
+	"github.com/Agent-Field/codeaf/internal/store"
+	"github.com/Agent-Field/codeaf/internal/subharness"
+	"github.com/Agent-Field/codeaf/internal/taxonomy"
+)
+
+// Completer is the narrow slice of provider.Client the loop needs. It is an
+// interface so tests substitute a scripted completer.
+type Completer interface {
+	CompleteWithMessages(ctx context.Context, messages []ai.Message, options ...ai.Option) (*ai.Response, error)
+}
+
+// modelChain is the OPTIONAL half of a [Completer]: which models it would move
+// to when the one in hand can no longer answer, in order.
+//
+// It is a second interface rather than a second method on [Completer] because a
+// chain is a thing only the real adapter has (internal/provider's
+// FallbackModels). A completer that does not offer one — a test double, a build
+// wired to no catalog and no `models.fallbacks` row — makes the hop ABSENT: the
+// turn ends on the sentence it has always ended on, rather than on a capability
+// that is present and fails.
+type modelChain interface {
+	FallbackModels(model string) []string
+}
+
+// EventKind names one thing the person can see happening.
+type EventKind int
+
+const (
+	// EventTextDelta carries one streamed chunk of the assistant's reply in Text.
+	EventTextDelta EventKind = iota
+	// EventThinking says the model is reasoning; it carries no text.
+	EventThinking
+	// EventToolBegin carries the tool name in Tool and a person-readable gloss
+	// in Hint — "read internal/session/session.go", "bash go build ./…". Args
+	// carries the call's arguments for a surface that expands the row; Output
+	// is empty, the call has not run yet.
+	EventToolBegin
+	// EventToolEnd carries the tool name, a short result hint (often empty),
+	// and the call's Args and Output for expansion.
+	EventToolEnd
+	// EventToolFailed carries the tool name and why, with the same Args and
+	// Output as EventToolEnd — a failure is the one result worth reading in
+	// full, and the surface has it here without asking.
+	EventToolFailed
+	// EventTurnDone ends one Submit's stream; Usage is the turn's total.
+	EventTurnDone
+	// EventError ends the turn abnormally; Err says why.
+	EventError
+	// EventCompacting says a compaction pass has edited the transcript, which is
+	// work a surface should show rather than silence. Hint sizes the pass
+	// ("compacting ~84k tokens").
+	//
+	// EventCompacted always follows it — a surface opens a row on this one and
+	// settles it on that one. A pass that found nothing to do sends neither, so
+	// it opens no row that would need settling (loop.go's [Agent.compactWithPolicy]);
+	// `/compact` hears that from [ErrNothingToCompact] instead. Most passes are
+	// two mechanical walks over messages this session already holds, so what
+	// they cost is a lock; only a pass those walks cannot finish writes a summary
+	// with the conversation's model (compact_summary.go).
+	EventCompacting
+	// EventCompacted marks a compaction pass; Hint summarizes
+	// ("compacted from ~84k tokens, kept last ~20k"). [Event.Unchanged] is only
+	// ever set on it by a peer built before a no-op pass went silent.
+	EventCompacted
+	// EventReasoning carries one streamed chunk of the model's REASONING in
+	// Text, for the models that put their working on the wire (OpenRouter's
+	// "reasoning", the DeepSeek family's "reasoning_content").
+	//
+	// It follows the EventThinking that opened the run rather than replacing it:
+	// a surface that only draws "thinking…" ignores this kind and is unchanged,
+	// and a surface that shows the thought has the words and the boundary both.
+	// The text is NOT part of the answer and never enters the partial reply.
+	// Completed steps record it as hidden provider metadata and replay it under
+	// the same wire field, so the next tool step can continue the model's work
+	// without presenting that work as something the assistant said out loud.
+	EventReasoning
+	// EventConsentRequest asks the person whether one tool call may run
+	// (consent.go). It carries the call's ID, Tool, Args and gloss in Hint, and
+	// the policy's own phrasing of why it is asking in Rule. Wait is
+	// ConsentWaiting: silence is not a no.
+	//
+	// It is a QUESTION, not a report: the call is blocked inside the tool batch
+	// until [Agent.ResolveConsent] answers it or the turn's context dies, and a
+	// surface that ignores this kind leaves the turn waiting until the person
+	// interrupts. It arrives AFTER the batch's EventToolBegin rows, so a surface
+	// attaches the question to the row it already drew for that call.
+	EventConsentRequest
+	// EventTitleChanged carries the session's name in Text (title.go). It fires
+	// at most once per session — after the first completed turn, when the
+	// session had no name yet.
+	EventTitleChanged
+	// EventToolAnnounced says one tool call has finished ARRIVING — the model
+	// has sent the whole instruction — while the response it rides on is still
+	// streaming. It carries the same Tool, Hint and Args EventToolBegin will,
+	// and no Output: nothing has run.
+	//
+	// EventTaskProposal asks the person whether one groomed piece of work may
+	// become a task node (task.go). It carries the proposal in Task: title,
+	// the two-or-three-line summary, the full brief, and the auto-approve
+	// deadline.
+	//
+	// It is a QUESTION with a CLOCK, not a report: the propose_task call is
+	// blocked until [Agent.ResolveTask] answers it or the deadline passes, and
+	// the deadline passing means APPROVED — the surface is the person's chance
+	// to redirect, never a gate the work waits on forever. A surface with no
+	// answer box for this kind still works: the countdown approves.
+	EventTaskProposal
+	// EventTaskUpdate reports one task node's progress (task.go): Task carries
+	// the state (running, done, failed), the elapsed time, and on completion
+	// the report, the changed files, and the merge outcome. It is a report,
+	// never a question; the first update (running) arrives as the proposal
+	// resolves.
+	EventTaskUpdate
+	// EventToolAnnounced says one tool call has finished ARRIVING — the model
+	// has sent the whole instruction — while the response it rides on is still
+	// streaming. It carries the same Tool, Hint and Args EventToolBegin will,
+	// the CallID its forming events carried, and no Output: nothing has run.
+	//
+	// It is the difference between "asked for" and "started", and it exists
+	// because those two moments can be seconds apart. A mutating call is
+	// announced here and does not begin until the response completes and the
+	// batch starts (loop.go's safety law), so a surface that only had
+	// EventToolBegin had to choose between drawing nothing for that gap or
+	// drawing a spinner for work that had not started. Both are lies; this is
+	// the third option.
+	//
+	// EventToolBegin keeps its exact meaning: EXECUTION STARTED. Every call that
+	// is announced is also begun, in the same order, so a surface that ignores
+	// this kind is unchanged — and a provider that never announces (a
+	// non-streaming endpoint) simply sends no event of this kind.
+	EventToolAnnounced
+	// EventToolForming says one tool call is still ARRIVING — the model is
+	// spelling it out and has not finished. It is the phase BEFORE
+	// EventToolAnnounced, and it exists because that gap is not instant: a long
+	// write or a groomed propose_task takes seconds to stream, and a surface
+	// with only the announcement draws nothing at all for them.
+	//
+	// It carries CallID (the call's id once the wire has said one), Tool (the
+	// name once its delta has landed), Hint (a best-effort gloss built from the
+	// argument fields that have CLOSED so far — "write internal/foo.go" while the
+	// body of the file is still arriving), ArgsText (the raw partial arguments)
+	// and Bytes (how much of them has arrived).
+	//
+	// NOTHING HERE IS AN INSTRUCTION. ArgsText is half-sent JSON and is never
+	// parsed into Args; Hint is a scan, not an unmarshal; and forming NEVER
+	// implies execution — a formed call has not been announced, let alone begun,
+	// let alone consented to.
+	//
+	// ORDERING: forming (zero or more, per call) → EventToolAnnounced →
+	// EventToolBegin, keyed by CallID. Every call that forms is announced and
+	// begun in that order; calls in a parallel batch interleave with each other,
+	// but each call's own sequence holds. A non-streaming provider forms nothing,
+	// so a surface that ignores this kind is exactly what it was.
+	EventToolForming
+	// EventGuardianAllowed says a call the policy would have ASKED about ran
+	// because the guardian model vouched for it (guardian.go). It carries the
+	// Tool, the call's gloss in Hint and Args, and the rule that would have
+	// prompted in Rule.
+	//
+	// It is an ANNOTATION, not a question and not a result: the row it belongs to
+	// is the ordinary tool row, and this is the dim line beside it saying who
+	// answered instead of the person. A surface that ignores this kind shows a
+	// call that simply ran, which is what it did — but a gate that answers on
+	// somebody's behalf and says nothing about it is a gate nobody can audit, so
+	// the event exists whether or not a given surface draws it.
+	EventGuardianAllowed
+	// EventNudge says the turn has been caught going in circles (looped.go): Tool
+	// is the call that repeated, Count is how many times. A surface renders it as
+	// "stuck? nudged · <tool> ×N" for the warning rungs.
+	//
+	// The first two nudges are notes in the transcript, not errors or refusals.
+	// Past that ceiling the same event accompanies the checkpoint take-over rather
+	// than a third note. This event is how a person gets to SEE either happen.
+	EventNudge
+	// EventNotice carries one line in Text about what the turn's own machinery is
+	// doing to make the request land — not the model's words, and not a failure.
+	//
+	// Its one source today is the provider's endpoint-refusal chain
+	// (internal/provider's endpoints.go): "Retry 1/3: removed max_tokens",
+	// "Retry 3/3: Falling back to <model>". Those retries change the shape of the
+	// request a person asked for, so a surface that drew nothing for them would
+	// be showing an answer without showing what it cost to get one.
+	//
+	// It is a NOTE, like EventNudge: dim, one line, never an interruption. It can
+	// arrive before any text on the turn, and a turn may end in EventError with
+	// several of these already on screen — that sequence is the chain trying
+	// everything it had and saying so.
+	EventNotice
+	// EventConnectAsk asks the person whether one of their accounts may be
+	// connected (connect.go). It carries the id the answer is handed back with in
+	// ConnectID, and the account in Service and ServiceName — "google" and
+	// "Google", the word the tools use and the word a person reads.
+	//
+	// It is a QUESTION, and the same kind of question a consent prompt is: the
+	// use_service call is blocked inside the tool batch until
+	// [Agent.ResolveConnect] answers it, the five-minute clock runs out, or the
+	// turn's context dies. A surface that ignores this kind leaves the call
+	// waiting until one of those three happens, and a clock that runs out is a NO.
+	EventConnectAsk
+	// EventConnectAuth carries the page the person opens to say yes to the
+	// service named in Service: the address is in AuthURL.
+	//
+	// It is an INSTRUCTION to the surface — open this — and it arrives only after
+	// the person has already agreed to connect the account. It is followed by
+	// exactly one EventConnectDone, whatever happens next.
+	EventConnectAuth
+	// EventConnectDone ends one connect attempt for the service in Service:
+	// Account is the address it connected as, and Failed says it did not connect
+	// at all. The two are exclusive — a failure carries no account — and a
+	// person who simply walked away shows up here as a failure, because from
+	// this side an attempt nobody finished and an attempt that broke are the same
+	// fact: nothing is connected.
+	EventConnectDone
+	// EventHarnessOffer asks the person whether one sub-harness should take this
+	// turn (harness.go). It carries the id the answer is handed back with in ID,
+	// the harness's name in Text, and its one-sentence description in Hint.
+	//
+	// Model is the model the turn NAMED — "research this with opus" — resolved
+	// to an id this install has, and empty when nobody said. ModelNote is the
+	// other half of that: a word that named no model here, said in words a
+	// surface prints as it stands. Neither is a refusal; the offer is the same
+	// offer either way.
+	//
+	// It is a QUESTION, and the quietest kind on this list: the turn is held
+	// before its first request until [Agent.ResolveHarness] answers it or the
+	// turn's context dies, and NO is free — the turn the person typed runs
+	// exactly as it would have. A surface that ignores this kind would leave the
+	// turn waiting, which is why the offer is never raised unless somebody has
+	// said they are watching (Config.AskConsent).
+	EventHarnessOffer
+	// EventHarnessRun says the person said yes and the harness named in Text has
+	// the turn. Hint is its description, and Model is what it is running on when
+	// the turn named one.
+	//
+	// It is a REPORT, not a question, and it is what a surface draws instead of
+	// a model thinking: what follows is the harness's report as ordinary text
+	// and then EventTurnDone, or EventError if the run failed.
+	EventHarnessRun
+	// EventHarnessStep is one step of a running sub-harness, the instant it
+	// lands: Step is the walk's own trail entry (subharness.RunWatched) and ID is
+	// the run it belongs to — the id EventHarnessRun carried.
+	//
+	// It is a REPORT and it is DISPLAY-ONLY. A run takes minutes, and between the
+	// announcement and the report there was nothing on screen saying which part of
+	// it was happening. Nothing here is recorded: the report that follows carries
+	// the whole trail (subharness.RunCard), so a step kept in the transcript would
+	// be the same news written down twice.
+	EventHarnessStep
+	// EventHarnessDesign says a turn asked for a sub-harness to be BUILT — "make
+	// a harness for triaging flaky tests" — and the design has started
+	// (harness_build.go). Text is the goal, less the words that asked for it;
+	// Hint is "designing"; Model is what the design is thinking with.
+	//
+	// TASK NAMES THE NODE IT RUNS AS, and it is the only field on this kind a
+	// surface can act on. A design is a task now (harness_task.go): it has an id
+	// a person can say out loud, a room they can walk into, and a stop. So the
+	// one line this event draws names it — "harness · designing X — task 4" —
+	// and everything else about the design's life arrives on the task lane, not
+	// this one. Only ID is filled.
+	//
+	// It is a REPORT and it does not hold the turn: the turn is already over when
+	// it arrives, because designing takes a minute and a conversation held on one
+	// is a conversation nobody can use. Exactly one of EventHarnessDesignDone or
+	// an EventNotice saying why not follows it, on the standing lane
+	// ([Agent.HarnessDesigns]) as well as on the turn's stream.
+	EventHarnessDesign
+	// EventHarnessProgress reports one live snapshot of a harness design call.
+	// It is display-only: partial JSON and reasoning never enter the transcript.
+	// Goal names the request; Phase is designing or reviewing; Attempt and
+	// Attempts size the retry ladder. ThoughtTail is the recent reasoning, Hint
+	// is the best meaning recovered from partial JSON, Bytes is content received,
+	// and Stalled says no delta has arrived for ten seconds.
+	EventHarnessProgress
+	// EventHarnessDesignDone carries a finished design in Harness, with the id
+	// the answer goes back through in ID, the name in Text and the description in
+	// Hint.
+	//
+	// It is a QUESTION — the only one on this list that outlives the turn that
+	// raised it. A surface draws the page (subharness.CardLines is the renderer
+	// every surface shares) and answers through [Agent.ResolveHarness], the same
+	// method an offer is answered with: TRUE SAVES IT into the registry, false
+	// drops it. Nothing is written before that answer, and a surface that ignores
+	// this kind saves nothing — which is the same posture EventHarnessOffer
+	// keeps, one lane over.
+	EventHarnessDesignDone
+	// EventHarnessDesignRevising WITHDRAWS a design card the person asked to have
+	// changed. ID is the design it is about and Text is the change, in the
+	// person's own words as the design's thread passed them on (harness_task.go's
+	// revise_design).
+	//
+	// IT EXISTS BECAUSE A QUESTION CAN BE OVERTAKEN BY A THIRD ANSWER. A design
+	// card is one decision behind two doors — the card in the conversation and the
+	// approval row in the design's own room — and there is a third thing a person
+	// can do with a page, which is to say what is wrong with it. When they do, the
+	// page that card is about stops existing, so the card has to come down: left
+	// standing it would be a save key over a draft that has been replaced, and the
+	// answer it took would save the wrong page.
+	//
+	// A surface takes the card back to the LIVE form it wore while the page was
+	// first being written, because that is what is happening again — the designer
+	// is at work, EventHarnessProgress starts arriving, and exactly one
+	// EventHarnessDesignDone follows it with the rewritten page. The design's own
+	// ROW needs nothing from this kind: the node moves back to the "designing"
+	// phase on the task lane, and the approval row is drawn off that phase.
+	EventHarnessDesignRevising
+	// EventOrchestrateNote carries one planner note from an adaptive run
+	// (internal/orchestrate): Text is the note, ID the run. A REPORT; the room
+	// draws it as the thin thinking-row between completions.
+	EventOrchestrateNote
+	// EventOrchestrateFuel is the gauge and its early warning: Text is the
+	// spend summary ("$1.60 of $2.00"), Hint holds the cap. A REPORT at the
+	// 80% mark and whenever a surface asks; it never blocks anything.
+	EventOrchestrateFuel
+	// EventOrchestratePause says the run hit its fuel cap: in-flight nodes
+	// finished, nothing new launched, the frontier is frozen mid-shape. Text
+	// is the spend summary. It is a QUESTION answered through
+	// [Agent.ResolveOrchestrate] — top up, finish with what we have, or stop —
+	// and until that answer the run sits in its Paused state, resumable.
+	EventOrchestratePause
+	// EventToolFinished says ONE call's own work is over, the instant it is
+	// over, and carries how long that call took in Took.
+	//
+	// It is a CLOCK EVENT and nothing else: the result is not in it, and the row
+	// is not closed by it. The result still arrives as EventToolEnd or
+	// EventToolFailed, after the whole batch has finished, in call order — the
+	// order the transcript is written in.
+	//
+	// It exists because those two moments are not the same moment. A batch's
+	// calls run together and finish in any order, so a `cd` that took five
+	// milliseconds sat under a spinner and a climbing clock until the slowest
+	// call beside it returned, and then claimed that whole span as its own
+	// duration. The row was reading the BATCH's clock. This is the call's own,
+	// measured where it ran (loop.go's executeTool), so a surface can stop the
+	// row's clock and state the figure the call actually cost.
+	//
+	// A surface that ignores this kind is exactly what it was.
+	EventToolFinished
+	// EventRetrying says THIS STEP IS BEING ASKED AGAIN, and that whatever the
+	// dead attempt streamed is void. Text carries the one line explaining why —
+	// "nothing came back from the model — asking again", "the reply lost its
+	// thread — that text was dropped, asking again".
+	//
+	// It fires when the stream guard cut a request (internal/provider's
+	// streamguard.go): the endpoint went quiet, or the reply stopped being
+	// language. It also fires when a transport failure is about to be retried.
+	// A rescue taking over a visible answer on another machine serving the same
+	// model fires it too (internal/provider's hedge.go).
+	// The turn loop discards that attempt's partial text, its early reads and
+	// its half-arrived calls before the next request, so A SURFACE MUST THROW
+	// AWAY WHAT IT DREW FOR THEM TOO — everything after the last thing the person
+	// typed belongs to a response that will never exist, and leaving it on screen
+	// would show half a dead answer above the live one.
+	//
+	// AND IT FIRES WHEN THE STEP MOVES TO ANOTHER MODEL, which is the same news
+	// about the same attempt and a different thing to draw: the rest of the reply
+	// arrives in a different voice, at a different price. [Event.Retry] is what
+	// tells the two apart — its Next names the model being moved to and is empty
+	// on an ordinary retry (retrynews.go) — and Text carries the whole sentence
+	// either way, so a surface that reads only Text is exactly as correct as it
+	// has always been.
+	//
+	// It is also the one place a surface learns that a wait is a RETRY rather
+	// than a first attempt, which is the difference between "waiting for" and
+	// "trying again". It never ends a turn: either the next attempt streams, or
+	// EventError arrives with the sentence about giving up.
+	EventRetrying
+	// EventStandingProposal asks the person whether one standing item — a
+	// reminder, a watch, a rule, an overnight job — may stand (standing_contract.go).
+	// Standing carries the card; the ID inside it is the token a surface hands back
+	// to [Agent.ResolveStanding]. Nothing stands until the answer is yes.
+	EventStandingProposal
+	// EventStandingUpdate reports a standing item changing under a live window: it
+	// was ratified, it fired, it was paused, retired, or it needs the person. It is
+	// a report, never a question.
+	EventStandingUpdate
+	// EventSubharnessAsk is a running subharness putting one question to the
+	// person (subharness_env.go, the Env's ask() door). ID is the run's task
+	// node, Text is the question in the program's own words, and Args carries
+	// the answers it offers as a JSON array when it offers a set.
+	//
+	// It is a QUESTION and it arrives IN THE RUN'S ROOM, which is where the run
+	// lives: its journal, its progress and its ✕ are all there already, and a
+	// question about the work belongs beside the work. A person who is not in the
+	// room learns about it from the ROSTER, because the node moves to the
+	// "awaiting your look" phase for exactly as long as the question stands —
+	// the same phase a design waiting on its card wears, for the same reason.
+	//
+	// It is answered through [Agent.AnswerSubharness], which takes the run's id,
+	// what they said, and whether they are TAKING OVER. A surface that ignores
+	// this kind leaves the run waiting until the node is stopped or the session
+	// closes, which is why the question is only ever put where somebody is
+	// watching (Config.AskConsent) — an unattended run answers from what the gate
+	// declared or stops incomplete, and never guesses.
+	EventSubharnessAsk
+	// EventSubharnessStep is one host call a running subharness just made
+	// (internal/exec's JournalEntry): ID is the run's node and Step carries the
+	// entry whole — which door, what it was about, what it cost.
+	//
+	// It is a REPORT and it is DISPLAY-ONLY, on EventHarnessStep's terms: the
+	// journal is the permanent record, this is how a person watches it being
+	// written. Nothing here is recorded in any transcript.
+	EventSubharnessStep
+	// EventSubharnessProposal asks whether one saved program should take this
+	// piece of work (tools_subharness.go). ID is the token an answer goes back
+	// through, Text is the program's name, Hint is what it is for, and
+	// Subharness carries the INTAKE CARD — every input field, what this
+	// conversation already answers, and which required blanks are left.
+	//
+	// It is a QUESTION and it is the one on this list with NO CLOCK THAT
+	// APPROVES. A task proposal's countdown ends in a yes because it is a window
+	// to redirect ordinary work; this one may not, because a program that ran
+	// because nobody answered would be exactly the silent auto-execution the
+	// whole path is built to prevent (docs/SUBHARNESS-PRD.md §9). It is answered
+	// through [Agent.ResolveSubharness] — true runs it, with the form as the
+	// person left it — and a surface that ignores this kind runs nothing at all,
+	// which is the correct behaviour rather than a degradation.
+	EventSubharnessProposal
+	// EventSubharnessProposalOff takes the card named by ID back down. Nothing
+	// ran, and nothing about the person's own intentions is being reported: the
+	// tool call that raised the card has let the turn go, either because its
+	// window expired or because the turn it belonged to was interrupted
+	// (tools_subharness.go).
+	//
+	// IT EXISTS SO THAT A CARD CANNOT OUTLIVE ITS LISTENER. The window is a
+	// bound on the TOOL CALL and not a deadline on a person, so it fires while
+	// the card is still on somebody's screen — and a card left standing after it
+	// would be a `run it` that resolves nothing, silently, which is the one
+	// ending a question is never allowed to have. A surface that ignores this
+	// kind leaves that dead card up; a surface that draws it takes the card down
+	// and says so.
+	EventSubharnessProposalOff
+	// EventTaskReplyTags names the finished tasks whose notes the next words
+	// answer. TaskReplyTags carries them in note order.
+	EventTaskReplyTags
+	// EventSteerAccepted says one sentence the person typed INTO the running
+	// turn is on the queue and will reach the model at the next step boundary
+	// (steer.go). Steer carries its identity, its words and the instant it was
+	// sent; nothing is in the transcript yet.
+	//
+	// It is a PROMISE AND NOT AN OUTCOME, which is why exactly one of the two
+	// kinds below always follows it on the same stream: the boundary it is
+	// waiting for may never come.
+	EventSteerAccepted
+	// EventSteerConsumed says the model HAS BEEN GIVEN that sentence: it is in
+	// the transcript as user content of the turn it was typed into, and the
+	// request carrying it is the next thing that goes out. Steer names which
+	// steer landed.
+	EventSteerConsumed
+	// EventSteerFellThrough says the turn ENDED FIRST — it answered, it faulted,
+	// or somebody stopped it — with that sentence still waiting, so no request of
+	// that turn ever carried it. The words are not lost and they did not steer
+	// anything: they move to the queue that holds a message waiting for a turn of
+	// its own, and the stream the steer was sent on carries that turn when it
+	// starts (steer.go states the whole law).
+	EventSteerFellThrough
+	// EventTaskPhase says one running node has moved between its three lives —
+	// its worker, the check that reads what the worker left, a repair round
+	// closing the gaps the check named (task_audit.go). TaskPhase carries the
+	// node's id, the word, the round numbers while a repair runs, and the
+	// check's one-line finding.
+	//
+	// IT RIDES THE TASK LANE beside EventTaskUpdate — the turn's hub AND the
+	// standing [Agent.TaskUpdates] subscription — because a check that takes
+	// four minutes takes them long after the turn that proposed the work ended.
+	//
+	// IT IS NEWS AND NEVER A ROW. The node's state does not move: it was
+	// running before the check and it is running after it, so a surface folds
+	// this into the row an update already gave it and never opens one from it.
+	// A surface that ignores this kind is what it was — which is what the
+	// evidence in #76 §5 describes: minutes of check and repair drawn as
+	// nothing at all, and a person concluding the work hung.
+	EventTaskPhase
+	// EventTakeover says another window on this machine has asked for this
+	// conversation and the turn it was in has ended (takeover.go). It rides the
+	// standing task lane and nothing else, and Text carries [TakeoverWord]. The
+	// surface that hears it lets go — detaches and closes the conversation the
+	// way /new does — and the window that asked resumes it from the checkpoint.
+	EventTakeover
+	// EventJobUpdate reports one BACKGROUND JOB's life (jobnotice.go): Job
+	// carries the job's own id, the short name it has been given, the command,
+	// the state, the log path and — once it is over — the exit code. It fires
+	// when a job starts, when its name arrives, and when it settles.
+	//
+	// IT IS ITS OWN KIND BECAUSE A JOB IS ITS OWN THING. A job used to ride
+	// EventTaskUpdate as a [TaskNotice], which left every surface downstream
+	// carrying a clause saying a job is not really a task — no room, no branch,
+	// no price, no stop, no card and no index row. What a job has is an id, a
+	// log and an exit code, and none of those is what a task row is drawn from,
+	// so it is published as what it is and the clauses go away.
+	EventJobUpdate
+	// EventCaption carries one line NAMING THE OPEN STEP (caption.go): the
+	// cheap narrator asked shortly after the tools begin. Text is the step
+	// title — a checklist item, not reasoning. It is news about the open step,
+	// never a new block of its own — the surface keys it onto the caption
+	// already drawn for that batch.
+	//
+	// A SURFACE THAT IGNORES THIS KIND IS UNCHANGED: the deterministic
+	// composite already stands in the caption slot, and this event only
+	// replaces that floor when a cheap model had something better to say.
+	//
+	// [Event.Category] rides with it and is the same news about the same step:
+	// which FAMILY of work the sentence is about (actioncategory.go). It is
+	// empty whenever the narrator did not name one, and a surface reads that
+	// emptiness as "ask the tools", never as "draw nothing".
+	EventCaption
+	// EventAssistantDone marks the journal boundary for one valid, non-empty,
+	// tool-free assistant response. Its content has already arrived through
+	// EventTextDelta and has been recorded before this event is published. It
+	// carries no prose of its own: a surface uses it to stop treating those
+	// streamed words as provisional while the end-of-turn checks still run.
+	//
+	// IT IS APPENDED TO PRESERVE EVERY EXISTING WIRE NUMBER. Hosts serialize
+	// EventKind as an integer, so inserting a kind above this point would make
+	// an older binary read every later event as a different fact.
+	EventAssistantDone
+	// EventMoved says a WINDOW SOMEWHERE ELSE HAS OPENED THIS CONVERSATION and
+	// is now the one in it. Text carries [MovedWord].
+	//
+	// IT IS NOT [EventTakeover] AND THE DIFFERENCE IS WHAT HAPPENS TO THE WORK.
+	// A takeover is asked for on this machine's disk and answered by a window
+	// that OWNS the engine: it interrupts, closes, and the work lands paused for
+	// the window that asked to resume. A move is announced by an engine that
+	// holds the conversation itself (internal/enginehost) to every other surface
+	// attached to it: nothing is interrupted and nothing pauses, because the
+	// engine goes on running the turn while the surfaces around it change. The
+	// window hearing this DETACHES — it does not close.
+	//
+	// IT RIDES THE STANDING TASK LANE for EventTakeover's reason exactly: it is
+	// the one subscription that outlives every turn, and a move happens most
+	// often in the middle of one.
+	EventMoved
+	// EventQuestion carries one whole [Question] in Question: a decision this
+	// engine is handing to the person, with its evidence, its answers, the
+	// asker's own pick, what is waiting on it and what an answer costs
+	// (question.go).
+	//
+	// IT ARRIVES AFTER THE ROWS IT IS ABOUT, exactly as EventConsentRequest
+	// already orders itself against its batch's EventToolBegin rows, and for
+	// the same reason: a question attaches to a row a surface has already
+	// drawn, and one that arrived first would be a question about nothing.
+	//
+	// IT IS A SECOND DESCRIPTION AND NEVER A REPLACEMENT. Every lane goes on
+	// emitting the event it always emitted — EventConsentRequest,
+	// EventTaskProposal, EventStandingProposal and the rest — so a surface that
+	// ignores this kind is exactly what it was. A surface that draws it draws
+	// one object for every lane instead of thirteen cards.
+	//
+	// IT RIDES THE TURN IT WAS RAISED IN, AND [Agent.WatchQuestions] BESIDE IT —
+	// never the standing TASK lane, which is the roster's and whose readers walk
+	// a strict sequence of rows.
+	EventQuestion
+	// EventQuestionWithdrawn says a question stopped being one: the subject
+	// settled, the clock took it, the plan changed, another answer made it
+	// moot. Question carries the same object with [Question.Withdrawn] filled
+	// in, so a surface has the head it drew and the sentence to retire it with.
+	//
+	// A QUESTION IS NEVER SIMPLY GONE. A count that drops for no reason a
+	// person can see is a count they stop believing, so the reason travels with
+	// the withdrawal and is drawn once, dim.
+	EventQuestionWithdrawn
+	// EventQuestionAnswered carries the whole [Answer] in Answer: what was
+	// picked, what was said beside it, who decided and how long it lasts.
+	//
+	// THIS ONE IS KEPT. It is written to the session's own decisions.jsonl as
+	// it is emitted ([Agent.Decisions] reads it back), because it is the
+	// DECISION RECORD — the first rung of the ladder, the thing an asker reads
+	// before it puts anything to anybody. Consent is deliberately not journaled
+	// (a question about work that has not happened yet); an ANSWER is the
+	// opposite of that: it is the one thing about a question that stays true
+	// afterwards.
+	EventQuestionAnswered
+	// EventRowNews carries one line in Text about A ROW THE PERSON WROTE that
+	// this build has stopped acting on — a pinned machine the router refuses to
+	// serve a model from, a base that will not carry a lane choice at all
+	// (internal/provider's lanepin.go and prefcarry.go).
+	//
+	// IT IS NOT [EventNotice] AND THE DIFFERENCE IS WHO THE SENTENCE IS FOR. A
+	// notice is the adapter saying what it did to a request to get it accepted,
+	// and it is over once the answer lands — a surface may fold it away with
+	// the rest of the machinery. This is the only account a person will get of
+	// why the machine they named has stopped appearing, and there is nothing to
+	// fold it into: it asks them to do something (pin again, or leave it on
+	// auto). Measured on 2026-09-13, riding the wrong kind: the pin was
+	// retired, `@deepseek` came off the model word, another machine answered,
+	// and the chat's work chip had swallowed the sentence that said so.
+	//
+	// IT IS LAST IN THIS BLOCK AND EVERY NEW KIND BELONGS HERE, because a kind
+	// is an integer on the remote wire (internal/remote's EventWire): one added
+	// in the middle renumbers every kind under it, and a window and an engine
+	// on two builds would then disagree about what each other's events were.
+	EventRowNews
+	// EventQuestionDiscussion carries a reply beside a pending decision.
+	EventQuestionDiscussion
+	// EventToolOutput carries literal stdout/stderr in Text while a user shell
+	// command is running. CallID owns the bytes; its result still ends the call.
+	EventToolOutput
+)
+
+// TaskReplyTag is the task identity a surface places beside the answer its
+// completion prompted. Request is the person's original text, not the brief.
+type TaskReplyTag struct {
+	ID      uint64 `json:"id"`
+	Title   string `json:"title"`
+	Request string `json:"request,omitempty"`
+	// Obligation is WHAT THIS RESULT WAS ACTUALLY OWED when it was delivered,
+	// and it is set only when the person moved the goal while the work ran: the
+	// admitted ask as history, their applied directions in order, and the
+	// deliverable and done-condition as they then stood (wakecause.go's
+	// [obligationText], from the assignment's own snapshot). Revision is the
+	// assignment version it was taken at, and 0 on an unrevised task.
+	//
+	// A REVISED TASK IS JUDGED BY THIS AND CITED BY Request. Request stays the
+	// person's original words for the row a surface draws beside the answer;
+	// judging a CSV result against the JSON that was first asked for is the
+	// failure these two fields exist to prevent ([Agent.turnAsk] reads them).
+	// Both are optional: an old tag, or one from an unrevised task, carries
+	// neither and is read exactly as it always was.
+	Obligation string `json:"obligation,omitempty"`
+	Revision   uint64 `json:"revision,omitempty"`
+}
+
+// Event is one observable thing in a turn. A Submit returns a channel of
+// them, closed after EventTurnDone or EventError.
+//
+// A STEER'S CHANNEL IS THE ONE EXCEPTION, and it is exact: [Agent.Steer] hands
+// back a stream that outlives the turn it was sent into when the steer falls
+// through, so EventSteerFellThrough arrives AFTER that turn's EventTurnDone or
+// EventError, and the turn the words then start speaks on the same channel
+// (steer.go says why). A caller that reads to close — which is every caller
+// today — sees all of it in order and needs no second rule; a caller that stops
+// at the terminal event stops at the terminal event of the FIRST turn.
+type Event struct {
+	ReplayCursor   ReplayCursor `json:",omitempty"`
+	ReplayObserved bool         `json:"-"`
+
+	Discussion *QuestionDiscussion `json:",omitempty"`
+
+	Kind EventKind
+	// Addressed is a producer's declaration that streamed text is for the person.
+	// It does not imply a completed response and survives interruption.
+	Addressed  bool `json:"Addressed,omitempty"`
+	Text       string
+	ShortTitle string `json:"ShortTitle,omitempty"`
+	Tool       string
+	Hint       string
+	Err        error
+	// Discard says an EventError ended a cut attempt whose streamed text was
+	// never a reply. The surface withdraws that attempt before drawing the
+	// error, as it does for EventRetrying, without counting another retry.
+	Discard       bool `json:"Discard,omitempty"`
+	Usage         Usage
+	TaskReplyTags []TaskReplyTag
+	// Skills is the ordered list of skill names this turn carried, on the
+	// notice that announces them (skillturn.go). IT IS THE FIELD AND NOT THE
+	// SENTENCE a surface reads: [Event.Text] says the same thing in words for
+	// a reader who draws notices as prose, and a surface that took the names
+	// back out of that sentence would break the first time somebody improved
+	// the wording or a skill name held a comma, and would break silently,
+	// because a test written against the same sentence agrees with it.
+	//
+	// AN ABSENT LIST MEANS UNKNOWN AND NOT NONE. The tag is omitempty because
+	// an event with no skills has to serialise as it did before this field
+	// existed, which is what keeps a new session and an older peer talking
+	// (internal/remote's wire tests). The cost is that a turn that carried
+	// nothing and a peer too old to send the field put the same bytes on the
+	// wire, so a surface may draw a non-empty list and must say nothing at all
+	// otherwise — a sentence like "no skills used" is a claim this field
+	// cannot support.
+	Skills []string `json:"Skills,omitempty"`
+
+	// Summarized is how many messages a compaction pass replaced with a
+	// summary, on [EventCompacted]; zero for a pass that only stubbed and
+	// folded. It is the field a surface decides by, never the hint's words:
+	// a pass that rewrote the person's own messages is the one whose line
+	// stays standing (internal/tui3's workfold.go), and a free pass folds
+	// with the rest of the turn's machinery. Omitted when zero, so an event
+	// with no summary serialises exactly as it did before this field, and a
+	// surface talking to an older engine folds every pass.
+	Summarized int `json:"Summarized,omitempty"`
+
+	// Category is the FAMILY OF WORK an EventCaption's sentence is about — one
+	// word from the closed list in actioncategory.go — and it is zero on every
+	// other kind.
+	//
+	// EMPTY IS THE NORMAL MISSING CASE AND NOT AN ERROR. The narrator is a cheap
+	// model asked for a prefix it may ignore, and a surface that receives none
+	// derives the family from the batch's own tool names
+	// ([ActionCategoryForTools]), which is deterministic and cannot be wrong
+	// about which hands were used. So this field REFINES a mark that is already
+	// correct; it never supplies one that would otherwise be missing.
+	//
+	// It rides the wire behind a json tag of its own so a peer built before it
+	// existed simply does not see it (internal/remote's [EventWire] embeds this
+	// struct whole), and a caption saved by an older build replays with an empty
+	// one and derives the same mark it always drew.
+	Category ActionCategory `json:"Category,omitempty"`
+
+	// Unchanged says an [EventCompacted] pass left the transcript exactly as it
+	// found it: nothing was old enough to stub and nothing was foldable, so the
+	// region above the conversation did not move and neither did the floor
+	// beneath it. It is false on every other kind and on every pass that really
+	// edited something.
+	//
+	// THE ZERO VALUE IS "A PASS HAPPENED", and that polarity is the whole reason
+	// this is a field rather than a reading of Hint. EventCompacted is sent on
+	// BOTH paths by promise, because a surface opens a row on EventCompacting
+	// and has to be able to settle it whatever the pass found. So one value
+	// carried two meanings and the failing one was silent: a surface handed its
+	// scrollback over to a replacement that had not happened, and declared the
+	// conversation finished with a good part of it undrawn and unreachable.
+	//
+	// It rides the wire behind a json tag of its own, so a peer built before it
+	// existed does not send it, reads false, and behaves exactly as it always
+	// did (internal/remote embeds this struct whole).
+	//
+	// NO PASS IN THIS BUILD SETS IT. A pass that finds nothing now sends neither
+	// EventCompacting nor EventCompacted, so there is no row to settle. The field
+	// stays, and a surface still honours it, because a remote engine built
+	// between the two changes announces every pass and settles a refused one
+	// with it.
+	Unchanged bool `json:"Unchanged,omitempty"`
+
+	// Args is the tool call's arguments rendered for display: the JSON the
+	// model sent, compacted to one line and capped. It is set on
+	// EventToolBegin, EventToolEnd and EventToolFailed. Arguments that do not
+	// parse as JSON pass through as the raw text — a malformed call is still a
+	// call the person should be able to look at.
+	//
+	// THE CONTRACT IS THAT THIS STAYS PARSEABLE WHENEVER THE WIRE ARGUMENTS
+	// WERE, at every size. The cap ([argsLimit]) is spent INSIDE the oversized
+	// string values, each of which then ends in the marker [capBytes] writes —
+	// `… (12345 more bytes)` — rather than by cutting the text, which would end
+	// a 20k write's payload in the middle of a string literal and leave every
+	// reader downstream calling a well-formed call malformed.
+	//
+	// So a field a surface reads back out of this may be SHORTER than the one
+	// the model sent, and says so in its own last bytes. Anything derived from
+	// one is a floor rather than a figure: a capped write's line count is "at
+	// least this many", and internal/tui3 spells that with a trailing `+`.
+	Args string
+
+	// BeltStepHandled is present only for a run worker that opted into the
+	// step boundary handshake. Its owner closes it after recording this end
+	// event and applying the run's limits and notes. Cancellation releases a
+	// belt whose reader failed, and this local handshake never goes on wire.
+	BeltStepHandled chan<- struct{} `json:"-"`
+
+	// Output is the tool's result text on EventToolEnd and EventToolFailed,
+	// verbatim up to a cap and then marked "… (N more bytes)".
+	//
+	// CONTRACT: Output is FOR DISPLAY EXPANSION ONLY. It is not the result.
+	// The wire result — what the model reads, what the transcript records — is
+	// unchanged and complete; this field is a capped copy for a surface that
+	// wants to show more than Hint. A surface must never treat it as the tool's
+	// output for any purpose other than showing it to a person.
+	Output string
+
+	// HarnessMade says this step's failure was written by the HARNESS and not by
+	// the world the model reached for: a hand that was withdrawn (withdrawn.go),
+	// a door that refused the call (consent.go and the rest of the pre-action
+	// chain). It is set on EventToolFailed and on nothing else.
+	//
+	// IT EXISTS FOR THE COUNTERS. A stuck detector's whole claim is that a step
+	// which taught nothing was a step the model had no business taking, and that
+	// claim is false when the harness wrote the answer itself — measured in
+	// SWE-Marathon s4, where the harness withdrew `bash`, answered eight retries
+	// with "Unknown tool", and then injected three [stuck] notes blaming the
+	// model for the retries (withdrawn.go states the whole failure). A surface
+	// may show it or ignore it; the runner reads it to keep the harness's own
+	// steps out of the model's ledger ([runTaskChild]).
+	HarnessMade bool
+
+	// Refused says a DOOR said no to an action the model attempted: the call was
+	// well formed, it named a tool on the belt, and a pre-action citizen (the
+	// approval gate, a write or ground guard) refused it before it ran. It is set
+	// on EventToolFailed, only together with HarnessMade, and only at the one
+	// place every veto passes through ([episode.preAction] names who refused).
+	//
+	// IT SEPARATES TWO ANSWERS THE HARNESS WRITES. A correction about the FORM of
+	// a reply (one call per response, a malformed call, a withdrawn tool, a held
+	// process rule) is addressed to the worker and nothing was attempted on the
+	// world: HarnessMade alone. A refused door is something the worker TRIED, and
+	// a person steering a run wants to see that it was tried and refused. The
+	// fact is kept here, where the attempted action is known, so no reader has to
+	// tell the two apart by the words of the answer.
+	Refused bool
+
+	// ID names one EventConsentRequest, and is the token a surface hands back
+	// to [Agent.ResolveConsent]. It is zero on every other kind but
+	// EventHarnessOffer, whose own id goes back through
+	// [Agent.ResolveHarness] — two lanes, two counters, and one field, because
+	// "which question" is the same question for both of them.
+	ID uint64
+
+	// CallID is the PROVIDER's id for the tool call a tool lifecycle event
+	// (forming, announced, begin, finished, end or failed), an
+	// EventConsentRequest or an EventCaption is about — the same string the tool
+	// result carries — and is empty on every other kind. It is empty on a forming
+	// event too until the wire has sent one, which is the first fragment in
+	// practice and nothing the consumer may assume.
+	//
+	// ON A CAPTION IT IS THE BATCH'S ANCHOR: the id of the call the batch opened
+	// with, which is how a surface knows WHICH STEP the sentence is about. The
+	// narrator answers on a goroutine that can be descheduled between checking
+	// that its batch is still open and reaching the hub, so a caption can arrive
+	// after its batch ended and the next one began. A surface keying on "the
+	// newest tool row" then retitles the running step with a sentence about the
+	// finished one; keyed by this id it drops news about work it is no longer
+	// holding. An event with no anchor is an engine built before this, and a
+	// surface may serve it by recency exactly as it always did.
+	//
+	// ON A CONSENT REQUEST IT IS WHICH CALL IS BEING ASKED ABOUT. A surface pairs
+	// the question to the row it draws the question under, and the card reads the
+	// command it is about to remember off that row — so a question paired by tool
+	// name alone can, with two bash calls in flight, show one command and bank a
+	// standing rule for the other (internal/session's consent.go).
+	//
+	// It is on BOTH ends of that pair on purpose: forming and announced are two
+	// states of one call, and the id is what lets a surface say so. Without it
+	// the announcement can only be paired by tool name, and a batch of parallel
+	// calls of the same tool has no name to tell its rows apart by.
+	//
+	// It is not [Event.ID] because that field is the consent lane's own token, a
+	// uint64 this session mints; these are two different names for two different
+	// things and folding them would make "which call" and "which question"
+	// the same field with two answers.
+	CallID string
+
+	// ArgsText is the RAW, PARTIAL arguments text of a forming call: exactly what
+	// the provider has streamed so far, uncompacted and unparsed. It is set on
+	// EventToolForming and empty everywhere else — Args is the display JSON of a
+	// WHOLE call, and half of a JSON object is not that.
+	//
+	// It is CUMULATIVE: every fragment carries the whole text that has arrived so
+	// far, not the piece that just landed, so a surface keeping it replaces what
+	// it held rather than appending to it. It is capped at [formingArgsLimit]
+	// from the FRONT, and Bytes beside it is the honest size of the whole.
+	//
+	// A surface may show it, cut it, or ignore it. NOTHING MAY UNMARSHAL IT — and
+	// nothing needs to: [PartialString] is the tolerant read of one field's
+	// streamed text, and it is one scanner in one place rather than a second
+	// parser per surface.
+	ArgsText string
+
+	// Took is how long ONE tool call's own work took, on EventToolFinished and
+	// zero on every other kind. It is measured around the tool's execution and
+	// around nothing else: not the wait for a consent question, and not the wait
+	// for the rest of the batch.
+	Took time.Duration
+
+	// Bytes is how much of a forming call's arguments has arrived. It is the
+	// length of ArgsText, carried as its own field so a surface can show progress
+	// ("write · 4.2 KB") without measuring text it may have chosen not to keep.
+	Bytes int
+
+	// Harness progress fields ride on EventHarnessProgress alone. They are flat
+	// because the event is already the transport envelope and every field is a
+	// short fact a surface may independently omit.
+	Goal        string
+	Phase       string
+	Attempt     int
+	Attempts    int
+	ThoughtTail string
+	Stalled     bool
+
+	// Step is one finished step of a RUNNING sub-harness, on EventHarnessStep
+	// alone and nil on every other kind. It is the walk's own trail entry rather
+	// than a copy of the parts of it a surface might want, so the row drawn while
+	// the run happens and the row on the card read back afterwards are rendered
+	// from one fact (subharness.StepLine).
+	Step *subharness.Trail
+
+	// Entry is one host call a running SUBHARNESS just made, on
+	// EventSubharnessStep alone and nil on every other kind
+	// (internal/exec's JournalEntry). It is the journal's own entry rather than a
+	// copy of the parts of it a surface might want, for the reason Step above is
+	// the trail's: the row drawn while the run happens and the row read back out
+	// of the journal afterwards are one fact rendered twice.
+	Entry *exec.JournalEntry
+
+	// Task carries one EventTaskProposal or EventTaskUpdate's payload
+	// (task_contract.go). It is nil on every other kind, and the ID inside it
+	// is the token a surface hands back to [Agent.ResolveTask].
+	Task *TaskNotice
+
+	// Job carries one EventJobUpdate's payload (jobnotice.go). It is nil on every
+	// other kind, and the Id inside it is the job's OWN number — the one
+	// `jobs output 3` and `jobs kill 3` already take — rather than a second id
+	// minted somewhere else to keep it from colliding with a task's.
+	Job *JobNotice
+
+	// TaskPhase carries one EventTaskPhase's payload (task_contract.go): which
+	// running node moved into which of its three lives. It is nil on every
+	// other kind, and it is its OWN payload rather than more fields on
+	// TaskNotice because a phase is not a row — it names no state, no elapsed
+	// and no cost, and a surface that mistook one for an update would redraw a
+	// card from a value that never carried those.
+	TaskPhase *TaskPhaseNotice
+
+	// Standing carries one EventStandingProposal or EventStandingUpdate's payload
+	// (standing_contract.go). It is nil on every other kind.
+	Standing *StandingNotice
+
+	// Subharness carries one EventSubharnessProposal's intake card
+	// (subharness_contract.go). It is nil on every other kind, and the ID beside
+	// it is the token a surface hands back to [Agent.ResolveSubharness].
+	Subharness *SubharnessCard
+
+	// Retry carries one [EventRetrying]'s payload in parts (retrynews.go): which
+	// model was being asked, how far into its patience the step is, why the
+	// attempt is void, and — when the step is moving — which model the rest of
+	// the reply will come from. It is nil on every other kind.
+	//
+	// It rides behind a json tag of its own so a peer built before it existed
+	// simply does not see it (internal/remote's [EventWire] embeds this struct
+	// whole), and an older engine's retry arrives with none — which is the same
+	// thing this build's surface must already handle, because [Event.Text] is
+	// still the whole line and always has been.
+	Retry *RetryNews `json:"Retry,omitempty"`
+
+	// Steer carries one sentence spliced into a running turn, on
+	// EventSteerAccepted, EventSteerConsumed and EventSteerFellThrough alone; it
+	// is nil on every other kind (steer.go). The same [SteerNote] value rides
+	// all three, so a surface pairs the outcome with the row it drew on the
+	// acceptance by [SteerNote.ID] and never by matching the words.
+	Steer *SteerNote
+
+	// Rule is the approval policy's own phrasing of why a call is being asked
+	// about — `bash pattern "rm -rf *"`, `tool "edit"`, `default`. It is set on
+	// EventConsentRequest and empty elsewhere. The wording is the policy's
+	// (internal/approval) so that every surface says the same sentence about the
+	// same rule instead of deriving one.
+	Rule string
+
+	// Wait is how silence is held on EventConsentRequest: ConsentWaiting means
+	// the question stays up. A surface clock that recorded "denied" after a
+	// few seconds was F41, and this field is how the engine says that is not
+	// the mode. Empty on every other kind.
+	Wait string
+
+	// Memo says whether a ConsentToolSession answer to this question WOULD DO
+	// ANYTHING. It is set on EventConsentRequest and false everywhere else.
+	//
+	// It exists because the consent lane carries two different questions. The
+	// gate's question is about a TOOL, so "and stop asking me about this tool"
+	// is a real answer and this is true. The stuck question (recovery.go)
+	// borrows the same lane to ask about a TURN, and a tool-session scope on it
+	// is dropped on the floor — which, without this field, a surface could not
+	// know, and so offered an option that silently did nothing. An offer that
+	// is inert must not be on screen: it is worse than a missing key, because a
+	// person who presses it believes they have changed something.
+	Memo bool
+
+	// Count is how many times the thing this event is about has happened. It is
+	// set on EventNudge — the number of repetitions that earned the nudge — and
+	// zero everywhere else, which is why it is a plain int rather than a pointer:
+	// no other kind has a count, and "0" is not a count any kind reports.
+	Count int
+
+	// The five fields of the three connect kinds (connect.go). They are flat
+	// rather than a payload struct because the three events between them carry
+	// five short strings and a bool, and a surface drawing the sequence reads
+	// them one after another off the same event.
+	//
+	// ConnectID names one EventConnectAsk and is the token handed back to
+	// [Agent.ResolveConnect]. Service is the account's id — "google" — on all
+	// three kinds; ServiceName is the word a person reads — "Google" — on the
+	// ask. AuthURL is the page to open, on EventConnectAuth only. Account and
+	// Failed are the outcome, on EventConnectDone only.
+	ConnectID   string
+	Service     string
+	ServiceName string
+	AuthURL     string
+	Account     string
+	Failed      bool
+	// NeedsKey rides on EventConnectAsk alone and says that this account needs
+	// a typed answer: a key the person already holds, or the one thing the
+	// service's address is missing. A surface hands it back through
+	// [Agent.ResolveConnectKey]; a plain yes means nothing here, because the
+	// answer has not been given yet.
+	//
+	// A key is followed by EventConnectDone. An address answer is followed by
+	// the ordinary EventConnectAuth browser trip.
+	NeedsKey bool
+
+	// Model is which model a harness offer would run on, and the one it did run
+	// on: set on EventHarnessOffer and EventHarnessRun, empty everywhere else
+	// and empty on both of those when the turn named no model (harness.go).
+	//
+	// It is a RESOLVED ID and never the person's word — "opus" arrives here as
+	// anthropic/claude-opus-5 — so a surface draws what will actually be sent
+	// rather than what somebody typed.
+	Model string
+
+	// Harness is the page one EventHarnessDesignDone is asking about, and nil on
+	// every other kind. It is the whole harness rather than a rendering of one
+	// because the rendering is shared (subharness.CardLines): a surface draws the
+	// same card the tool prints and the panel lists, and a session that shipped
+	// pre-rendered lines would have made itself the second renderer.
+	//
+	// It is a POINTER so that "no design here" is spelled once, and the value it
+	// points at is this event's own copy — nothing else holds it, and answering
+	// the question is what decides whether it is ever written down.
+	Harness *subharness.Harness
+
+	// Question is the whole decision on EventQuestion and
+	// EventQuestionWithdrawn, and nil on every other kind (question.go). It is
+	// a POINTER so that "no question here" is spelled once, and the value it
+	// points at is this event's own copy — nothing else holds it, and the
+	// answer is what decides whether it is ever written down.
+	Question *Question
+
+	// Answer is the whole answer on EventQuestionAnswered, and nil on every
+	// other kind. It is the same value [Agent.ResolveQuestion] was handed, after
+	// the door filled in what the caller left out.
+	Answer *Answer
+
+	// ModelNote is why a model the turn NAMED is not in Model: a word no model
+	// here answers to, a word too many of them answer to. It is set on
+	// EventHarnessOffer alone.
+	//
+	// The words are this package's, on the same terms Rule's are: a note about
+	// a model this session could not find should read the same on every
+	// surface, and a surface that phrased it itself would be writing a sentence
+	// about a catalog it did not consult.
+	ModelNote string
+}
+
+// Usage is token and cost accounting for one turn or the session total.
+type Usage struct {
+	Input    int
+	Output   int
+	CostUSD  float64
+	Duration time.Duration
+	Turns    int
+
+	// Calls is EVERY request this session made to a provider — the turn's own
+	// steps and the auxiliary calls beside them: the namer, the guardian, a
+	// memory reflex, a look at a picture, a whole child agent folded in.
+	//
+	// It is a second counter rather than a wider Turns because Turns has a law
+	// of its own that other code is written against: it counts steps of the
+	// CONVERSATION, so a turn that used three tools reads as one turn with
+	// three steps and the title call that followed it reads as nothing. Calls is
+	// the honest denominator for "how many requests did this cost me", which is
+	// a different question and the one a person asking about the bill is asking.
+	Calls int
+
+	// EmptyReflex is how many paid memory-reflex requests returned no answer.
+	// They remain in every token and cost total above; this count is the reason
+	// that spend bought no routing or extraction decision.
+	EmptyReflex int
+
+	// CacheRead and CacheWrite are the provider's prompt-cache accounting:
+	// tokens served from a warm prefix, and tokens written into one. Both are
+	// zero when the provider says nothing, which is a different fact from a
+	// cache that missed — but not one a surface can tell apart, so a surface
+	// shows nothing rather than "0% cached" (design-law-v2 §16 EMPTINESS).
+	//
+	// They are read off ai.Usage, which tolerates both spellings the endpoints
+	// use: Anthropic-native cache_read_input_tokens/cache_creation_input_tokens
+	// and OpenAI-style prompt_tokens_details.cached_tokens.
+	CacheRead  int
+	CacheWrite int
+
+	// byModel is a TURN's own figures kept once per model that answered, keyed
+	// by the response's own name with the turn's latch standing in when the
+	// response names nothing — exactly [Agent.addUsage]'s resolution, because
+	// this is accumulated beside it. A turn that hopped models mid-way seals
+	// one usage line per model rather than one sum attributed to whichever
+	// name was standing last (see [sessionFile.appendUsage]); every other Usage
+	// — the session total, an auxiliary call's — leaves this nil, and nil is
+	// what keeps their lines exactly as they were.
+	byModel *modelShares
+}
+
+// modelShares is the breakdown itself, behind a pointer for one reason: Usage
+// is passed by value and compared against its zero value, and a bare map field
+// would make every one of those comparisons illegal. The pointer keeps Usage
+// the plain value it always was, and nil says "nobody kept a breakdown" —
+// which is every Usage but a turn's.
+type modelShares map[string]Usage
+
+// addShare folds one call's figures into the per-model breakdown. It is a
+// method and not arithmetic at the call site for the reason the field exists
+// at all: the share has to be the SAME six figures the call banked, and a sum
+// spelled twice is a sum that drifts.
+func (u *Usage) addShare(model string, call Usage) {
+	if u.byModel == nil {
+		u.byModel = &modelShares{}
+	}
+	share := (*u.byModel)[model]
+	share.Input += call.Input
+	share.Output += call.Output
+	share.CacheRead += call.CacheRead
+	share.CacheWrite += call.CacheWrite
+	share.CostUSD += call.CostUSD
+	share.Calls += call.Calls
+	(*u.byModel)[model] = share
+}
+
+// CachedShare is the fraction of this session's INPUT that came off a warm
+// prefix, and false when there is nothing to divide.
+//
+// The denominator is where the two provider dialects have to be reconciled, and
+// they disagree about a fact rather than a name. OpenAI-style endpoints count
+// cached tokens INSIDE prompt_tokens — cached_tokens is a subset, so the total
+// is already Input. Anthropic-native ones count them BESIDE input_tokens —
+// disjoint, so the total is Input + CacheRead. Nothing on the wire says which
+// convention a given row used, so the shape does: cache reads that exceed the
+// input count cannot be a subset of it, and only then are the two added.
+//
+// Being wrong in the OpenAI direction would report every warm turn as ~50%
+// cached forever; being wrong in the Anthropic direction would report >100%.
+// The test for this is in agent_test.go, one case per dialect.
+func (u Usage) CachedShare() (float64, bool) {
+	if u.CacheRead <= 0 {
+		return 0, false
+	}
+	total := u.Input
+	if u.CacheRead > u.Input {
+		total = u.Input + u.CacheRead
+	}
+	if total <= 0 {
+		return 0, false
+	}
+	return float64(u.CacheRead) / float64(total), true
+}
+
+// Config builds one agent. The zero value is invalid: Workspace, Model and
+// BaseURL are required. APIKey may be empty for a session opened before the
+// person has handed one over — the first-run setup's case — and every request
+// refuses until [Agent.SetAPIKey] lands it.
+// TaskLanding is one landed node, handed whole to Config.TaskLanded. It is the
+// record a caller outside this package needs to judge the work: what was asked,
+// what came home, who ran it and who checked it, and what the run spent. The
+// fields are copied from the node's own record at the moment the node reached a
+// final state, so a reader that arrives late reads a fact rather than a
+// half-open run.
+type TaskLanding struct {
+	ID          uint64
+	State       TaskState
+	Brief       string
+	Deliverable string
+	Report      string
+	Claim       string
+	Ending      string
+	Wrote       []string
+	Changed     int
+	Checks      []string
+	Worker      string
+	High        string
+	CostUSD     float64
+	Tokens      int
+	// Attempt is which run of this node the landing is, so a per-run judged
+	// marker survives a resettle (same id, re-judged) and a re-run (new attempt).
+	Attempt int
+}
+
+type Config struct {
+	// WaitForBeltSteps is for the run worker that enforces its limits and
+	// delivers notes from tool-end events. Its sole event reader must close
+	// Event.BeltStepHandled after processing each such event. Other agents
+	// leave this off and their event streams remain asynchronous.
+	WaitForBeltSteps bool
+
+	Workspace string // tools root here; all relative paths resolve inside it
+	Model     string
+	APIKey    string
+	BaseURL   string
+	Sources   modelsource.Set
+	// AuthKeySource explains a refused worker account without supplying routing
+	// settings to a worker whose completer already owns its endpoint and key.
+	// Nil keeps ordinary sessions on their own profile and source ladder.
+	AuthKeySource func(model string) string
+	// workerWireModel is the slug of the raw transport supplied to a belt
+	// worker. Account-aware completers leave it empty and resolve the qualified
+	// model themselves; the auth explanation never supplies this value.
+	workerWireModel string
+
+	// There is no app-attribution field here any more. The three that used to
+	// be forwarded to the provider client — a referer, a title, a category
+	// list — were three fields every new construction site had to remember to
+	// copy, and the ones that forgot spent their tokens under no app at all.
+	// The provider stamps them for itself from the binary's own release stamp
+	// (provider.ApplyAttribution), so nothing above it carries them.
+
+	// System is the rendered system prompt. Empty renders the package's
+	// embedded default (prompts/system.md + the project footer) for
+	// Workspace and Model.
+	System string
+
+	// ContextWindow is the model's window in tokens; compaction fires at
+	// window − max(15% of window, 16384). Zero selects a conservative default.
+	//
+	// THE FIGURE IS THE MODEL CARD'S AND IT IS BELIEVED. What was once clamped
+	// to twice the default for every model alike is now capped only by what an
+	// endpoint has actually refused to serve ([TrustedWindowFor]), so a model
+	// with a million tokens of room is no longer folded like one with a hundred
+	// and twenty-eight thousand.
+	ContextWindow int
+	// ContextWindowFor answers from the catalog owned by the machine running
+	// the session. A model switch consults it there so a remote surface's
+	// different catalog cannot move this engine's compaction point.
+	ContextWindowFor func(model string) int
+
+	// Routing is how this session asks the router to choose among the endpoints
+	// serving its model, and whether it times them at all (internal/provider's
+	// velocity.go). EMPTY IS NOBODY HAVING CHOSEN: the session falls to the row
+	// this process installed and, with none installed, to the shipped row
+	// ([provider.DefaultRouting]), which sends no preference of ours at all.
+	//
+	// AND EMPTY IS WHAT A LAUNCH FROM A PROFILE LEAVES IT AT, on purpose: the
+	// profile's row is installed process-wide instead (internal/config's
+	// InstallLaneRows), so a person who cycles `routing` in the settings panel
+	// is answered by the very next request rather than by the next launch
+	// (issue #1022). The field is still the way a caller HANDS a row down — a
+	// child built from a parent's own config rather than from a profile — and
+	// such a caller still wins over the installed row.
+	Routing provider.RoutingStrategy
+
+	// CompactEnabled gates automatic compaction. Manual compaction via the
+	// surface's /compact is a surface concern and always available through
+	// Compact.
+	CompactEnabled bool
+
+	// SessionFile is the JSONL transcript: header line, then one line per
+	// journaled message and compaction marker. Empty keeps the conversation
+	// in memory only. If the file exists it is loaded on New and the
+	// conversation resumes after the latest compaction marker.
+	SessionFile string
+
+	// Place is the session folder and everything inside it (place.go,
+	// Decision 26). The zero Place is the legacy flat layout: sidecar paths
+	// keep deriving from SessionFile, droppings keep landing in the
+	// workspace's .codeaf, and nothing changes for a caller that has not
+	// adopted the folder. When set, SessionFile and Place.Transcript() name
+	// the same file.
+	Place Place
+
+	// ArtifactsIndex is the global deliverables index (artifacts.go): the file
+	// one row is appended to whenever this session produces something a person
+	// might want to find again — a generated picture, an exported conversation.
+	// Empty records nothing, which is what a test and a headless --once both
+	// want.
+	//
+	// It is the caller's path rather than one this package derives, for the
+	// reason SessionFile is: where a person's state lives is the surface's
+	// decision. The surface's answer is ~/.codeaf/v3/artifacts.jsonl, resolved
+	// through internal/home so CODEAF_HOME moves it with everything else.
+	ArtifactsIndex string
+
+	// Memory is the brain this session remembers into (memory.go): the store's
+	// event-sourced memories, routed into the prompt before a turn and written
+	// after one. NIL IS MEMORY OFF — no <memory> block, no reflex call, and no
+	// `remember` on the belt, so the model does not have the verb.
+	//
+	// It is the caller's store rather than one this package opens, for the
+	// reason SessionFile is a path rather than a directory: where a person's
+	// state lives is the surface's decision, and the door is also where the
+	// memory.enabled row is read. A door that turns memory off hands nothing
+	// here, which is what makes "no calls" structural.
+	Memory *store.Store
+	// Skills is the store the skill shelf is read from: the catalog section,
+	// the skills a message carries, and `use_skill`. NIL FALLS BACK TO
+	// Memory, so a door that names no shelf of its own reads the shelf in the
+	// store it remembers into, exactly as every door did before this field.
+	//
+	// IT IS A SEPARATE FIELD BECAUSE SKILLS ARE NOT MEMORY. A person who
+	// turned memory off asked for a conversation that carries nothing about
+	// them across conversations; they did not ask to lose the skills they
+	// installed for Claude Code or Codex, which live in folders on disk and
+	// say nothing about them. So a door with memory off hands no Memory — no
+	// block, no reflex call, no `remember` — and still hands a shelf here:
+	// one that holds only what the folders hold, built from those folders by
+	// the same import pass, and thrown away with the process (cmd/codeaf's
+	// v3SkillShelf). The folders stay the one source of truth either way.
+	Skills *store.Store
+
+	// ConversationHistory grants only indexed history reads. Workers inherit
+	// this interface without receiving memory extraction, writes, or journaling.
+	// Nil falls back to Memory, so a memory-off root grants no history access.
+	ConversationHistory ConversationHistoryReader
+
+	// MemoryImport is the legacy memory.md this session carries into the store
+	// on its first turn, once, before it is renamed to memory.md.imported
+	// (memory.go). Empty imports nothing, which is every caller but the v3 door
+	// and every machine that has already been through it.
+	MemoryImport string
+
+	// ApprovalPolicy decides whether a tool call runs, asks, or is refused
+	// (internal/approval, gated in consent.go). NIL ALLOWS EVERYTHING, which is
+	// the behavior every caller had before the gate existed: a headless --once
+	// and the tests run exactly as they did, and a surface opts into the policy
+	// by handing one over.
+	//
+	// It is the policy this session STARTS on and not the one it is stuck with:
+	// a surface that banks a rule mid-conversation replaces it with
+	// [Agent.SetApprovalPolicy] (approvalgate.go). This field itself is never
+	// written after New, which is what lets task_run.go copy the whole config
+	// without a lock.
+	ApprovalPolicy *approval.Policy
+
+	// ApprovalGate is the door onto the settings rows the gate is built from,
+	// so this conversation can move its own posture from inside itself
+	// (approvalposture.go). Nil is a session with no such dial — a test, a
+	// worker, a headless run — and the surface then draws no control for it.
+	ApprovalGate ApprovalGate
+	// ApprovalPosture is the posture the LAUNCH handed down — `--yolo` says
+	// [PostureAllow] here — for a conversation nobody has moved yet. It is in
+	// memory only and is never written to the folder, because a flag typed on
+	// a command line is a fact about this run; the moment a person moves the
+	// wheel the conversation's own word replaces it.
+	ApprovalPosture string
+
+	// completer is the request road this session is built on when the caller has
+	// already resolved one, and nil when [New] should build it from the settings
+	// above. It is the seam the bash-belt worker seat takes: the run hands the
+	// seat this conversation's account-aware completer ([Agent.beltRunCompleter]),
+	// and the worker is born through [New] like any other standalone seat rather
+	// than through the scripted-completer seam the tests keep for themselves.
+	completer Completer
+
+	// auditWindow overrides how long a second look at finished work gets, and it
+	// is UNEXPORTED AND FOR TESTS ONLY (pending.go's [Agent.auditWindowFor]). The
+	// product's answer is the door's own, which turns on whether there is a check
+	// to run and on nothing else; this exists so that a test can prove what a
+	// person reads when the window runs out without waiting five real minutes for
+	// it.
+	auditWindow time.Duration
+	// auditTimeout lets a test expire a checker's context after advancing the
+	// checking clock. Production leaves it nil and uses context.WithTimeout
+	// with the same window and call share.
+	auditTimeout func(context.Context, time.Duration) (context.Context, context.CancelFunc)
+
+	// clock is THE AGENT'S ONE READING OF THE WORLD'S TIME, and it is UNEXPORTED
+	// AND FOR TESTS ONLY ([Agent.now]). The product's answer is [time.Now].
+	//
+	// It exists because the checking ladder reads the clock several times on the
+	// way to a second call — once with the first checker closed and once more
+	// with the fresh one built — and the window can close between two of those
+	// readings. A real clock reproduces that gap only under load, and a test that
+	// cannot move the clock can only wait for it and hope. It is one field rather
+	// than one per caller for the reason every other "one door" here is: a second
+	// movable clock is a test that pins one of them and is surprised by the
+	// other. The other caller today is the trail that records a request's own
+	// length (task_calltrail.go).
+	clock func() time.Time
+	// teamWatchManual leaves traffic-clock advances to tests calling
+	// teamWatchTick. Production leaves it false and starts the real ticker.
+	teamWatchManual bool
+
+	// AskConsent says somebody is watching this agent's events and will answer
+	// an EventConsentRequest with [Agent.ResolveConsent].
+	//
+	// It is the difference between a question and a hang. Left false — a
+	// headless caller, a cron run, --once — a policy's "prompt" decision denies
+	// the call with a result the model can act on, instead of blocking the turn
+	// on a question that will never reach a person.
+	AskConsent bool
+
+	// HarnessCards says a surface in THIS PROCESS holds the harness lane — the
+	// standing subscription every card raised on it is drawn from
+	// ([Agent.WatchHarnessDesigns]) — and will answer what arrives there.
+	//
+	// IT IS NOT AskConsent SAID TWICE, and the difference is a road rather than
+	// a mood. AskConsent is about the TURN'S OWN STREAM: an approval, a connect
+	// offer, a task proposal, all of which cross a connection as ordinary
+	// events. This lane is a standing subscription, and whether it reaches
+	// anybody is a question about the road: in one process it always does, and
+	// over a connection it does exactly when that wire carries the lane AND the
+	// answer the card asks for (internal/remote's standinglane.go, version 11 —
+	// before it, neither crossed and a card raised over a wire expired unseen).
+	// The one place that decides it for every door is cmd/codeaf's
+	// chatv3_lanes.go, which fills this field and HarnessStore together for the
+	// lane's two cards ([Agent.canProposeSubharness] and harness_build.go).
+	//
+	// LEFT FALSE IT TAKES THE VERB AWAY RATHER THAN BREAKING IT, which is this
+	// belt's law (tools.go): a model told it can offer a saved program plans
+	// around that ability for the rest of the conversation, long after the first
+	// offer nobody could answer.
+	HarnessCards bool
+
+	// Guardian turns on the small model that answers a "prompt" decision before
+	// the person is asked at all (guardian.go). FALSE IS THE DEFAULT AND THE
+	// ONLY SAFE ONE: this is a gate that answers on somebody's behalf, and a
+	// caller that has not said so must never get one. Nothing about the gate
+	// changes when it is off — not one extra call, not one extra branch a person
+	// can observe.
+	// TaskAudit gates the verified frontier (task_audit.go): when false, a
+	// finished node merges on its own report — faster and cheaper, and
+	// 'done' stops meaning 'proven'. The config row (task.audit) defaults on.
+	TaskAudit bool
+	Guardian  bool
+
+	// AttributionModelOff is the person's `attribution.model` row turned off
+	// (internal/config's KeyAttributionModel, env CODEAF_ATTRIBUTION_MODEL):
+	// the `Assisted-by` line in the commits codeaf signs is then the bare
+	// `Assisted-by: CodeAF`, with no model named. It reaches both readers there
+	// are — the belt fact the model is told (beltfacts.go's
+	// [Config.assistedByModel]) and the mechanical commit a landing writes
+	// without asking anybody ([Agent.signsGitWork]).
+	//
+	// IT NEVER TURNS SIGNING OFF. The `attribution` row that did is gone
+	// (2026-09-23): codeaf signs every commit, pull request and issue it writes.
+	//
+	// IT IS A RESOLVED BOOL AND NOT A PROFILE PATH, for the reason [TaskAudit]
+	// beside it is: a task node is handed no ProfileDir at all, so the row is
+	// resolved once at the door and travels down with the work. It is spelled
+	// as the OFF so that its zero value is the product default, and a caller
+	// that said nothing names the model.
+	AttributionModelOff bool
+
+	// ReplyGuardOff turns off the watch on replies that stop being language
+	// (internal/provider's streamguard.go). The config row (reply.guard)
+	// defaults ON, and this field is spelled as the OFF state so that a Config
+	// nobody filled in keeps the guard rather than silently losing it.
+	//
+	// It says nothing about the silence watchdog beside it, which has no switch.
+	ReplyGuardOff bool
+
+	// TaskSettle is who decides a task that landed needing a look — the
+	// `task.settle` row, as the person set it ([TaskSettle]). Empty is
+	// [TaskSettleAsk], which is the default and the only value a caller that has
+	// said nothing may get: a session must not start settling work on somebody's
+	// behalf because a field was left blank.
+	//
+	// It changes exactly one string — the landing note a settled node writes to
+	// whoever asked for the work (task_run.go's [taskNote]). Nothing about the
+	// three answers changes: the tool takes the same verbs and the surface offers
+	// the same choices whichever way this is set.
+	TaskSettle string
+
+	// Standing is the ambient side (standing_contract.go, internal/standing).
+	// Nil is off: no belt tool, no card, no ticking from this process.
+	Standing *Standing
+
+	// standingItems overrides where [Standing.Store] would be read, and it is
+	// unexported because it exists for THIS PACKAGE'S TESTS and for nothing
+	// else: the store is a concrete *standing.Store on the seam a door fills,
+	// and a test that wants to watch what a ratified card actually writes needs
+	// a fake behind the same three methods (tools_standing.go's standingStore).
+	standingItems standingStore
+
+	// ProfileDir is the person's profile directory — the one holding the
+	// config.json that /settings writes (internal/config's settings registry).
+	// It is what the settings and change_setting tools are a door onto
+	// (tools_settings.go): the model can read the person's settings back and
+	// change one permanently, by the row's own registry key and through the
+	// row's own validated write.
+	//
+	// EMPTY KEEPS BOTH TOOLS OFF THE BELT, on the absence law every conditional
+	// family here states: a settings tool with no profile behind it would answer
+	// every call with the same refusal, and a model told it can change a setting
+	// will plan a whole reply around one. A headless --once, a task node and
+	// every test get exactly what they had before this field existed.
+	//
+	// It is the caller's path rather than one this package derives, for the
+	// reason SessionFile is: where a person's state lives is the surface's
+	// decision, and a package that resolved ~/.codeaf itself would write there
+	// from a test.
+	ProfileDir string
+
+	// failures is the tally the piece of work this agent belongs to keeps of its
+	// own failures (internal/taxonomy). A worker built for a task node carries
+	// its node's; a conversation carries none, and every method on the type
+	// tolerates the nil.
+	failures *taxonomy.Tally
+
+	// RolesSource reads one auxiliary-model setting for internal/roles: the
+	// keys are roles.PinKey and roles.TierKey. Nil is a fresh install with no
+	// settings file, and every auxiliary call then rides the session's own
+	// model — roles.Resolve's floor, not a failure.
+	RolesSource func(key string) (string, bool)
+
+	// RouteCrew picks one task's crew — worker, planner and checker — for the
+	// task in the ask (internal/config's RouteCrew over this profile, wired by
+	// the surface). NIL IS NO ROUTER: the run's seats are then the role
+	// ladder's, as they were before crews were routed, and no crew row is
+	// logged. It is never a model this package chooses (taskcrew.go).
+	RouteCrew func(config.CrewAsk) (crewroute.Decision, error)
+
+	// SupportsImages reports whether a model can read image content parts. It
+	// gates [Agent.SubmitImage] and NIL IS FALSE — the opposite of every other
+	// nil-is-permissive hook here, and deliberately so: a model that cannot see
+	// answers a message full of image parts with a 400 or, worse, with a
+	// confident description of nothing. "I don't know whether this model has
+	// vision" and "this model has vision" must not be spelled the same way, so a
+	// caller that holds no catalog gets a refusal it can read instead of a turn
+	// that fails on the wire.
+	//
+	// It is a function of the model rather than a bool because the model moves:
+	// /model swaps it mid-session (see [Agent.SetModel]), and the answer has to
+	// follow the model the next turn will actually ride.
+	SupportsImages func(model string) bool
+
+	// ReasoningProfile is the row's account of a model's thinking pass —
+	// whether it can be turned off, which effort words it takes — under the
+	// same never-blocks contract as SupportsParameter, and nil is the same
+	// "nobody knows". The adapter reads it to send a model that cannot stop
+	// thinking its lowest level instead of a disable it would refuse.
+	ReasoningProfile func(model string) (provider.ReasoningProfile, bool)
+
+	// SupportsParameter answers whether a model accepts a request field, and
+	// whether anybody knows (internal/catalog's SupportsParameter states the two
+	// bools). The adapter asks it before it lets an optional knob travel, so a
+	// reasoning level set on a model that publishes no reasoning parameter is
+	// simply not sent instead of narrowing the endpoint set to nothing.
+	//
+	// NIL IS "NOBODY KNOWS", which is not the same as "no": an unwired seam
+	// leaves the adapter's own explicit-only rule in force, which is exactly the
+	// behaviour every caller had before this field existed.
+	SupportsParameter func(model, parameter string) (bool, bool)
+
+	// ModelPrice is a model's own published list price, per token in US dollars,
+	// and whether anybody published one (internal/catalog's PriceNow). The
+	// adapter bounds a latency-sorted request against it, so a session whose
+	// routing row asks for speed is not also charging several times what the
+	// model itself costs.
+	//
+	// NIL IS "NO PRICE IS KNOWN", which sends no ceiling and routes exactly as an
+	// unwired session always did.
+	ModelPrice func(model string) (prompt, completion float64, known bool)
+
+	// TaskProgressCheck is the test seam for leash checkpoints. Production uses
+	// the node's ordinary read-only checker; a test may answer deterministically.
+	TaskProgressCheck func(brief string, evidence []string) (working bool, reason string)
+
+	// TaskLanded is called once per landed node, on its own goroutine, after the
+	// node's row is in the project's index (task_run.go's [Agent.reportTaskNode]).
+	// It carries [TaskLanding]: the node's record as the landing left it, the
+	// worker's model and the model the checking pass ran on (empty when there was
+	// none). A final state only — running and queued nodes land nothing — and a
+	// call that never blocks the reporting path: the reporting goroutine hands the
+	// landing over and moves on, and a caller that is slow holds up nothing but
+	// its own goroutine. Nil is off, which is what every caller that does not
+	// want the news hands in, and what this package then spends nothing on.
+	TaskLanded func(TaskLanding)
+
+	// TaskDeadline overrides one checkpoint interval. Zero keeps the one-hour
+	// production interval and lets deadline behavior be tested without an hour.
+	TaskDeadline time.Duration
+	// HarnessDesignWindow overrides how long a sub-harness design is given to
+	// WRITE ITS PAGE (harness_build.go's harnessDesignWindow). Zero keeps the
+	// half-hour production window. It bounds the writing only — the card that
+	// follows waits on the person for as long as they take — and it is settable
+	// for TaskDeadline's reason: what happens at the end of the window is worth a
+	// test, and half an hour is not a thing a test can wait for.
+	HarnessDesignWindow time.Duration
+
+	// ModelFallbacks are the models a turn moves to, in order, when no endpoint
+	// serving this session's model will accept the request's shape at all
+	// (internal/provider's endpoints.go). It is the person's own models.fallbacks
+	// row; empty means the catalog is asked for the nearest same-class model
+	// instead, through NearestModels.
+	ModelFallbacks []string
+
+	// NearestModels names the models closest to one that just refused
+	// everything. It is consulted ONLY when ModelFallbacks is empty, and it never
+	// waits: a catalog that has not resolved answers nil, and a chain with no
+	// fallback simply ends in the diagnosis instead of on another model.
+	NearestModels func(model string) []string
+
+	// Harnesses is this build's sub-harness registry, in the fields a turn is
+	// matched against: name, description, and the cue list the designer froze at
+	// build time (internal/subharness). EMPTY IS DETECTION OFF, which is every
+	// caller that has not loaded a registry, and it is off at the cost of one
+	// length check per turn.
+	//
+	// The whole registry is handed over rather than a path to it for the reason
+	// SessionFile is a path and not a directory this package picks: where the
+	// entries come from is the surface's business, and a package that read
+	// ~/.codeaf/harnesses itself would read it from a test and from a task
+	// node's own agent too.
+	Harnesses []subharness.Entry
+
+	// RunHarness runs one harness for one turn and returns its report. The name
+	// is an entry's own Name; the text is the person's words, verbatim — less
+	// the clause that chose the model, when they wrote one.
+	//
+	// The model is what the turn asked the run to ride, resolved against
+	// TaskModels (harness.go). EMPTY IS THE ORDINARY CASE and means nobody
+	// said: the runner uses whatever model it was built on, which is what every
+	// run did before a turn could name one.
+	//
+	// NIL IS DETECTION OFF, whatever Harnesses holds, and it is the seam that
+	// keeps the engine out of this package: the conversation decides WHETHER a
+	// harness runs — it is the half a person answers — and the engine decides
+	// what running one means.
+	//
+	// step is where the engine reports each step as it lands, and it is what
+	// makes a run something a person can WATCH rather than wait out: the report
+	// only exists when the whole thing is over. It is never nil, so a runner
+	// calls it without checking; a runner with nothing to report simply never
+	// does. Calling it BLOCKS the run for as long as the send takes, which is
+	// why what is behind it is one hub send and nothing else.
+	//
+	// The [subharness.Usage] is WHAT THE RUN COST, summed over every model call
+	// it made, and it is returned rather than left to the engine because the
+	// person paying for it is sitting in this conversation: a run bills through
+	// the auxiliary door and lands in /cost, on the status line and against the
+	// spend rail (harness.go). A runner that cannot account for its calls
+	// returns the zero value, which is a run this session does not claim was
+	// free — it is a run nobody reported a price for, and the emptiness law
+	// says to show nothing rather than a zero.
+	RunHarness func(ctx context.Context, name, text, model string, step func(subharness.Trail)) (string, subharness.Usage, error)
+
+	// HarnessStore is where a harness this conversation DESIGNS is written, and
+	// it is the same registry Harnesses was read out of (harness_build.go). The
+	// model's build_harness hand reaches the designer through it (tools_harness.go);
+	// a page nobody approved never touches it.
+	//
+	// NIL IS BUILDING OFF, on exactly the terms RunHarness is detection off — and
+	// the two are checked together, because a harness this session can write and
+	// cannot run would be a page saved into a registry with no engine under it.
+	//
+	// It is the STORE and not a path for the reason Harnesses is a slice: where
+	// the registry lives is the surface's decision, and a package that opened
+	// ~/.codeaf/harnesses itself would open it from a test and from a task node's
+	// own agent too.
+	HarnessStore *subharness.Store
+
+	// OrchestrateRunner launches one adaptive run (internal/orchestrate): the
+	// goal, the model the turn named (empty is the session's), and the fuel
+	// cap in dollars. It returns the run's id; events stream on the standing
+	// lanes as EventOrchestrateNote/Fuel/Pause.
+	//
+	// NIL IS ORCHESTRATION OFF, the same posture RunHarness keeps: a surface
+	// that was not handed a runner never offers an adaptive run, at the cost
+	// of one nil check per turn.
+	OrchestrateRunner func(ctx context.Context, goal, model string, capDollars float64) (string, error)
+
+	// Subharnesses is this surface's subharness registry: the compiled-in Go
+	// programs it built, and the stores it put in front of them
+	// (docs/SUBHARNESS-CONTRACT.md). It is the registry itself rather than a
+	// path for the same reason HarnessStore is a store — where the bundles live
+	// is the surface's decision, and a package that opened
+	// ~/.codeaf/subharnesses itself would open it from a test and from a task
+	// node's own agent too.
+	//
+	// NIL IS SUBHARNESSES OFF, on exactly the terms RunHarness is detection off.
+	// The three doors in subharness_contract.go answer nothing, calmly, and a
+	// surface built against them draws nothing rather than an error — which is
+	// the "absent, not broken" law arriving at a door that was never wired.
+	Subharnesses *exec.Registry
+
+	// Delegates is the programs this build carries that a task can be handed to
+	// whole — senior-dev first (delegate_door.go, internal/delegate). The
+	// surface hands in the build's list (internal/delegate/builtin) rather than
+	// this package importing it, so a test of this package never carries a
+	// program's whole engine. EMPTY IS NONE: the door lists nothing, `via`
+	// refuses every name, and the prompt says nothing about them.
+	Delegates []delegate.Delegate
+
+	// SubharnessMemory is where a running subharness keeps what it has learned
+	// about its OWN domain — its file in its own bundle, never this
+	// conversation's memory (subharness_env.go's [SubharnessMemory] says why the
+	// two must not share a page).
+	//
+	// NIL IS A BUILD WITH NO BUNDLE MEMORY, and the remember/recall doors then
+	// answer [exec.NotWired] for their own names, which is the contract's own
+	// answer for a door with nothing behind it. It is a SEAM the store lane
+	// fills, on the terms Subharnesses is one: where a bundle's memory lives is
+	// the surface's decision, and a package that opened
+	// ~/.codeaf/subharnesses itself would open it from a test too.
+	SubharnessMemory SubharnessMemory
+
+	// SubharnessLastRun is the dim note under one row of the `/subharness` list:
+	// when that program last ran here and how it went, in a person's words
+	// ([SubharnessRow.LastRun]). It is a closure rather than a table because the
+	// answer is about the moment the list is drawn, and a snapshot taken at
+	// launch would be silent about the run that finished five minutes ago.
+	//
+	// NIL IS NO HISTORY, and every row then draws nothing there — never "0 runs",
+	// never "never run" (the emptiness law). It is the STORE LANE's seam: the run
+	// journals it keeps beside each bundle are the only thing that can answer.
+	SubharnessLastRun func(name string) string
+
+	// SubharnessRecordRun is told how one run went, the moment it lands
+	// (subharness_run.go). It is the write half of [Config.SubharnessLastRun] and
+	// it is the STORE LANE's seam too — the note goes beside the bundle, which is
+	// the only place a later session can read it back from.
+	//
+	// NIL IS A BUILD THAT KEEPS NO HISTORY, and a run then simply leaves none. It
+	// is not an error and nothing is drawn about it: a list with no notes is what
+	// a machine that has run nothing looks like, and the two are the same picture
+	// on purpose.
+	SubharnessRecordRun func(name string, note SubharnessRunNote)
+
+	// WorktreeRoot is where isolated worktrees for a run's write-capable
+	// nodes live. The session-id wave owns what fills it; this is the
+	// ABSTRACT SEAM — a path per job id, nothing more. EMPTY means worktree
+	// nodes share the workspace instead, which is the safe degradation.
+	WorktreeRoot string
+
+	// Media and MediaModel are the v3-revision media pair (docs/MULTIMODAL.md
+	// Decisions 5-8): the one client that reaches every generation endpoint —
+	// /images, /audio/speech, /videos — and the ONE USE-TIME RESOLVER that
+	// answers which model serves a modality. MediaModel takes exactly one of
+	// "image", "speech", "video", "vision" and answers a slug the resolver has
+	// already capability-checked against the catalog, or "" when that modality
+	// has no capable model; the ladder behind it (settings slot → role pin →
+	// best catalog candidate → curated fallback) is the surface's business,
+	// which is why this is a closure and not a table.
+	//
+	// The absence law is per-verb: a nil Media keeps every generation tool off
+	// the belt; a nil MediaModel (or one answering "") keeps that MODALITY's
+	// tools off ([Agent.mediaHand]). They REPLACED a pre-revision pair of this
+	// config's own — an image client and an image slug, with a pin ladder the
+	// tool walked itself — and nothing of that pair survives: one client and one
+	// resolver serve every verb, so a machine cannot paint and be unable to
+	// speak for reasons nobody can find.
+	Media      MediaGenerator
+	MediaModel func(modality string) string
+
+	// MediaPick is the just-in-time half of the pair above: where MediaModel
+	// answers "the default for this modality", MediaPick answers "the model
+	// asked for THIS name, for this one call". It takes the same modality word
+	// and the model's own word for what it wants — a slug, a fragment like
+	// "seedream", or "best" — and answers the resolved slug, or an error in
+	// words the model can act on ("no image model matches", "X makes speech,
+	// not image"). An empty word answers ("", nil), which the belt reads as
+	// "keep the default".
+	//
+	// NIL MEANS THE CHOICE DOES NOT EXIST: the making verbs advertise no
+	// `model` argument at all, by the same absence law as the verbs themselves
+	// — a knob with nothing behind it is left off the schema rather than
+	// present and refused. The surface that wires it (cmd/codeaf's
+	// chatv3_media.go) answers from the same catalog the defaults ladder
+	// reads, so a picked model is capability-checked exactly as a default is.
+	MediaPick func(modality, word string) (string, error)
+
+	// DocumentEngine is the rung read_document climbs to (tools_doc.go): the
+	// person's document_engine row, one of auto, local, free or ocr
+	// (config.DocumentEngines), resolved by the surface exactly as the search
+	// pair below is and handed over as the answer.
+	//
+	// EMPTY IS AUTO, not "off". Unlike the two pairs around it, this is a
+	// preference and not a back end: the rungs ride this session's own API key
+	// and base URL, so there is nothing a nil here could mean except "nobody
+	// chose", and config.DefaultDocumentEngine is what nobody-chose resolves to
+	// everywhere else in the binary. The tool is on the belt either way, because
+	// read's own scanned-PDF refusal names it by name and a named way out that
+	// resolves to nothing is worse than a rung that says why it cannot run.
+	DocumentEngine string
+
+	// SearchProvider and SearchFetcher are the web-search pair the belt's
+	// web_search and web_fetch tools call through (tools_search.go). They are
+	// [search.Provider] and [search.Fetcher] rather than a configuration because
+	// WHICH back end answers is not this package's question: internal/search
+	// owns the resolution law, and the surface hands over live wrappers that run
+	// it against the person's current settings for every operation.
+	//
+	// NIL IS THE DEFAULT AND MEANS THE TOOL IS NOT ON THE BELT — not that it
+	// is on the belt and fails. A model told about a tool it cannot reach is
+	// strictly worse off than a model never told: it will spend a call, read a
+	// refusal, and often try again in different words, and the whole time it
+	// is planning around a capability that does not exist. The two are
+	// separate fields for the same reason [search.Resolve] returns two: a
+	// binary that can search but not fetch is a real configuration, and it
+	// should get exactly the one tool it can honour.
+	SearchProvider search.Provider
+	SearchFetcher  search.Fetcher
+
+	// Connect is the person's connected accounts (internal/connect): which
+	// services this build can offer, which of them are connected on this
+	// machine, and an authorized client for each one that is.
+	//
+	// NIL IS THE DEFAULT AND MEANS THE FEATURE IS ABSENT — no services tool, no
+	// use_service, and nothing on the belt that mentions an account. It is the
+	// same law the search pair above states and it is stated again because the
+	// cost of breaking it is larger here: a model told it can read a mailbox
+	// will plan a whole answer around one, and a refusal at the end of that plan
+	// is a turn spent on a capability that never existed. A build with no
+	// registration for any service hands over nil and the conversation is exactly
+	// what it was before this field.
+	Connect *connect.Manager
+
+	// connectHub is the seam the belt actually calls through, and the one place
+	// this package touches an account at all. It is unexported because it is not
+	// a caller's choice: a real caller hands over Connect and this is derived
+	// from it (connect.go's newConnectHub). What it buys is the tests, which
+	// drive the ask, the arming and the failure paths against a hub of their own
+	// without a Google account and without a network.
+	connectHub connectHub
+
+	// writeScope bounds which repo paths this agent's file-writing calls may
+	// touch (orchestrate.go's writeGuard, which reads recovery.go's
+	// [mutatedPath] for which calls those are). It is unexported for connectHub's
+	// reason — it is not a caller's choice but a bound the machinery puts on an
+	// agent it built — and it is set in exactly one place: the executor that
+	// runs one node of an adaptive run, from that node's own declared scope.
+	//
+	// EMPTY IS NO BOUND, which is every agent in this build but a scoped node —
+	// stated in the agent's own voice rather than a node's, because the bound
+	// belongs to the agent that is held to it.
+	writeScope []string
+
+	// pacing is how a node hears that its own calls have parked on the
+	// provider's rate limiting, and it is unexported for connectHub's reason: it
+	// is not a caller's choice. The executor sets it on the config it builds for
+	// a node's agent — and for the auditor and the repair workers that stand in
+	// for the same node — and nothing else in this build sets it at all.
+	//
+	// It is a callback rather than a field to poll because the fact it carries
+	// is an EDGE: a call started waiting, a call stopped waiting. Polling it
+	// would mean a clock, and the whole point of the signal is that it is free.
+	pacing func(bool)
+
+	// ── the effort ladder's two posture fields ──────────────────────────────
+	//
+	// Between them they say what this session IS, so its every model call can be
+	// answered by one resolver instead of by each spawn site's own judgment
+	// (effort.go, internal/effort).
+
+	// Effort is the rung this session was HANDED — the work's own rung, filling
+	// the ladder's task scope. It is set on a child: a task worker gets the
+	// task's rung, a standing firing gets the item's. EMPTY IS THE HONEST
+	// DEFAULT and means nobody set one for this piece of work, which is every
+	// conversation a person opens themselves.
+	Effort effort.Rung
+
+	// EffortRole is what this session is FOR, and it is the rung of last resort
+	// before the install's default: a standing firing and its checks stay cheap
+	// however deep the install is dialled, and an errand asks for nothing at
+	// all. THE ZERO VALUE IS NOT A ROLE and falls through to DefaultEffort,
+	// which is the right answer for a caller that has not thought about it — a
+	// headless --once, a test — because it is the same answer a person's own
+	// conversation gets.
+	EffortRole effort.Role
+
+	// DefaultEffort is the install's `effort` row, read by the door
+	// (config.DefaultEffortAt). EMPTY ASKS FOR NOTHING, which is what a session
+	// built without a door has always sent: config.Ship is the shipped answer to
+	// the settings row and never a default this package invents, so a caller
+	// that wires no profile is not silently opted into paying for depth.
+	DefaultEffort effort.Rung
+
+	// beat is the node's heartbeat on disk, and nil for every agent that is not
+	// standing in for a task node (task_beat.go). It is unexported for pacing's
+	// reason — it is not a caller's choice but a fact about an agent this package
+	// built — and the loop takes its two edges either side of the wire.
+	beat *taskBeat
+
+	// TaskModel is the model a task runs on when its proposal names none — the
+	// person's task.model row. EMPTY IS THE CONVERSATION'S OWN MODEL, which is
+	// the behaviour every task had before this field existed: a node is the same
+	// worker doing the same job somewhere quieter, so the same model is the
+	// honest default. It is resolved through the same matcher a proposal's word
+	// is (taskmodel.go), so a row written "opus-5" reaches the same id.
+	TaskModel string
+
+	// TaskModels lists the models a task may be sent to — the surface's catalog,
+	// as ids. It is the seam a `model` argument is validated and resolved
+	// against, and it is a function for the reason SupportsImages is one: the
+	// list arrives from a lazily loaded catalog and is not the same list at boot
+	// as it is a minute later.
+	//
+	// NIL IS "NOBODY CAN SAY", not "there are none". A caller that hands over no
+	// list gets every named model taken as written and the provider's own error
+	// if it is wrong — exactly what every caller had before the argument existed
+	// — because a package with no catalog refusing a model id would be inventing
+	// a catalog to refuse from.
+	TaskModels func() []string
+
+	// TaskAutoApproveSeconds is how long a task proposal waits before the clock
+	// approves it (task.go, config.KeyTaskAutoApprove). 0 IS A CLOCK THAT IS
+	// OFF — the proposal waits for [Agent.ResolveTask] and nothing else — which
+	// is only a sentence a WATCHED session can honour: with nobody subscribed
+	// to the events (AskConsent false, or no turn hub), the deadline approves
+	// whatever this says, because a headless run has no one to wait for.
+	//
+	// It is seconds rather than a Duration because it is one settings row read
+	// straight off the sheet, and a surface counting it down draws the same
+	// number the person typed.
+	TaskAutoApproveSeconds int
+
+	// BashBackgroundAfterSeconds is how long a foreground command stays in the
+	// turn before the same running process is kept as a job (promote.go,
+	// config.KeyBashBackgroundAfter). 0 TURNS THE CLOCK OFF, preserving the
+	// timeout-only posture for tests and callers that do not use the v3 door.
+	BashBackgroundAfterSeconds int
+
+	// TaskRepairRounds is how many times a node whose work came back with gaps
+	// is handed back to a fresh worker in the SAME worktree before it lands as
+	// incomplete (task_audit.go, config.KeyTaskRepairRounds). 0 IS THE LOOP
+	// TURNED OFF: the first gap ends the node, which is how the frontier worked
+	// before the loop existed.
+	//
+	// Zero is also the zero value, and that is deliberate rather than a defect —
+	// it is [TaskAutoApproveSeconds]'s arrangement, for the same reason. A caller
+	// that builds a Config and says nothing about repair gets the behaviour that
+	// spends nothing extra, and the DEFAULT of one round is the door's answer
+	// (config.DefaultTaskRepairRounds), read from the person's own settings.
+	TaskRepairRounds int
+
+	// TaskParallel is how many task nodes may RUN AT ONCE, and 0 IS NO LIMIT
+	// (task_run.go's frontier, config.KeyTaskParallel). It is the person's own
+	// number and it is off by default, because the count of nodes was never
+	// what runs out: what runs out is this machine's cores and memory — see
+	// TaskMaxLoad and TaskMinFreeMB below — and the provider's rate limit,
+	// which the adapter already adapts to on its own.
+	//
+	// Zero being both "no limit" and the zero value is deliberate, in
+	// [TaskRepairRounds]'s arrangement: a caller that builds a Config and says
+	// nothing about parallelism gets the ceilings that are really there rather
+	// than a number this package invented for it.
+	TaskParallel int
+
+	// TaskMaxLoad is the one-minute load average PER CORE at or above which the
+	// frontier stops starting new nodes (task_pressure.go,
+	// config.KeyTaskMaxLoad). 0 turns the load check off.
+	//
+	// Per core rather than raw, because the same reading means opposite things
+	// on a two-core laptop and a thirty-two-core workstation, and a person's
+	// setting has to mean one thing on both.
+	TaskMaxLoad float64
+
+	// TaskMinFreeMB is the floor of AVAILABLE memory — the kernel's
+	// MemAvailable, what a new process could actually get — below which the
+	// frontier stops starting new nodes (task_pressure.go,
+	// config.KeyTaskMinFreeMB). 0 turns the memory check off.
+	//
+	// Both of these gate ADMISSION and nothing else. A node that is already
+	// running keeps its worktree and its child agent however loaded the machine
+	// gets, which is what lets pressure drain instead of having to be relieved.
+	TaskMinFreeMB int
+
+	// TaskLanes is THE ACCOUNT OF THIS MACHINE'S RUNNING TASK LANES, shared by
+	// every conversation this process opens ([NewTaskLanes]). The memory half
+	// of the reading above is `treeResidentMB(os.Getpid())` — this process and
+	// every descendant it started — and /proc cannot say which conversation
+	// started which compiler, so the count that reading is divided by has to
+	// cover the same work: every lane the process is running, not one graph's
+	// (task_pressure.go's ONE ACCOUNT FOR THE WHOLE PROCESS, #907).
+	//
+	// The process's own door sets it once and hands the same pointer to every
+	// conversation (cmd/codeaf). Left nil, a graph is ALONE IN ITS PROCESS and
+	// keeps an account of its own — which is the truth for an embedder with one
+	// conversation, and for every scripted graph in the tests.
+	TaskLanes *TaskLanes
+
+	// InTask marks this agent as ONE TASK NODE'S RUNNER (task_run.go) rather
+	// than the conversation. It changes exactly two things, and both are
+	// consequences of the same fact — there is nobody to talk to:
+	//
+	//   - the belt leaves off propose_task and watch (tools.go): a node does
+	//     the work it was briefed with, and a watch's news has no conversation
+	//     to arrive in.
+	//   - a call the policy would ask about is REFUSED in the node's own words
+	//     (consent.go) instead of hanging or borrowing the session's wording
+	//     about a resolver that was never going to be attached.
+	//
+	// It is false for every conversation, and no surface sets it: the executor
+	// sets it on the config it builds for a node and nowhere else.
+	InTask bool
+
+	// crewRole is the crew role an agent answers for when it is built to ANSWER
+	// ONE QUESTION rather than to do work — the checker a node's landing waits on
+	// (task_audit.go's [Agent.newAuditAgent]) and nothing else today.
+	//
+	// It decides what this agent's calls are FOR in the router's vocabulary
+	// ([Agent.laneRole]), read from the same one table every errand's role is
+	// ([errandRole]). WITHOUT IT A CHECKER IS A WORKER TO THE ROUTER: it is
+	// InTask for the node's reason — nobody in a worktree to ask — and InTask
+	// alone made its calls a leaf's, planned with a working node's ceiling and
+	// patience rather than a gate's, which is what put the check's thirty-second
+	// share under a controller that would not act on a silent machine inside it
+	// (#941). A worker leaves it empty; the zero value is the node it always was.
+	crewRole roles.Role
+
+	// checksNode is the node an agent BUILT TO CHECK one is checking — the
+	// auditor a node's landing waits on, which reads a node's finished work and
+	// is deliberately NOT that node ([Config.taskID] stays 0 for it, session.go's
+	// own law). It exists so a checker's records can say WHICH node it is about:
+	// the node on the model-call log's row (loop.go) and the task on the usage
+	// ledger's (usage_ledger.go), neither of which could be filled from taskID
+	// without the checker claiming to be the node it judges.
+	//
+	// It is set by the one builder that has the node in hand
+	// ([Agent.newAuditAgent]) and nowhere else; a worker leaves it zero, because
+	// it IS its node and taskID already says so.
+	checksNode uint64
+
+	// repairRound marks this agent as ONE REPAIR ROUND'S FRESH WORKER
+	// (task_audit.go's [Agent.repairNode]) rather than the node's own. It
+	// exists for the usage ledger's seat ([Agent.agentKind]): a round is the
+	// node's escalation onto the careful tier, and a row that read it as the
+	// worker's seat would hide the cascade's whole bill inside the ordinary
+	// work's. It is set by the one builder that takes a model outright
+	// ([Agent.newTaskAgentOn]) and nowhere else.
+	//
+	// IT DOES NOT TOUCH [Config.crewRole] ON PURPOSE. A crew role is what this
+	// agent's calls are FOR in the router's vocabulary ([Agent.laneRole]), and
+	// a repair round is a leaf's turns of work in a worktree, not a one-answer
+	// gate — erranding its lane role would re-price every call it makes.
+	repairRound bool
+
+	// Errand marks this agent as the short exchange behind home's `ask here`
+	// (cmd/codeaf's chatv3_exchange.go) rather than a conversation somebody
+	// sits in. It is a conversation in every other way — a real model, a real
+	// transcript, a card it can answer — so InTask would be a lie about it.
+	//
+	// IT CHANGES EXACTLY ONE THING: an errand is never registered as a live
+	// delivery target (standing_run.go). A firing steered into an exchange is
+	// news typed into a forty-cell pane that closes with home, and the person
+	// sitting in an ordinary conversation in the same window is never told —
+	// which is what happened the first time a reminder made from home ever
+	// fired.
+	//
+	// Ratifying the exchange's OWN card is untouched by this, and the two are
+	// separate lanes on purpose: a card is answered through the agent the
+	// surface is holding ([Agent.ResolveStanding]), never through the registry,
+	// so an exchange still proposes and still hears yes.
+	Errand bool
+
+	// roomThread says this agent is a node somebody TALKS TO rather than a
+	// worker a runner drives, and it is set on exactly one kind of node: the
+	// thread a sub-harness is designed in (harness_task.go).
+	//
+	// It changes one thing. An InTask agent never starts a turn of its own —
+	// its turns belong to the runner, and a worker waking inside a worktree
+	// would be a second conversation nobody asked for ([Agent.wakeLocked]) — and
+	// that is exactly wrong for a thread whose whole life is somebody arriving
+	// and saying something. A design thread spends most of its time with no turn
+	// running: the page is written, the card is up, and the person is reading
+	// it. So a line steered into it here STARTS one, and everything else InTask
+	// means — no propose_task, a refusal instead of a question, patience with a
+	// provider that is pacing it — is left exactly as it is.
+	//
+	// It is private for InTask's reason: no surface sets it, the executor does.
+	roomThread bool
+
+	// bashBelt is THE EXPERIMENT'S ONE SWITCH, and it is unexported for
+	// pacing's reason: it is not a caller's choice but a fact about the task
+	// worker this package built. It is set only by the executor, at
+	// newTaskAgentOn, from CODEAF_TASK_BELT, and read only through
+	// [Config.mayBashBelt], so no road can hand the bash belt to a
+	// conversation — the conversation and every subharness leaf keep the
+	// seven file tools whatever the variable says, which is what lets both
+	// arms of the comparison run from one binary
+	// (docs/design/bash-task-loop/DESIGN.md).
+	bashBelt bool
+
+	// reviseDesign is the one extra hand a design thread has, and the whole of
+	// what puts revise_design on its belt (tools_harness.go). It carries the
+	// change, in the person's own words, to the design loop parked on the
+	// approval card — the only thing in this process that can act on it — and it
+	// answers with the sentence the model is told when the page is not in a
+	// state to be changed (harness_task.go's reviseDoor).
+	//
+	// IT IS NIL EVERYWHERE ELSE, and that nil is the gate rather than a check
+	// inside the tool: this codebase's law is that a capability with nothing
+	// behind it is ABSENT and not broken, so an agent with no design behind it is
+	// never given the verb at all. It is private for roomThread's reason — no
+	// surface sets it, the executor wires it from the node.
+	reviseDesign func(string) error
+
+	// quickItems is the one extra hand a QUICK task's worker has, and the whole
+	// of what puts `items` on its belt (task_quick.go). It ticks one item off the
+	// node's list or appends steps to it, moves the row the person is watching,
+	// and answers with the sentence the model reads back.
+	//
+	// IT IS NIL EVERYWHERE ELSE, and that nil is the gate rather than a check
+	// inside the tool — [Config.reviseDesign]'s own law, one field down: a
+	// capability with nothing behind it is ABSENT and not broken, so an agent
+	// with no list behind it is never given the verb. It is private for the same
+	// reason too: no surface sets it, the executor wires it from the node
+	// (task_run.go's newTaskAgentOn).
+	quickItems func(done int, add []string) string
+
+	// fixesDir is the project bucket the error→fix sidecar keeps its file in
+	// (fixstore.go), and it is set only when this agent is a NODE. A node's
+	// session file is a journal inside its parent's place rather than a place of
+	// its own, so it cannot derive the bucket for itself; handed one, a family of
+	// eight workers and the conversation that spawned them all learn from the
+	// same file. It is private for roomThread's reason: no surface sets it, the
+	// executor does (task_run.go, orchestrate.go).
+	fixesDir string
+	// droppings is THE FAMILY'S SESSION FOLDER, carried by an agent that has no
+	// folder of its own: a task node's worker, a part's worker under that one, a
+	// fork's hand, an adaptive run's child, an auditor, a standing probe. It is
+	// read in exactly one place ([Config.droppingsPlace]) and answers exactly one
+	// question — where a job log or a stubbed tool result lands (landing.go
+	// states the law and the failure that wrote it).
+	//
+	// IT IS NOT Place UNDER A SECOND NAME, and the distinction is the whole point.
+	// Setting Place on a worker would make the worker a SESSION: it would stamp
+	// the conversation's meta.json with the worker's own spend and title
+	// (placemeta.go), file its journal under the conversation's id (agent.go's
+	// openSessionFile), and paint its pictures into the conversation's work/
+	// instead of the worktree it is about to merge back (landing.go's
+	// deliverablesDir). This row carries the ONE fact a worker needs — where the
+	// harness keeps its own litter — and nothing else.
+	//
+	// It is private for roomThread's reason: no surface sets it, the constructor
+	// that builds the worker does.
+	droppings Place
+	// ownSpace marks a worker standing in THE CONVERSATION'S OWN SPACE rather
+	// than in a project: an owned conversation's work/ repository, or a worktree
+	// cut from it (task_run.go's standingInOwnSpace). One line of the prompt
+	// footer depends on it (prompt.go), and it exists because a directory that
+	// is empty for a good reason and a checkout that failed look the same from
+	// inside. It is private for droppings' reason: no surface sets it, the
+	// constructor that builds the worker does.
+	ownSpace bool
+	// The three rows below are the TASK FAMILY'S, and like InTask the executor
+	// is the only writer: they are what lets a node hand PART of its own work
+	// further out (task.go's fan-out law).
+	//
+	// tasker is THE CONVERSATION'S GRAPH, handed down rather than copied. A node
+	// that proposes work adds a node to the graph the person is already
+	// watching — one id space, one roster, one cap, one checkpoint — which is
+	// what "decomposition is edges added to this graph" was always going to mean
+	// (task_contract.go). It is nil in every conversation, which builds its own,
+	// and nil in every OTHER agent this package runs inside a node: an auditor
+	// and an adaptive run's worker are handed none, so neither has the verb.
+	tasker *TaskGraph
+	// taskID is the id of the node this agent IS, and 0 in a conversation. A
+	// proposal made here is registered under it ([TaskNotice.Parent]), which is
+	// what draws the family on the roster and what scopes the `tasks` tool to
+	// this node's own children.
+	taskID uint64
+	// taskDepth is how many tasks deep this agent sits: 0 in the conversation, 1
+	// in a task the conversation proposed, 2 in a sub-task of that one, and so
+	// on. taskDepthLimit is the floor, and an agent standing on it is handed no
+	// propose_task at all (tools.go) — absent, not refusing.
+	taskDepth int
+
+	// Divide arms the division road for the tasks this session admits
+	// (task_divide.go). ON is what the v3 door wires (cmd/codeaf's chatv3.go,
+	// from internal/config's Swarm, default true); the zero value is off, which
+	// is what keeps every scripted agent in this package's tests exactly as it
+	// was.
+	//
+	// IT IS THE ROAD AND NOT THE DECISION. A task is armed one at a time and
+	// only when something says its work might be wide ([Agent.armDivision]), and
+	// a worker that IS armed still has to get a division past the evidence and
+	// the free hands before anything is born. This row only says the road
+	// exists.
+	Divide bool
+
+	// usageLedger points this agent's spending records at a file OTHER than the
+	// machine's own (usage_ledger.go's [UsageLedgerPath]). Empty — which is every
+	// door in the product — means the machine's.
+	//
+	// It is private for [Config.fixesDir]'s reason inverted: no surface sets it
+	// and no surface should, because the whole value of the ledger is that there
+	// is exactly one of it. What it is for is a test that wants to read back what
+	// a turn recorded without depending on where this machine keeps its state.
+	usageLedger string
+
+	// rootSession is the CONVERSATION every dollar this agent spends belongs to,
+	// and it is empty in a conversation — where the agent's own journal already
+	// names it — and set on every agent built for a piece of work, however deep
+	// (task_run.go's [Agent.newTaskAgentOn]).
+	//
+	// It exists because a node's ledger line names the node's own journal and
+	// not the conversation that asked for the work (usage_ledger.go's
+	// [UsageLine.Session]), so nothing outside the family could add a running
+	// tree's spend back onto the conversation until the tally was folded in at
+	// close. It is private for [Config.usageLedger]'s reason: no surface sets
+	// it, because the only honest source for it is the agent that built the
+	// worker.
+	rootSession string
+
+	// standingItemID is the id of the standing item whose firing this agent IS
+	// (standing_run.go), and empty in every conversation and every ordinary task.
+	// It rides on the config for [Config.taskID]'s reason: the money a firing
+	// spends has to be attributable to the promise the person made, and the only
+	// thing that knows which promise is the runner that built this config.
+	standingItemID string
+
+	// SpendRailUSD stops a session that has spent this much. 0 is off. The
+	// check happens BEFORE a turn starts (rail.go) and reads the session's own
+	// journaled usage, so the rail is exact rather than an estimate, and a turn
+	// already in flight is never cut in half by it.
+	SpendRailUSD float64
+
+	// Unattended retains the legacy opt-in to automatic goal continuation.
+	// Together with Budget it selects a Steward only when Interactive is false.
+	// Tool approval policy is configured separately by the launch door.
+	Unattended bool
+
+	// Interactive says A PERSON IS STEERING THIS CONVERSATION — the door's own
+	// fact, and the one thing `--yolo` is not: yolo is approvals, this is who
+	// is watching. [newPrincipalFor] answers a [Person] for it even under a
+	// budget, so the person's latest words are the ask and work they handed to
+	// a task keeps its own assignment. --once and every worker door leave it
+	// unset, keeping the unattended [Steward] exactly as it was.
+	Interactive bool
+
+	// OneModel is the door's `--one-model` promise kept where it can actually be
+	// kept: EVERY TEXT CALL THIS SESSION MAKES RIDES THE CONVERSATION'S MODEL,
+	// including the roles that otherwise refuse to fall back to it.
+	//
+	// It has to be carried as a bit rather than expressed as an empty ladder
+	// because two callers hold the opposite law on purpose. The mark's reader and
+	// the brief's writer are CREW-ONLY — they hand [Agent.callRole] an empty
+	// floor so an install with no mastermind gets no second opinion at all rather
+	// than the running model marking its own work (checkpoint.go's two
+	// [roles.Register] calls) — and under the flag that left them with no pin, no
+	// tier and no floor, which is a role with no model rather than a role on the
+	// session's. A person who passed the flag has said the conversation's model
+	// IS the crew, so the answer is given once at the seam and the next crew-only
+	// caller is right without knowing the flag exists (#443).
+	//
+	// The media slots are untouched by it, for the door's own reason: vision,
+	// image, speech and video are capability-qualified, and a text model settled
+	// on them would not be one model, it would be a broken one.
+	OneModel bool
+
+	// Budget bounds automatic continuation in a fixed headless run. For an
+	// interactive conversation it bounds new turn admission independently of
+	// who owns the goal; already running work may finish beyond the limit.
+	// SpendRailUSD remains a separate, adjustable conversation spending limit.
+	Budget Budget
+
+	// newerBuild is the cheap process-local reading that says this running
+	// codeaf has been replaced on disk. It is private because the session owns
+	// when the reading reaches a turn; tests replace only the reading itself.
+	newerBuild func() string
+
+	// PromptProfile is the person's own answer to which prefix this session
+	// sends, in the three words the settings row takes: `auto`, `lean`, `full`
+	// (internal/config's [config.PromptProfileModes]). It is what the door read
+	// off the sheet, not what was settled from it.
+	//
+	// `auto` and the empty string are the same answer — WORK IT OUT — which is
+	// what every door that has not been taught this row hands over and what
+	// every session did before the row existed. The word `lean` or `full` is the
+	// person overruling the window, and it loses only to the environment pin
+	// (promptprofile.go's [resolvePromptProfile] is the whole ladder).
+	PromptProfile string
+
+	// profile is the initial shape, settled before the page and belt exist.
+	// liveProfile follows model changes for automatic conversation profiles;
+	// neither field requires mutation of this shared Config after construction.
+	profile promptProfile
+	// liveProfile publishes automatic window changes without mutating Config.
+	liveProfile *livePromptProfile
+}
+
+// Agent is one conversation. It is safe for concurrent use, but Submit
+// serializes: a second Submit while a turn is in flight queues the message as
+// an injected user message (omp's steering model), so the surface never needs
+// a queue of its own, and hands back its own live channel onto that turn's
+// events — every Submit streams, whether it started the turn or steered it.
+// The methods live in agent.go; the loop they drive lives in loop.go.
+type Agent struct {
+	// crewDayHeld is the day's spend crews and their helpers are held to
+	// ([Agent.crewDay]), read once.
+	crewDayOnce sync.Once
+	crewDayHeld *SpendDay
+	// Clarification streams and their deferred history share the agent lock.
+	// questionParent is installed before a child becomes reachable.
+	questionParent     func(Event)
+	approvalParent     *Agent
+	discussionEvents   []Event
+	discussionEventSeq uint64
+	discussionRecorded map[string]bool
+
+	discussions       map[string]*questionDiscussion
+	discussionSeq     uint64
+	discussionHistory []ai.Message
+	discussionPending []string
+
+	config Config
+	// An open conversation's changed rail is separate from its launch config:
+	// proposal cards read it while holding mu, while runs also read it outside
+	// that lock. Atomic publication keeps both roads on the same figure.
+	liveSpendRail    atomic.Uint64
+	liveSpendRailSet atomic.Bool
+	client           Completer
+	// managedClient distinguishes the provider adapter built by New from a test
+	// completer handed to newAgent. clientAccount is the resolved account the
+	// adapter holds, so a service-set change can replace it before another call.
+	managedClient bool
+	clientAccount modelAccount
+	// clientPool is shared with every production child. It owns adapters by the
+	// complete account, so a worker, auditor or fork cannot silently fall back to
+	// the conversation client merely because it was built through newAgent.
+	clientPool *modelClientPool
+	// limits are the response boundary's three numbers — how many times the wire
+	// is forgiven, how many measured failures buy a stronger tier, and what that
+	// tier may cost one piece of work (taxonomy_boundary.go). They are resolved
+	// ONCE, from the person's profile, because resolving them reads a file and
+	// the boundary is asked on the failure path of every request.
+	limitsOnce sync.Once
+	limits     taxonomy.Limits
+	// tallies is what each task node this agent owns remembers about its own
+	// failures, keyed by node id and guarded by mu. It lives here rather than on
+	// the node so the graph's own struct stays what it is — the person's work —
+	// and so a node that nothing classified simply has no entry.
+	tallies map[uint64]*taxonomy.Tally
+
+	// baselineRed is the declared checks that were already failing before this
+	// session did any work, and baselineTaken says the reading has happened —
+	// which is not the same as the list being non-empty, because a clean tree
+	// reads as no red at all ([Agent.openBaseline]).
+	baselineRed      []string
+	baselineFailures map[string][]string
+	// baselineDeclared is every command the before-reading was asked to cover,
+	// including commands it could not read. A task may declare a new check after
+	// this photograph; without this set that late red looks falsely new.
+	baselineDeclared []string
+	baselineTaken    bool
+	// baselineRead says the reading has LANDED, which is not the same as it
+	// having been started ([Agent.openBaseline] runs it in the background) and
+	// not the same as the list being non-empty (a clean tree reads as no red).
+	baselineRead bool
+	// baselineUnread is the checks the reading could not read at all — one that
+	// changed the tree, one the shell could not run, one the window never
+	// reached ([Remains.Unread]).
+	baselineUnread []string
+	// baselineDone is closed when the reading lands, so the one moment that has
+	// to have it can wait ([Agent.awaitBaseline]).
+	baselineDone chan struct{}
+	// stashBefore is every stash entry the deliverable tree ALREADY HELD when
+	// the run began, by sha, and stashBeforeRead says that reading happened —
+	// which is not the same as the set being empty, because a repository with no
+	// stash at all reads as none ([Agent.readStashBefore]).
+	//
+	// IT IS THE SAME SUBTRACTION THE CHECKS GET, FOR THE SAME REASON. A stash a
+	// person took last week is not this session's work sitting outside the tree,
+	// and a reading that named it would tell every run over that repository that
+	// something was left undone at every ending, for ever
+	// ([Agent.stashedWork]).
+	stashBefore     map[string]bool
+	stashBeforeRead bool
+
+	// ignoredBefore is every gitignored file the deliverable tree ALREADY HELD
+	// when the run began, by path, and ignoredBeforeRead says that reading
+	// happened — which is not the same as the set being empty, because a
+	// repository with no ignored files at all reads as none
+	// ([Agent.readIgnoredBefore]).
+	//
+	// IT IS THE SAME SUBTRACTION THE STASH GETS, FOR THE SAME REASON. Only
+	// what appeared during the run may be named a build product this run left
+	// ([Agent.ignoredBuildProducts]), and with no photograph the honest answer
+	// about the tree is silence rather than a guess.
+	ignoredBefore     map[string]bool
+	ignoredBeforeRead bool
+
+	// absorbed remembers every line [Agent.journalAbsorbed] has already written,
+	// so one unit of work whose job somebody else did is said once rather than
+	// at the end of every reply for the rest of the run.
+	absorbed map[string]bool
+	// system is message[0] of every request: the rendered prompt, held once
+	// because it is the same bytes on every step of every turn.
+	system string
+	// systemAt is when [Agent.system] was rendered, and systemOwn says this
+	// agent rendered it rather than being handed one. Together they are what
+	// lets a turn move the prompt's `Now` line forward when it has gone stale
+	// ([Agent.refreshClockLocked]) — and what stops it doing that to a prompt
+	// somebody else wrote, where there may be no `Now` line to move and
+	// rendering our own would throw theirs away. Both sit under mu with
+	// [Agent.system].
+	systemAt  time.Time
+	systemOwn bool
+	// tools is the belt and definitions is its wire form, built once at
+	// construction — rebuilding them per step would re-marshal every schema on
+	// the hot path — and thereafter grown only at the tail under armMu
+	// (connect.go), with one exception: the team verbs leave when the role that
+	// gave them does (team.go's [Agent.retireTeamTools]).
+	//
+	// Both are COPY-ON-WRITE: arming allocates a new array and swaps the header,
+	// so a reader that took a snapshot under armMu may walk it without the lock
+	// and can never see a half-written slice. Nothing already in either is ever
+	// moved or rewritten, and nothing but a team verb is removed, because the
+	// definition block rides at the front of every request and a definition that
+	// shifts re-bills the whole prompt behind it (internal/exec's tools.go states
+	// the law).
+	presentation *presentationIndex
+	tools        []bare.Tool
+	definitions  []ai.ToolDefinition
+	// served is what the belt cannot say about the tools an ACCOUNT named
+	// rather than this build (served.go): whose account each one is, what the
+	// account calls it, and which capability governs it. Keyed by the name the
+	// tool is armed under.
+	//
+	// It is under armMu with the belt, and written at the same door, because a
+	// tool on the belt without its record would be a tool judged by nothing.
+	served map[string]servedTool
+	// shelf is what this build HAS and the model is not carrying: the tools
+	// tools.go built and [Agent.shelveDeferred] held back, keyed by the group
+	// word `load_capability` loads them by, and shelfOrder is the order those
+	// groups are offered in (tools_capabilities.go). Both are nil whenever
+	// nothing was shelved, which is every belt that replaces itself wholesale.
+	//
+	// They are under armMu WITH the belt because they are the belt's other half:
+	// the loading door reads the shelf and appends to the belt in one hold, so
+	// two turns loading the same group cannot both find it unarmed.
+	//
+	// THE SHELF IS THE CONSTRUCTION-TIME PARTITION and is not emptied by a load:
+	// a loaded group is on the belt AND still listed here, which is why
+	// [Agent.offeredTools] joins the two and deduplicates rather than
+	// concatenating them. A reopened session rebuilds both from scratch and then
+	// re-arms what its own transcript says it loaded
+	// ([Agent.rearmLoadedCapabilities]).
+	shelf      map[string][]bare.Tool
+	shelfOrder []string
+	// prearm is the third part of the same partition: the groups this shape is
+	// HANDED rather than asked to fetch, held here between [Agent.shelveDeferred]
+	// and [Agent.armPrearmed] so the loading verb's catalog never offers a group
+	// already on its way onto the belt (tools_capabilities.go). Nil on every
+	// shape that pre-arms nothing, which is every full-profile belt.
+	prearm []bare.Tool
+	// profileArmed retains explicitly loaded tools across profile changes.
+	// Like the belt itself, this ordered list is guarded by armMu.
+	profileArmed []bare.Tool
+	// withdrawn is the record of a belt narrowed ON PURPOSE (withdrawn.go): the
+	// hands the harness took, why, and what is left. Nil whenever the belt is
+	// whole, which is nearly always.
+	//
+	// It is under armMu WITH the belt because it is the belt's other half: a
+	// dispatcher that found a name missing needs to know whether it was taken or
+	// never existed, and the two answers must not be able to disagree.
+	withdrawn *toolWithdrawal
+	// teamRetired names team verbs a role change took away, so a remembered
+	// call gets the role's reason instead of being called an unknown tool.
+	teamRetired map[string]string
+	// armMu guards those headers, those maps, the shelf and nothing else. It is not mu:
+	// arming happens inside a tool call, and a tool call must never take the
+	// lock Interrupt has to be able to take.
+	armMu sync.Mutex
+	// held is the held-range ledger (heldreads.go): which line ranges of which
+	// files this conversation's transcript already carries verbatim, so a read
+	// for exactly that is answered with a pointer and the disk is not opened.
+	// Like jobs it sits outside mu and holds its own lock — dispatch's claim
+	// takes the transcript's lock second, never first.
+	held heldLedger
+	// connect is the accounts seam, nil when the feature is absent (connect.go).
+	// It is written once at construction and read without a lock.
+	connect connectHub
+	file    *sessionFile
+	// id is this session's identity: the journal header's id when there is a
+	// file, and a fresh one when the conversation lives only in memory. It is
+	// fixed at construction and never written after, so it needs no lock, and
+	// it is what the chat log posts its thread under (chatlog.go).
+	id string
+
+	// cacheKey is this session's prompt-cache lineage, stamped on every request
+	// by [sessionCompleter]. It is derived from [Agent.id] — a hash, so nothing
+	// about the session's own id reaches a router's logs — fixed at construction
+	// and never written after, so it needs no lock either.
+	cacheKey string
+
+	// presence is this session's liveness file (taskpresence.go): the small
+	// crash-safe claim, refreshed on a heartbeat, that lets ANOTHER window say
+	// this session is running right now and whether it needs its person. It is
+	// nil for every agent that keeps none — a memory-only conversation, the
+	// legacy flat layout, and every task node's agent.
+	//
+	// It is written once by [Agent.startPresence] inside the constructor, before
+	// the agent is reachable, and never again — so it is read without a lock, on
+	// the terms [Agent.id] and [Agent.cacheKey] are. That matters: its nudge is
+	// called from seams that are already holding mu.
+	presence *presenceDesk
+
+	// jobs is the background-command registry (jobs.go): the processes bash
+	// started with background:true, alive across turns until Close.
+	//
+	// It is outside mu and holds its own locks. A job's lifetime is the
+	// session's, not a turn's, and the goroutines watching them must never
+	// contend for the lock Interrupt has to be able to take at any moment.
+	jobs *jobRegistry
+
+	// inFlightBash is every foreground bash call that could be sent to the
+	// background right now, keyed by the provider's id for the call
+	// (promote.go). It sits outside mu and holds its own lock for the reason
+	// jobs does, and for one more: the surface reaches into it from the input
+	// goroutine at the exact moment a turn is holding mu.
+	inFlightBash promotableCalls
+
+	// memory is the brain (memory.go), nil when Config.Memory is. Like jobs it
+	// sits outside mu and holds its own lock: its writer is a post-turn goroutine
+	// that outlives the turn that started it, and its reader is the pre-turn
+	// router.
+	memory *memoryBrain
+
+	// memoryCtx is the lifetime of every background memory pass, and memoryJobs
+	// counts the ones still running. They are the [jobRegistry]'s bargain in
+	// miniature: Close cancels the context so nothing waits on a provider, and
+	// waits on the group so a write already in flight reaches the store.
+	//
+	// The context is written once at construction and the cancel is called once
+	// by Close; both are read under mu, because the one thing that must be
+	// atomic is "closed, therefore no new job" (see [Agent.startMemoryJob]).
+	memoryCtx  context.Context
+	memoryStop context.CancelFunc
+	memoryJobs sync.WaitGroup
+
+	// laneStop cancels the session's lane context, including probes. laneDone
+	// joins the optional sheet beat, whose cache writes must finish before Close
+	// returns. Both are established before the agent is published.
+	laneStop context.CancelFunc
+	laneDone chan struct{}
+	// laneCtx is the context the beat runs under and the one a probe rides. It
+	// is the SESSION'S life rather than a turn's, deliberately: a probe is
+	// bought while somebody is typing and outlives the keystroke that bought it,
+	// so a turn's context would cancel it exactly when it stopped mattering and
+	// a background one would outlive the window (lanenews.go's [Agent.Typing]).
+	laneCtx context.Context
+	// laneBeating is whether this session actually started a sheet beat. It is
+	// a separate fact from laneStop, which is minted for every session because
+	// a probe rides the same context: the three sessions that run no beat still
+	// have a lane context, and "did a beat start" is the question the gate is
+	// about (agent.go's [Agent.startLaneBeat]).
+	laneBeating bool
+
+	// turnLane is what THIS agent's own last request was served by, and it is
+	// the only honest source there is for the lane half of a usage row
+	// (usage_ledger.go states why the process-wide ledger is not one). It sits
+	// outside mu holding its own lock for chatlog's reason: it is written from
+	// the stream goroutine while a turn holds mu for its own state.
+	turnLane laneWitness
+
+	// processRules is how many times each of the process rules the turn loop
+	// enforces has had to say anything in THIS CONVERSATION (processrule.go). It
+	// sits outside mu holding its own lock for the reason above it does: it is
+	// written from the step boundary while a turn holds mu for its own state.
+	processRules ruleLedger
+
+	// ruleStop is WHY THE LAST TURN ENDED when one of those rules ended it
+	// (processrule.go). It is a turn-shaped fact rather than a conversation's,
+	// and a task node's landing is its one reader.
+	ruleStop ruleStopWitness
+
+	// chatlog is the LOSSLESS FLOOR under compaction (chatlog.go): every message
+	// of this conversation posted into the store's thread as it lands, so that a
+	// stub and a fold point at text somebody can still read. It is nil when there
+	// is no store, which is memory off, and it sits outside mu holding its own
+	// lock for the reason memory does — its writer outlives the turn.
+	chatlog *chatJournal
+
+	// filed is where each long tool result's bytes were spilled, keyed by the
+	// workspace and the message's own fingerprint ([chatRefKey]), so the
+	// per-request snapshot view names a path without writing one it has already
+	// written ([Agent.fullResultPointer]). An empty value is a filing that failed
+	// and is not to be retried per request; the map is dropped whole at
+	// [filedCap]. It sits outside mu with its own lock because that view is built
+	// without the session lock while the stub pass asks the same question holding
+	// it.
+	filedMu sync.Mutex
+	filed   map[string]string
+
+	// stateStore is the BPE working state (state.go): the beliefs and progress
+	// records that live OUTSIDE the transcript so a compaction cannot lose them.
+	// It is built on first use through [Agent.state] — the belt closes over the
+	// agent, so the tools reach a store that construction need not have made yet
+	// — and stateOnce is what makes that exactly one rehydration from disk.
+	//
+	// Like memory and jobs it sits outside mu and holds its own lock: its writers
+	// are tool calls running in parallel inside one batch, and its reader is a
+	// compaction pass that must not need the session lock to render a block.
+	stateOnce  sync.Once
+	stateStore *stateStore
+
+	// fixShelf is the error→fix sidecar's pair of files — this project's and
+	// this machine's (fixstore.go). It is built on first use through
+	// [Agent.fixShelfFor] for stateStore's reason: a conversation in which
+	// nothing ever fails should open no file at all. Like the stores above it
+	// sits outside mu and holds its own lock, because its writers are the tool
+	// calls of one batch running in parallel.
+	fixOnce  sync.Once
+	fixShelf *fixShelf
+
+	// cardOnce / cardStore are the STATE CARD (card.go): what the work is for
+	// and where it stands, folded in by the post-turn extractor and rendered
+	// into every system prompt. It is built on first use for stateStore's
+	// reason, and holds its own lock for the same one — its writer is the
+	// post-turn goroutine, which outlives the turn that started it.
+	cardOnce  sync.Once
+	cardStore *cardStore
+
+	// docs is the OCR rung: the document parser read_document calls through and
+	// the per-document memo that makes paging a scan free (tools_doc.go). It is
+	// built on first use through [Agent.documentParser] for the reason
+	// stateStore is, and holds its own once and its own lock for the same
+	// reason: its callers are tool calls running in parallel inside one batch.
+	docs documentRung
+
+	// mu guards everything below it. The lock is held for state transitions
+	// only, never across a provider call or a tool execution: a turn that
+	// holds it while waiting on the network would deadlock Interrupt, which is
+	// the one call that must always be answerable.
+	mu    sync.Mutex
+	model string
+	// reasoning is how hard each model is asked to think, by model id, and it
+	// is a MAP rather than a field for the reason agent.go's block states: the
+	// level is a choice about a model, and a /model switch must not carry one
+	// model's answer onto another. Absent means "send nothing"; it holds no
+	// absent entries. Nil until somebody sets a level, which is most
+	// sessions.
+	//
+	// It is the TURN scope of the effort ladder (effort.go): the most specific
+	// thing anything can say about how hard to think, and the one a person's own
+	// hand is on.
+	reasoning map[string]effort.Rung
+	// effort is the rung this whole conversation was set to, kept in the session
+	// folder's meta.json so it survives a restart (placemeta.go). It is one
+	// field and not a map because it is a choice about THIS CONVERSATION rather
+	// than about a model: a person dialling their session deeper means the
+	// session, whatever they switch the model to inside it.
+	effort effort.Rung
+	// places is the set of folders this conversation is ABOUT, newest first,
+	// kept in the session folder's meta.json so it survives a restart
+	// (places.go). It is under mu because the two hands that move it are a
+	// surface — a person naming a folder — and a turn resolving a task's ground,
+	// and those run at once.
+	//
+	// Nil is the ordinary state and means nothing: a conversation about the
+	// place it is standing in has referred to nowhere else, which is every
+	// conversation until one accrues.
+	//
+	// IT IS REPLACED AND NEVER EDITED IN PLACE, because a stamp hands the live
+	// slice to the marshaller and writes it after the lock is released
+	// (placemeta.go's [Agent.stampMeta]).
+	places []PlaceRef
+	// trees is the working copies this conversation holds of the folders it
+	// refers to, and what has been written into each that the folder itself
+	// does not have yet (standingtree.go). It rides the same meta.json for the
+	// same reason places does, and it is REPLACED AND NEVER EDITED IN PLACE for
+	// the same one.
+	//
+	// Nil is the ordinary state and means nothing has been written outside the
+	// folder this conversation stands in, which is every conversation until one
+	// aims a write somewhere else.
+	trees []StandingTree
+	// treeCut serializes the CUTTING of one, and nothing else. Making a working
+	// copy runs git and copies files, so it cannot be done under mu, and two
+	// tool calls in one turn that both find no copy would otherwise both make
+	// one — leaving a registered worktree that nothing holds a record of.
+	treeCut sync.Mutex
+	// toldStanding is which folders' working copies THIS PROCESS has already
+	// told the model about (standingbelt.go). It is not on the meta on purpose:
+	// what it tracks is whether the model in front of it has been told, and a
+	// resumed conversation's model has been told nothing.
+	toldStanding map[string]bool
+	messages     []ai.Message
+	// messageReasoning is aligned one-for-one with messages and carries the
+	// provider fields ai.Message cannot represent. Rewrites clear or move the
+	// matching slot; no model working is ever smuggled into visible Content.
+	messageReasoning []provider.MessageReasoning
+	// earlier is the conversation ABOVE the latest compaction marker, shaped for
+	// a surface's scrollback and held for no other reason: nothing here ever
+	// sends it, and the model does not carry it (see [Agent.EarlierTranscript]).
+	//
+	// It is DISPLAY ENTRIES rather than messages, and that is the whole of why it
+	// can be held at all. A run of ai.Message keeps every picture in it alive as
+	// the multi-megabyte data URL it was rebuilt into — the exact thing
+	// [sessionFile.images] is fingerprinted to avoid — while a display entry
+	// keeps the words, the path a picture came from, and a CAPPED copy of each
+	// tool result. So the memory is bounded by the text of the journal's earlier
+	// region and is smaller than the file that holds it.
+	earlier []DisplayEntry
+	// earlierFloor is how many entries at the START of [Agent.Transcript] are the
+	// latest pass's own rewritten copy of earlier — the stubs and fold lines it
+	// put in place of the conversation above. A surface draws the region instead
+	// of them, so the conversation is told once ([EarlierHistory]).
+	earlierFloor int
+	// personAsk is the last thing THE PERSON typed, kept apart from the
+	// transcript because the transcript cannot answer the question. Every user
+	// message in a.messages is user-role, including the ones the session wrote
+	// itself — a task landing, a job exiting — and the bit that says who spoke
+	// (userMessage.wake, .authored) does not survive the append. So the answer is
+	// recorded where the message is recorded, by [Agent.rememberAskLocked].
+	//
+	// It is what work handed out of this conversation carries as the person's own
+	// words (task_brief.go), and it is deliberately the WHOLE message rather than
+	// a summary of it.
+	personAsk string
+	// owedAsks is what THIS TURN owes an answer to, in arrival order, without
+	// repeats, and WITH WHO IT CAME FROM ([owedAsk], wakecause.go): the person's
+	// own words, and the target each landed result was for. It is cleared when a
+	// turn opens, so it describes one turn and never the session.
+	//
+	// It is separate from personAsk because they answer different questions: a
+	// woken turn owes the request its result belongs to, not whatever was typed
+	// most recently — see [Agent.turnAsk].
+	owedAsks []owedAsk
+	// landingOutcomes are owed landing reports returned in this turn. They are
+	// completion evidence, not another part of the person's ask.
+	landingOutcomes []string
+	// programOutcomeNow is the program run's ending the turn now running was
+	// woken with, nil for every other turn: a hand-off it makes is a re-attempt
+	// of that run ([Agent.programRetryRefusal]). Cleared with owedAsks.
+	programOutcomeNow *programOutcome
+	// programHold is the last program ending since the person's own words. It
+	// survives wake turns and reloads from the conversation's sidecar record.
+	programHold    *programOutcome
+	programHoldErr string
+	// programAttempts is each started program run's place in its line of runs,
+	// by row ([Agent.keepProgramAttempt]).
+	programAttempts map[uint64]programAttempt
+	// personCardAnswers are the compact lines for cards a person answered
+	// during THIS turn (checkpoint.go's [personCardAnswerLine]). Cleared when
+	// the next turn opens, with the owed asks, because a later turn is not
+	// still bound by a card this one already settled.
+	personCardAnswers []string
+	// turnResults are the tasks whose RESULTS ARRIVED IN THIS TURN, by id, in
+	// arrival order and cleared with owedAsks when a turn opens.
+	//
+	// It is kept beside owedAsks rather than read back out of them because the
+	// two are different facts: an owed ask is TEXT, and an ask with no text — a
+	// node admitted through a door that froze no request — is dropped by
+	// [Agent.oweLocked] and takes its id with it. What the write seam asks is
+	// WHICH NODE this turn is delivering (writeseam.go's
+	// [Agent.deliveringOwnedResult]), and that question has to survive a result
+	// whose words were empty.
+	turnResults []uint64
+	// personTurns is the same answer for the turns BEFORE the newest one, kept
+	// for the same reason and bounded (admission_compile.go). personAsk answers
+	// "what is the current ask"; this answers "what else have they told us",
+	// which is where a constraint typed three turns ago and never repeated lives.
+	// It is rebuilt from the journal when a session is reopened.
+	personTurns []personTurn
+	// personSeq numbers those turns so that the same sentence typed twice is two
+	// events rather than one.
+	personSeq uint64
+	// personAt is when the last thing they typed was heard, which is the order
+	// their corrections are weighed in once a task can be reached through two
+	// doors of different speeds (assignment.go's [taskAssignment.lastSpokenApplied]).
+	personAt time.Time
+	// personScopeDenied says this machine could not produce the entropy a scope
+	// is made of, so no message of the person's can be named apart from another
+	// and the forwarding door refuses in those words rather than in the words
+	// for a turn nobody typed into.
+	personScopeDenied bool
+	// personScope is what [Agent.personSeq] is a sequence WITHIN: this session,
+	// this opening of it. The numbers themselves are not durable — they are
+	// counted as messages are heard and recounted from whatever history a reopen
+	// can replay, which compaction may have folded — so a session opened tomorrow
+	// can hand out the number 1 for a message that has nothing to do with the
+	// number 1 already written on a task's record. Minted once per agent and
+	// carried on every direction forwarded under it, so two lives cannot be
+	// mistaken for one (task_forward.go).
+	personScope string
+	// personHeard is the turn [Agent.personAsk] was typed into, and it is what
+	// tells "the person is asking for this right now" from "the person last said
+	// something two turns ago". A woken turn — a task landed, a job exited —
+	// leaves it where it was, so the forwarding door can refuse to send words the
+	// person is not currently saying under their live authority
+	// (task_forward.go).
+	personHeard uint64
+	// programBounced is where a proposal was last turned back because the
+	// person's message named a program and the proposal did not
+	// (delegate_asked.go): that message, and the step of the turn whose
+	// proposals were turned back. It is what makes the bounce once per message:
+	// a proposal for the same message from a later step, after the model has
+	// read the bounce, passes as it is.
+	programBounced bounceMark
+	// programsHeard is what the person's messages of the turn they last spoke
+	// in said about the programs this build carries: the newest one named,
+	// the message that named it, and every one asked for (delegate_asked.go). It is
+	// written where their words are recorded ([Agent.rememberAskLocked]), so a
+	// steer that names nothing does not unsay what the turn opened by asking.
+	programsHeard programsHeard
+	// callOutcomes is whether a finished call came back a failure, by call occurrence
+	// (admission_compile.go). It is recorded at the batch's own fan-out because
+	// the flag the tool returned does not survive into the transcript, and it is
+	// per-process: after a restart the outcome of an older call is unknown and
+	// the admission context says so rather than assuming it went well.
+	callOutcomes map[*ai.ToolCall]callOutcome
+	// replyTags are finished-task identities placed in the transcript but not
+	// yet handed to the surface. They persist across the turn-end seam.
+	replyTags []TaskReplyTag
+	// divisibleAsk is the text the sizing judge last answered YES about
+	// (task_person.go's [Agent.judgeDecomposable]) — the one signal that arms
+	// the division road for a task somebody then starts as a single worker
+	// ([Agent.armDivision]).
+	//
+	// It is ONE entry rather than a map because the judge is asked immediately
+	// before the work is started, by one command, and a bank that grew for the
+	// life of the session would be remembering answers about work that was
+	// never begun.
+	divisibleAsk string
+	// lastTurnTruncated is the honest takeover from the model loop to headless
+	// node reporters. The finish reason is response metadata and is not part of
+	// the transcript, so without this bit a digest can only repeat the cut-off
+	// prose and falsely make the node look complete.
+	lastTurnTruncated bool
+	// teamTurnAt and teamTurnSerial identify the current turn for a manager's
+	// stop, so a late watch read cannot stop a later turn.
+	teamTurnAt     time.Time
+	teamTurnSerial uint64
+	// memoryText is the <memory> block message[0] currently carries: what the
+	// router asked for at the start of this turn, or the block a task node was
+	// opened with (memory.go). It is under mu because it is rendered into the
+	// transcript's first message, and it is REPLACED per turn rather than
+	// appended to — a turn's memories are that turn's.
+	memoryText string
+	// cardText is the <state> block (card.go): what this conversation is doing,
+	// as the post-turn pass has folded it. It sits under mu because it is
+	// rendered into the transcript — at the TAIL, in the volatile note
+	// ([Agent.landVolatileLocked]), and no longer in message[0], because it
+	// moves every time a delta lands and message[0] is in front of everything.
+	cardText string
+	// standingText is the <standing> block message[0] currently carries
+	// (standing_world.go): the orders the person holds over this conversation,
+	// which the model must work within. It sits under mu beside the three blocks
+	// below for their reason, and it is re-rendered at the start of every turn —
+	// an unchanged set renders the same bytes, so a conversation whose orders
+	// have not moved leaves message[0] exactly as the provider cached it.
+	standingText string
+	// placesText is the `# Attached folders` block message[0] currently carries
+	// (placescontext.go): the folders the PERSON attached to this conversation,
+	// named absolutely, with each one's own house rules scoped to it. It sits
+	// under mu beside the two blocks above and it is REBUILT ONLY WHEN THE SET
+	// MOVES — a person attaching or removing a folder, or a conversation being
+	// reopened onto the set its meta.json remembers — because message[0] sits in
+	// front of everything and what does not move must render byte for byte.
+	//
+	// Empty is the ordinary state and renders nothing at all, which is nearly
+	// every conversation: a person who has attached no folder is told about none.
+	placesText string
+	// recordText is the `the record` block as the file now stands (question.go's
+	// [DecisionsSection]), re-rendered off every lock by [Agent.takeRecord] when
+	// the session opens and when a decision is written.
+	//
+	// recordShown is the one message[0] is CARRYING, and the two are different
+	// on purpose: a decision does not rewrite the system prompt, because one
+	// changed byte in front of the conversation re-prices all of it and the model
+	// has the answer in its own result either way. The carried snapshot is
+	// brought up to recordText whenever something else in message[0] moves —
+	// which is the moment the prefix is being paid for anyway
+	// ([Agent.refreshSystemLocked] holds the whole argument).
+	//
+	// systemHead is everything in message[0] AHEAD of the record — the base
+	// prompt, the attached folders, the standing orders — as it was last
+	// rendered, and it is the whole of how that moment is recognised.
+	recordText  string
+	recordShown string
+	systemHead  string
+	// recordRead says the file behind recordText has been read at least once.
+	// It is what makes the first rebuild — the conversation opening — the one
+	// reading of `decisions.jsonl` message[0] ever does for itself.
+	recordRead bool
+	// elsewhereText is the <elsewhere> block (taskdelta.go): what the OTHER
+	// windows on this project landed and are running. It sits under mu beside
+	// cardText and rides where cardText rides, at the tail of the transcript —
+	// an unchanged block lands no second note, which is what keeps the whole
+	// conversation in front of it cached.
+	elsewhereText string
+	// elsewhereTold is the short memory of landings this session's model has
+	// already been handed, newest first and capped at [deltaLandedRows]. The
+	// stamp on disk advances the moment the block goes out, so without this the
+	// block would name a landing on one turn and forget it on the next —
+	// see [deltaRemember].
+	elsewhereTold []deltaLanding
+	// teamDigestText is the team note's block (team.go): the digest of every
+	// team this conversation manages, "" for one that manages none. It sits
+	// under mu and rides its own note at the tail, like elsewhereText, so an
+	// unchanged team lands no second note.
+	teamDigestText string
+	// teamRoleText is what this conversation is in its teams (team.go's
+	// [teamRoleBlock]), set at every step boundary before the request and
+	// landed in a note of its own ahead of the others.
+	teamRoleText string
+	// team is this conversation's account of its teams: its key, its roles and
+	// its Traffic cursors (team.go). It has its own lock and is never read
+	// under mu.
+	team  teamSeat
+	usage Usage
+	// principal is WHO THIS SESSION IS WORKING FOR (principal.go), and it is
+	// never nil: a session built with no posture at all gets a [Person], which
+	// answers every question the way this package answered it before the
+	// interface existed. It is set once in [newAgent] and never written after,
+	// so every road may read it without the lock.
+	principal Principal
+	// startedAt is when this process opened the session, and it is the only
+	// wall clock this package keeps. Usage.Duration is the SUM OF TURN
+	// DURATIONS, which is a different number and the wrong one for a budget: a
+	// session idle for an hour between two ten-second turns has spent an hour of
+	// somebody's evening and twenty seconds of that figure.
+	//
+	// It is THIS LAUNCH and not the session's birth. Place.Created is on disk and
+	// is days old on a resumed conversation, and a budget measured from it would
+	// stop a resumed session before its first turn.
+	startedAt time.Time
+	// wokenTurnBase is the context a turn the agent wakes BY ITSELF starts under,
+	// and it is nil in the running product, which answers the plain background
+	// ([Agent.wokenTurnContext]). A submitted turn inherits its caller's context
+	// and so carries whatever the caller put on it; a woken turn has no caller,
+	// so a fixture that pins an order through its turn's context could reach
+	// every turn but this one. The woken-turn handover test was red about once
+	// in forty runs on a loaded machine for exactly that reason and never on a
+	// quiet one. The product reads nothing off this context that it would not
+	// read off the background.
+	wokenTurnBase func() context.Context
+	// wallStop ends the one reader that waits independently for this session's
+	// wall, and is nil when the session has no unattended wall (wallclock.go).
+	// wallEndingTaken is the once-only mark on the ending that reader writes.
+	// Both are guarded by mu because Close and the reader meet on them from
+	// different goroutines.
+	wallStop        chan struct{}
+	wallEndingTaken bool
+	// readerAbsentNoted says the journal already carries this session's one line
+	// about having no second model to read a mark with (checkpoint.go's
+	// [Agent.noteReaderAbsent]). It is a bit rather than a count because the fact
+	// is about the install and is true for the whole session.
+	readerAbsentNoted bool
+	// createdFiles is EVERYTHING THIS SESSION MADE THAT WAS NOT THERE BEFORE, in
+	// first-touch order (principal_audit.go). It is folded in from the per-turn
+	// ledger recovery.go already keeps — one source of truth for "did this exist
+	// before the call" — because that ledger is dropped at the end of every turn
+	// and the question this answers is asked once, at the end of the session.
+	createdFiles []fileChange
+	// changedFiles is EVERY FILE THIS SESSION MODIFIED THAT WAS THERE BEFORE, in
+	// first-touch order (principal_audit.go). It is kept apart from createdFiles
+	// on purpose: that ledger is what the tidy may remove, and nothing in this
+	// build may remove a file the session did not make. This one is only ever
+	// READ, to answer whether the session put work on the deliverable with its
+	// own hands ([Remains.Made]).
+	changedFiles []fileChange
+	// writes is THE RUNNING TURN'S account of what it has changed under the
+	// workspace, and the whole of the write seam's state (writeseam.go). It is
+	// minted at episode-init and read at the step boundary, and it is nil in a
+	// session that has never opened an episode.
+	writes  *writeMeter
+	running bool
+	// turnFloor is where the running turn's WORK begins in a.messages: the
+	// index just past the message that opened the turn, stamped by
+	// [Agent.startTurnLocked] and meaningful only while running is true. It is
+	// what lets [Agent.AttachReplay] hand a surface the conversation once and
+	// whole — the journal's record up to the floor, the hub's backlog from it —
+	// with nothing drawn twice. A compaction pass that rebuilds a.messages
+	// mid-turn moves the floor with the rebuild ([Agent.foldLocked]); a rewind
+	// never has to, because a cut is refused while a turn is in flight.
+	turnFloor int
+	// Explicit conversation stops suppress autonomous wakes until fresh input.
+	workStopped  bool
+	workStopping bool
+	// cancel ends the turn in flight AND SAYS WHICH DOOR IT CAME THROUGH. It is
+	// a [context.CancelCauseFunc] rather than a plain one because a turn that
+	// ends with nothing said has to be able to account for itself afterwards —
+	// on the row, in the journal and in one sentence to the person
+	// (stopcause.go). Every caller passes a cause; nil is reserved for the
+	// turn's own cleanup, which cancels a context nothing is waiting on.
+	cancel context.CancelCauseFunc
+	// interrupt is ONE ESC'S WORTH of planner and title spend (interrupt_fan.go).
+	// It sits outside mu and holds its own lock: Interrupt is the one call that
+	// must always be answerable, and the handlers it serializes must never need
+	// the session lock to ask whether they may fire.
+	interrupt interruptFan
+	// generation is the CURRENT provider request, independently cancellable from
+	// the turn around it (steer.go). A steer cuts this context and leaves cancel
+	// alone, so the same turn can record the partial answer, land the person's
+	// words, and make a fresh request. It is under mu because Steer is the writer
+	// from the input goroutine while the loop installs and clears it.
+	generation *activeGeneration
+	// cutOwed is a cut that was asked for while `generation` was nil and whose
+	// reason rides no transcript, kept for the next request THIS TURN makes
+	// (steer.go's [owedCut]). It is under mu because the readings beside a turn
+	// raise it from their own goroutines while the loop installs generations.
+	cutOwed owedCut
+	// spokenModel is THE MODEL THE PERSON HAS NAMED AND THE WORK HAS NOT YET
+	// TAKEN, and it is empty whenever nothing is owed (steer.go's
+	// [Agent.hearModelLocked]).
+	//
+	// It is a WORD AND NOT A COUNT for the reason the queue beside it is a queue
+	// of messages: what the turn owes is the model the person last named, and two
+	// picks a second apart are one pick as far as the next request is concerned.
+	// It is taken at the request boundary ([Agent.takeModelWord]) and cleared
+	// when a turn latches its model ([Agent.latchTheModel]), so a word said to a
+	// turn that ended before it could be taken cannot reach the turn after it —
+	// that turn starts on the same model anyway, because a.model is where the
+	// pick itself lives.
+	spokenModel string
+	// riding is THE MODEL THE STEP IN FLIGHT IS ACTUALLY TALKING TO, which is not
+	// always [Agent.model]: a step rescued onto a fallback rides that fallback
+	// while the session's own model is untouched, because a rescue is not a
+	// choice anybody made. The ladder has always held it as a local; this is the
+	// same fact published, so the door that decides whether a pick is NEWS can
+	// compare against the model the work is on rather than the one the session
+	// remembers (steer.go's [Agent.rideModel]).
+	riding string
+	// recall is the pre-turn memory routing STARTED BESIDE THE TITLE and never
+	// waited on (memory.go's [recallAside]). It is under mu because
+	// [Agent.startTurnLocked] writes it with the lock held and the turn's own
+	// goroutine takes it a moment later; it is nil for every turn of a session
+	// that remembers nothing, which is the whole of the cost to those.
+	recall   *recallAside
+	steering []userMessage
+	// steerGrace is the one armed second look at a correction that arrived
+	// while a foreground bash was still too young to adopt (steer_grace.go).
+	// There is at most one, it is replaced rather than added to, and every exit
+	// stops it.
+	steerGrace *steerWatch
+	// steerAge is the foreground-command age seam used by steer tests. A nil
+	// seam reads the process's real start through [bare.BashCall.RunningFor].
+	steerAge func(*bare.BashCall) time.Duration
+	// steerAfter lets a test hold and fire the scheduled second look itself.
+	// Production leaves it nil and uses time.AfterFunc at the same grace.
+	steerAfter func(time.Duration, func()) *time.Timer
+	// ambient is periodic watch news that must wait for a TURN boundary.
+	//
+	// It is separate from steering because a step boundary is not a turn
+	// boundary. Putting both on one slice made a watch that ticked during a
+	// five-step tool loop interrupt every following request. An owed note may
+	// still take this queue with it at a step boundary, so all news that has
+	// accumulated reaches the model as one batch rather than two accounts of
+	// the same interval. Other session-authored guidance remains on steering:
+	// loop recovery and task control are instructions for the next step, not
+	// periodic telemetry.
+	ambient []userMessage
+	// settling is the acknowledgements this conversation's record has earned and
+	// not yet sent: news whose sender is owed an answer once the record holds it
+	// rather than when the queue took it ([durableDelivery]). They are held here
+	// because they are collected where the record is written, under this lock,
+	// and sent where a checkpoint may be written, which is not under it
+	// ([Agent.settleDeliveries]).
+	settling []durableDelivery
+	closed   bool
+	// closeDone is closed by [Agent.Close] as its LAST act, and it is what makes
+	// the close complete for everybody rather than only for whoever got there
+	// first.
+	//
+	// A SECOND CLOSE MUST NOT RETURN BEFORE THE FIRST HAS FINISHED. `closed`
+	// above is set at the top of Close, before a single node is cut, so a
+	// concurrent caller that read it and returned was told the session was
+	// closed while its turn, its nodes and its jobs were all still running —
+	// which is the very sentence this session's quit exists to make true
+	// (issue #381). It is made under the same lock that sets `closed`, so a
+	// caller that loses the race is guaranteed to find a channel to wait on
+	// rather than a nil one.
+	closeDone chan struct{}
+	// takenOver says another window has asked for this conversation and this
+	// process has not let go of it yet (takeover.go). Set once, never cleared:
+	// the only way out is the close the ask is for.
+	takenOver bool
+	// stoppedTurn is THE DOOR THAT ENDED THIS CONVERSATION'S LAST TURN WITH
+	// NOTHING SAID, read off the journal when the session was opened and spent
+	// the first time anybody asks (resume.go). It is empty on every conversation
+	// that was answered, on every one the person stopped themselves, and on
+	// every one this build has already asked again.
+	stoppedTurn StopDoor
+	// turnBegan is when the turn now running opened, and the zero time when
+	// none is. It is read by exactly one thing: the takeover beat, which will
+	// not let a request that was already on the disk before this turn started
+	// end it (takeover.go says why that request has had its chance).
+	turnBegan time.Time
+	// steerSeq names the sentences the person has spliced into a running turn
+	// (steer.go). It is an atomic rather than a field under mu because minting an
+	// identity is not a fact about the transcript, and an id that could only be
+	// taken while holding this lock would be an id nothing outside a locked
+	// section could ask for.
+	steerSeq atomic.Uint64
+	// askSeq names the questions the model puts, and asked is what this session
+	// holds while they stand — one type with the endings a parked ask has in it,
+	// and with the question, the asker's own key names and the way down on each
+	// entry so a question can outlive the call that asked it (askwait.go). The
+	// question words remain in questionWords; this holds what the LANE knows.
+	askSeq atomic.Uint64
+	asked  askedOfThePerson
+	// stepSeq counts the requests this session has sent, which is how a question
+	// knows which STEP of a turn raised it ([Agent.stepToken], question.go's
+	// [Question.Batch]). It is an atomic for [Agent.steerSeq]'s reason: it is
+	// read from the goroutines a tool batch runs on, and a number that could only
+	// be taken under a.mu would be one an approval gate could not ask for.
+	stepSeq atomic.Uint64
+	// taskNotes counts the reports this agent's OWN sub-tasks have handed over
+	// that no request has carried yet, and taskNews is the generation channel
+	// closed each time one lands. They exist for one reader — the runner holding
+	// a task node open while its children work (task_run.go's [runTaskChild]) —
+	// and they are zero and nil in every conversation, which has no runner and
+	// wakes for itself ([Agent.postTaskNews]).
+	taskNotes int
+	taskNews  chan struct{}
+	// jobParkBound is the allowance a task worker's run was given, and it is
+	// non-zero only on a worker: it is what ARMS the wait on a command this agent
+	// started in the foreground and had taken over into a job (task_job_park.go's
+	// [Agent.armJobPark]). A conversation leaves it zero, and its park returns
+	// having done nothing, because a person's chat answers a long command by
+	// yielding the keyboard rather than by waiting.
+	jobParkBound time.Duration
+	// handover is the seam a delivery's last two writes are made across, and the
+	// seam the runner reads them across ([Agent.handOverTaskNews] and
+	// [Agent.taskNewsStanding], which states the law). The pair it guards lives
+	// under two other locks — "outstanding" is the graph's and the job
+	// registry's, "owed" is this agent's — so nothing smaller than a lock of its
+	// own can make a delivery indivisible to whoever is reading it.
+	//
+	// IT IS THE OUTERMOST LOCK ON BOTH ROADS. It is taken while holding nothing,
+	// and everything done under it takes its own locks inside; taking it while
+	// holding mu or the graph's would be a second lock order in a package that
+	// has one.
+	handover sync.Mutex
+	// done is closed when the in-flight turn has recorded its last message,
+	// non-nil exactly while running. Close waits on it so a cancelled turn's
+	// tail reaches the journal before the file does.
+	done chan struct{}
+	// hub is the in-flight turn's fan-out, non-nil exactly while running. Every
+	// Submit that lands on the turn subscribes to it, so a steering caller gets
+	// a live channel of its own instead of a closed one.
+	hub          *eventHub
+	replayCursor ReplayCursor
+	// abandon is closed by [Agent.Abandon] and by nothing else. It is the SECOND
+	// STAGE OF A STOP: a cancellation reaches every wait that looks at a context,
+	// and this reaches the waits that were deliberately written not to — the tool
+	// batch's own wait above all (loop.go's [waitBatch]).
+	//
+	// It is a separate signal from the turn's context on purpose. The context is
+	// cut at the person's keypress and an ordinary settle takes three or four
+	// seconds after that, during which every tool is entitled to finish tidying
+	// up and hand back what it actually did. This closes only when that window
+	// has been spent, so nothing that would have ended on its own is cut short.
+	//
+	// Non-nil exactly while running, and it rides down into the turn on the turn's
+	// own context ([withAbandon]) so a wait anywhere below can see it without a
+	// lock or a reference to the agent.
+	abandon chan struct{}
+	// turnSeq names the turn that is running, and it exists so that an ABANDONED
+	// turn's goroutine cannot clean up after the turn that replaced it. The
+	// goroutine captures the number it was started with; [Agent.Abandon] bumps it
+	// on its way out, which is the session DISOWNING that turn; and the
+	// goroutine's own cleanup does nothing at all when the two no longer match.
+	// Without it an abandoned turn returning half an hour later would clear a
+	// live turn's cancel, close a live turn's hub, and close a `done` channel
+	// that has already been closed — the last of which is a panic.
+	turnSeq uint64
+	// turnSpend is what the RUNNING turn has cost so far, moved by [Agent.bank]
+	// on the same call that moves the session's meter and reset when a turn
+	// opens. It is the "last known spend" an abandoned turn is journaled with:
+	// the seal that would carry the figure is exactly what an abandoned turn
+	// never writes.
+	turnSpend Usage
+	// contextWindow is the window learned after construction — the catalog's
+	// figure for a model chosen with /model, which Config.ContextWindow cannot
+	// carry because the model was picked long after New. Zero means nobody has
+	// said and the config's answer stands (see [Agent.window]).
+	//
+	// It is atomic rather than guarded by mu because the threshold is read from
+	// cutPointLocked, which already holds the lock: a second acquisition there
+	// would deadlock the one call — Interrupt — that must always be answerable.
+	contextWindow atomic.Int64
+	// servedWindow is the explicit total context limit most recently learned
+	// in this session. It is atomic because fold helpers read it under mu;
+	// endpoint-scoped persistence belongs to the provider, not the model id.
+	servedWindow atomic.Int64
+
+	// compacting serializes compaction passes. One pass reads the transcript,
+	// releases the lock to summarize, then rebuilds; a second pass entering
+	// that window would summarize a prefix the first one is about to drop.
+	compacting bool
+	// compactDone wakes a refused turn waiting for that pass to finish. It is
+	// closed under the same lock that clears compacting, so no wake is missed.
+	compactDone chan struct{}
+	// contextTokens is the last provider-reported context size, the honest
+	// figure when there is one. Zero means "estimate from content".
+	contextTokens int
+	// contextBeltTokens belongs only to a rebuilt window after compaction. It
+	// keeps later transcript growth on the same footing until a provider count
+	// replaces the estimate.
+	contextBeltTokens int
+
+	// followups is the second injection queue (agent.go). Steering drains at a
+	// step boundary INTO the running turn; a follow-up waits for the turn to
+	// end and then starts one of its own.
+	followups []followUp
+
+	// wakeLanes are the standing subscriptions to turns the session started by
+	// itself ([Agent.Wakes]) — a task landing on an idle conversation, which is
+	// the one turn no Submit is holding a channel for. Each carries the woken
+	// turn's own event stream, handed over before the turn's first event.
+	//
+	// They are not the turn's hub and not taskWatchers: the hub belongs to one
+	// turn and does not exist yet when a wake is decided, and the task lane
+	// carries updates about work rather than a conversation. Nil for every
+	// surface that does not draw woken turns, which costs that surface nothing.
+	wakeLanes []chan (<-chan Event)
+
+	// opened says the session has been handed to whoever asked for it. It is
+	// false for the whole of New — including the task recovery that runs at the
+	// end of it — and true forever after, and the one thing it gates is the wake:
+	// a turn started before any surface exists is a turn nobody can read.
+	opened bool
+
+	// consent is the questions a person owes an answer to, keyed by the id the
+	// EventConsentRequest carried, and consentSeq is what names them. Both are
+	// ephemeral: a request lives exactly as long as the tool call blocked on it
+	// (consent.go).
+	consentSeq uint64
+	consent    map[uint64]chan consentAnswer
+	// consentMemo is the "don't ask me again for this tool" answer, for this
+	// agent's life only. It is never persisted — a session-scoped answer that
+	// outlived the session would be a settings change nobody made.
+	consentMemo map[string]bool
+	// grants is what each standing yes BOUGHT, keyed by tool, so that changing
+	// your mind on the receipt can take back all of it rather than the half this
+	// session happens to hold ([grantMade], consent.go).
+	grants map[string]grantMade
+
+	// connectAsks is the connect questions a person owes an answer to, keyed by
+	// the id the EventConnectAsk carried, and connectSeq is what names them
+	// (connect.go). They are consent's pending-id machinery for a question about
+	// an ACCOUNT, and they are ephemeral in exactly the same way: a question
+	// lives as long as the use_service call blocked on it.
+	connectSeq  uint64
+	connectAsks map[string]connectAsk
+
+	// harnessAsks is the sub-harness offers a person owes an answer to, keyed by
+	// the id the EventHarnessOffer carried, and harnessSeq is what names them
+	// (harness.go). Same machinery as consent's, one lane over: an offer lives
+	// exactly as long as the turn held on it, which is at most one per turn.
+	//
+	// It is its own counter rather than consent's because the two lanes are
+	// answered by two methods and neither may be able to answer the other's
+	// question by guessing a number.
+	harnessSeq  uint64
+	harnessAsks map[uint64]harnessAsk
+
+	// subharnessAsks is the questions a RUNNING SUBHARNESS owes an answer to,
+	// keyed by the task node the run is (subharness_env.go). It is the same
+	// pending-id machinery consent and the harness offer keep, one lane over,
+	// with one difference worth stating: the key is not a counter of its own.
+	//
+	// A RUN IS A NODE AND A NODE ALREADY HAS AN ID, and a run puts at most one
+	// question at a time — it is one program on one goroutine, and a second
+	// question would mean a second thing to answer about work that has not moved.
+	// So the node's number is the token, which is also the number on the roster
+	// row, the number in the ✕, and the number a person says out loud.
+	subharnessAsks map[uint64]*subharnessQuestion
+
+	// subharnessOffers is the intake cards chat has raised and nobody has
+	// answered yet, keyed by the id the EventSubharnessProposal carried, and
+	// subharnessSeq is what names them (tools_subharness.go).
+	//
+	// It is its own counter for [Agent.harnessAsks]' reason: the two lanes are
+	// answered by two methods, and neither may be able to answer the other's
+	// question by guessing a number.
+	//
+	// EACH ENTRY CARRIES ITS OWN CARD, for the reason [Agent.harnessAsks] keeps
+	// a design's: a surface that subscribes while the question stands — the
+	// ordinary case for a conversation somebody left behind home and came back
+	// to — would otherwise wait forever on a card that is already up.
+	subharnessSeq    uint64
+	subharnessOffers map[uint64]*subharnessOffer
+
+	// harnessPick is a harness the PERSON chose rather than one a matcher
+	// offered, left here by [Agent.RunHarnessRequest] for the turn it just
+	// started to collect (harness.go). It is a take-over between two halves of
+	// one call and never state: the turn takes it, clears it, and runs it.
+	harnessPick *harnessRoute
+
+	// routeTurns counts the turns this session has begun and routeOffered is the
+	// one the route judge last started work on (route_judge.go). They are the
+	// whole of that feature's memory: the judge starts at most one task every
+	// few turns, and "a few turns ago" is a number that only means anything if
+	// something is counting. Both are zero for the life of a session nothing is
+	// ever started in, which is most of them.
+	//
+	// ONE PAIR SERVES BOTH MOMENTS THE JUDGE LOOKS AT — before a message is
+	// answered and after a words-only answer — because the limit is about how
+	// often WORK may begin over the top of a conversation, which is one question
+	// however it was noticed. The count is stepped at the front of a turn, where
+	// every turn passes.
+	routeTurns   uint64
+	routeOffered uint64
+
+	// harnessWatchers are the standing subscriptions to the design lane
+	// ([Agent.HarnessDesigns]), and harnessAdded is what this session has
+	// designed and saved since it opened (harness_build.go).
+	//
+	// The watchers exist for taskWatchers' reason, one lane over: a design starts
+	// on a turn and finishes after it, so the card asking whether to keep it has
+	// no hub left to arrive on. The entries exist because Config.Harnesses is a
+	// SNAPSHOT the surface took at launch — a harness saved five minutes ago is
+	// in the store and not in that slice, and detection reads this list beside it
+	// so that a harness this conversation built is reachable from the next
+	// sentence rather than from the next process.
+	harnessWatchers []*eventStream
+	harnessAdded    []subharness.Entry
+	// harnessThreads is the task each harness this session designed was designed
+	// IN, keyed by the harness's name (harness_task.go). It is what lets the
+	// build tool point a later sentence about that harness at a room rather than
+	// at nothing.
+	//
+	// IT IS THIS PROCESS'S MEMORY AND NOT THE REGISTRY'S. A harness somebody
+	// designed last week has a thread on disk and this session has never heard of
+	// it, so the honest answer for one of those is no number at all — the
+	// alternative is a surface offering a door onto a room that is not there.
+	harnessThreads map[string]uint64
+	// orchestrations are the adaptive runs this session is driving, keyed by
+	// the run id, and orchestrateSeq is what names them (orchestrate.go). The
+	// watchers are the standing subscription those runs report on
+	// ([Agent.Orchestrations]).
+	//
+	// A run outlives the turn that asked for it, so the gate it raises when the
+	// fuel runs out has no hub to arrive on — and [Agent.Close] is the only
+	// thing that can tell a run in flight that the session has left.
+	// Admission and Close share mu: no accepted run can appear after the quit
+	// starts waiting. The count covers setup, settlement and every child call.
+	orchestrateWorkers  sync.WaitGroup
+	orchestrateContext  context.Context
+	orchestrateStop     context.CancelFunc
+	orchestrateSeq      uint64
+	orchestrations      map[string]*orchestration
+	orchestrateWatchers []*eventStream
+
+	// harnessRuns is the sub-harness RUNS in flight, keyed by the id their
+	// EventHarnessRun carried, and the value is how each one is ended
+	// (cancel.go's beginHarnessRun).
+	//
+	// It is the register a run would otherwise not have. A run happens INSIDE a
+	// turn, on the turn's own context, so nothing outside that turn has a handle
+	// on it — and [Agent.Cancel] is asked to stop work by name from a surface
+	// that is not in the turn. The entry lives for exactly the length of the run.
+	harnessRuns map[uint64]context.CancelFunc
+
+	// tasks is the work this conversation has handed off: the graph of nodes,
+	// their dependency edges, and the frontier executor that runs them
+	// (task_run.go). It is nil until the first proposal is admitted — most
+	// conversations never groom one — and is built under mu by [Agent.graph].
+	//
+	// Like jobs it holds its own lock and its nodes outlive the turn that
+	// proposed them. Nothing here is ever read with mu held: the graph's own
+	// lock is taken by goroutines that finish minutes later, and a session lock
+	// held across one of those is the lock Interrupt could not take.
+	tasks *TaskGraph
+	// beltMu guards beltRun, the bash-belt run this conversation started
+	// (task_run_belt.go). It is held on the Agent and nowhere else, because
+	// ownership of a running run is this process's — a second `/task` while one
+	// is live adds to the same store rather than opening another, so a
+	// conversation has at most one run going at a time. The beltRun's own
+	// plandb handle has its own lock; nothing here is read with another lock
+	// held.
+	beltMu  sync.Mutex
+	beltRun *beltRun
+	// runSummaryBusy holds the roots whose card reading is being bought right
+	// now ([Agent.RefreshRunSummary]), so a second surface that asks in the same
+	// moment keeps the last reading rather than paying for a second one.
+	runSummaryBusy sync.Map
+	// beltStartMu is the start lock: it is held from a hand-off's look for a
+	// live run until the run it opens is registered on beltRun, so a batch of
+	// hand-offs committed at one moment is one run and never several racing to
+	// one store ([Agent.lockBeltStart]). It is never taken while beltMu is
+	// held; beltMu is taken inside it.
+	beltStartMu sync.Mutex
+	// crews is every task's crew this conversation routed, by row: what its
+	// log row settles with and what `/redo stronger` escalates (taskcrew.go).
+	crews crewBook
+	// taskAnswers is the proposals a person owes an answer to, keyed by the id
+	// the EventTaskProposal carried. It is consent's pending-id machinery for a
+	// question whose CLOCK can be held: the wait ends on an answer, on an active
+	// deadline, or with the turn (task.go). The ids are the GRAPH's — a proposal
+	// is a node that has not been admitted yet, not a second numbering.
+	taskAnswers map[uint64]*taskQuestion
+	// taskNow and taskTimer are the proposal clock's test seam. Production leaves
+	// them nil and takes the real clock; keeping both decisions together lets a
+	// contract test cross the old deadline without sleeping or racing a machine.
+	taskNow   func() time.Time
+	taskTimer func(time.Duration) (<-chan time.Time, func())
+	// standingAnswers is the same wait, for standing cards (standing_contract.go).
+	standingAnswers map[uint64]chan StandingAnswer
+	// standingSeq numbers those cards. It is the agent's own sequence and not
+	// the task graph's, because a standing proposal is not a node: nothing is
+	// reserved, nothing is admitted, and the only thing the number has to do is
+	// name one outstanding question until it is answered (tools_standing.go).
+	standingSeq uint64
+	// questionWords is THE WORDS of the questions this session has put, keyed by
+	// lane and token (question.go's [questionToken]).
+	//
+	// IT IS NOT A REGISTRY OF WHAT IS OPEN, and the difference is the whole of
+	// why it is allowed to exist beside pending.go's law. Whether a question is
+	// still a question is the LANE's own fact — the consent map still holds a
+	// channel, the proposal is still in taskAnswers, the node is still
+	// unverified — and [Agent.OpenQuestions] walks those waits and asks this map
+	// only what the question SAID. An entry with no wait behind it is never
+	// returned, and is swept on the next beat.
+	//
+	// It exists because the words were being thrown away. A consent wait is a
+	// bare channel; the sentence the person is reading — the tool, the rule the
+	// policy matched, the gloss of the call — went out on the event and was kept
+	// nowhere, so a second window, home, or the phone had at best the one line
+	// the presence file carried and at worst nothing at all.
+	questionWords map[string]Question
+
+	// questionWatchers are the standing subscriptions to questions
+	// ([Agent.WatchQuestions]), and they are a lane of their own rather than a
+	// share of [Agent.taskWatchers] for the reason that door states: the task
+	// lane is the roster's, its readers walk a strict sequence of rows, and a
+	// question is not a row.
+	questionWatchers []*eventStream
+	// landingQuestions is which shape each landed node's `your call` was last
+	// PUT OUT AS — `landing` or `conflict` — so that a question can be taken back
+	// in the kind it was raised in when the node settles or changes shape
+	// (task_landing_question.go). It holds no question and is not a second
+	// registry of what is open: [Agent.PendingDecisions] is still the one list.
+	landingQuestions map[uint64]QuestionKind
+
+	// taskWatchers are the standing subscriptions to task updates
+	// ([Agent.TaskUpdates]). They are not the turn's hub and do not close with
+	// it: a node's most important event lands minutes after the turn that
+	// proposed it ended, when there is no hub to send it to.
+	taskWatchers []*eventStream
+	// standingNews is what fired while this window was SHUT, waiting for a
+	// reader ([Agent.drainStandingInbox]). It is a queue and not a send because
+	// the fold is built inside New — before the caller holds the agent, before
+	// any surface has subscribed to anything — so a send there would go to an
+	// empty list of watchers and the person would open a conversation with news
+	// in it and see nothing. The first [Agent.TaskUpdates] takes it.
+	standingNews []Event
+	// jobRows is the roster id minted for each background job, keyed by the
+	// registry's own number for it. The two numberings are separate counters and
+	// a row keyed on the registry's would collide with a task's, which is why
+	// there is a map here at all (jobrow.go).
+	jobRows map[int]uint64
+
+	// title is the session's name and titleTried marks the one attempt at
+	// generating it (title.go). A resumed session loads its name from the
+	// journal, so it never re-names itself.
+	// metaStampWriter is the one deferred write this session owes meta.json, and
+	// metaStampOnce builds it on the first stamp rather than on every agent:
+	// a session that never speaks starts no goroutine (placemeta.go).
+	metaStampOnce   sync.Once
+	metaStampWriter *stampWriter
+
+	// toldStampWriter is the deferred write the elsewhere reading owes told.json,
+	// and toldStampOnce builds it on the first reading (taskdelta.go). It is its
+	// OWN writer rather than a second patch on the one above because a
+	// [stampWriter] coalesces by REPLACING its patch: one writer for two files
+	// would drop whichever of them was owed first.
+	toldStampOnce   sync.Once
+	toldStampWriter *stampWriter
+	// toldAtOwed is the latest instant that writer has been asked to stamp. It
+	// is kept because the writer coalesces by replacing its patch, and two
+	// readings over one conversation are not always owed in order
+	// ([Agent.oweToldStampLocked]).
+	toldAtOwed time.Time
+
+	// toolCompact is the reduced form of this session's frozen tool history,
+	// carried between requests rather than rebuilt on each one (toolcompact.go).
+	toolCompact toolCompactMemo
+
+	// treesWrite cuts the working copy of a referred folder AHEAD of the first
+	// write into it, and treesOnce builds it on the first refer (standingtree.go).
+	treesOnce  sync.Once
+	treesWrite *offpath.Write
+
+	title      string
+	titleTried bool
+
+	// titleCtx is the lifetime of the naming errand and titleJobs counts the one
+	// that may be running. They are memoryCtx's bargain above, for the same
+	// reason and with the same two lines: the namer now runs BESIDE the turn
+	// that triggered it (title.go), so it cannot ride the turn's context — a
+	// quick answer would cancel a name that is still being written — and it may
+	// not outlive the session either.
+	//
+	// The context is written once at construction and cancelled once by Close;
+	// both are read under mu, because the one thing that must be atomic is
+	// "closed, therefore no new errand" ([Agent.startTitleJob]).
+	titleCtx  context.Context
+	titleStop context.CancelFunc
+	titleJobs sync.WaitGroup
+	// titleWatchers is the standing subscription to the name this session gives
+	// itself, and it exists because THE NAME NOW ARRIVES AFTER THE TURN THAT
+	// BOUGHT IT MAY HAVE ENDED. It is [Agent.harnessWatchers]' shape exactly
+	// (harness_build.go), for its stated reason: an event about work that
+	// outlives its turn has no turn stream left to land on.
+	titleWatchers []*eventStream
+
+	// approvalPolicy is the gate as it stands NOW, when a surface has replaced
+	// the one this session launched on ([Agent.SetApprovalPolicy], and the prose
+	// in approvalgate.go for why that is a thing a surface may do). Nil is the
+	// ordinary case — nobody has replaced anything — and Config.ApprovalPolicy
+	// still answers.
+	//
+	// It is under mu with everything else here, and it is the ONLY approval
+	// state that is: Config.ApprovalPolicy is written once before New returns
+	// and never again, which is what lets task_run.go copy the whole config
+	// without a lock and still be right.
+	approvalPolicy *approval.Policy
+	// approvalPosture is the posture THIS conversation was set to
+	// (approvalposture.go), kept in the session folder's meta.json so it
+	// survives a restart the way the rung below does. "" is nobody has set one.
+	approvalPosture string
+	// guardianOverride is whether the small model stands in, as the
+	// conversation's own posture decided it; nil leaves Config.Guardian to
+	// answer. It is set only by [Agent.SetApprovalPosture].
+	guardianOverride *bool
+
+	// attachedSkills is the ordered set of skill names a person has put in front
+	// of THIS conversation by hand, newest attachment last, guarded by mu
+	// (skillattach.go). It is names and not facts on purpose: the shelf is read
+	// at render time, so a skill attached before it was installed starts being
+	// carried the moment it exists, and a skill deleted from the shelf stops
+	// being carried without anybody having to tidy this list.
+	attachedSkills []string
+
+	// phase is the one stage this agent is holding open and the beat that keeps
+	// saying it while it lasts (phasenews.go). It has a lock of its own rather
+	// than riding mu because it is written from the beat's goroutine and read
+	// under it, and a measurement must never be able to contend with the turn it
+	// is measuring.
+	phase phaseHeart
+}

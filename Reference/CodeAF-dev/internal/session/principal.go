@@ -1,0 +1,1368 @@
+package session
+
+// THE PRINCIPAL: WHO THIS SESSION IS WORKING FOR.
+//
+// Every road out of a running turn eventually reaches the same sentence — "ask
+// them what to do next" — and until this file there was no `them`. The
+// harness said the words into whatever was there: a terminal with a person in
+// front of it, or, on a run started with `--yolo` and left overnight, nobody at
+// all. The two look identical from inside the engine, and that is exactly the
+// bug. A note that reads "offer them a follow-up in their own words before
+// anything else is spent" (task_run.go's [taskNote]) is a correct sentence to a
+// person and a dead end to an empty room: the model answers it in words, the
+// turn ends, and the session idles with the budget unspent.
+//
+// So the addressee is named, once, and every such road goes through it.
+//
+// ── THE EVIDENCE THAT WROTE THIS FILE ───────────────────────────────────────
+//
+// Three autonomous runs, same build, same shape of ending. One quit after two
+// and a half hours holding a measured partial result with three quarters of its
+// budget left. One quit at the same hour on a tree that did not compile. One
+// quit after eighteen minutes with nothing built at all. None of the three hit
+// a wall, ran out of money or was stopped: each reached a moment where the
+// engine's answer was "ask the person", there was no person, and the run ended
+// there. Two more were zeroed at the end by scratch files the session had left
+// lying beside the deliverable — nothing in the engine ever looked back over
+// what it had created.
+//
+// ── THE TWO PRINCIPALS ──────────────────────────────────────────────────────
+//
+// [Person] is the interactive one and it is DELIBERATELY EMPTY. It answers
+// every question the way the engine answered it before this file existed: it
+// holds no acceptance (a person holds their own), it has no budget, it turns no
+// landing into a brief, and it decides exactly what [Agent.readRemains]'s empty
+// string already decided. That emptiness is the contract — an interactive
+// session must not be able to tell that this interface arrived — and
+// principal_person_test.go is the part a build fails on.
+//
+// [Steward] is the autonomous one. It is handed the goal, an acceptance written
+// for the WHOLE ask rather than for one unit of work, and a budget; and it
+// answers the questions a person would have answered, out of the evidence the
+// session already has.
+//
+// ── WHY A BUDGET IS WHAT ARMS IT ────────────────────────────────────────────
+//
+// `--yolo` today says one thing: run tools without asking. It says nothing
+// about how long, how much, or whether anybody is coming back — and a flag that
+// silently started carrying a session on for hours because it also happened to
+// mean "unattended" would be the harness deciding to spend somebody's money on
+// a sentence they did not write. A BUDGET IS THE SENTENCE. It is a ceiling the
+// person states in advance, it is the thing a Steward stops at, and without one
+// `--yolo` is exactly what it has always been.
+
+import (
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/verify"
+)
+
+// Principal is the addressee of every "ask the person" path in this package.
+//
+// FIVE METHODS, AND EACH ONE IS A QUESTION THE ENGINE USED TO ANSWER FOR
+// ITSELF. Ask and Acceptance are what the work is measured against; Budget is
+// what may be spent measuring it; Report is one unit of work coming home, and
+// what — if anything — to open next on the strength of it; Decide is the end of
+// a turn that stopped.
+//
+// IT IS DELIBERATELY NOT A STRUCT OF CALLBACKS. Two implementations exist and
+// the whole point of the interface is that a third — a person on another
+// machine, a queue, a scheduled owner — can be written without any road in this
+// package learning a new name.
+type Principal interface {
+	// Ask is the goal in the principal's own words, verbatim and never
+	// interpreted. Empty before anything has been asked.
+	Ask() string
+
+	// Acceptance is what the WHOLE ask has to satisfy before the work is
+	// finished, as one observable sentence. Empty means this principal holds
+	// no acceptance of its own — which is a person, who is looking at the
+	// work and does not need one written down.
+	Acceptance() string
+
+	// Budget is what may still be spent. The zero Budget is no ceiling at all,
+	// which is what an attended session has always had.
+	Budget() Budget
+
+	// Report is told how one unit of work landed, and answers WHAT TO OPEN
+	// NEXT — a brief, in the words the next attempt should start on. An empty
+	// answer means nothing more is started on the strength of this landing,
+	// which is every landing for a person: they read the news and decide.
+	Report(Landing) string
+
+	// Decide answers the end of a turn that stopped: carry on with a brief, or
+	// the ask is finished, or stop and say why.
+	Decide(Remains) Decision
+}
+
+// Budget is a ceiling and what has been spent against it.
+//
+// TWO NUMBERS BECAUSE THERE ARE TWO WAYS TO RUN OUT, and a run bounded by one
+// of them is bounded. Wall is how long the session may go on; USD is what it
+// may spend. ZERO IS NO CEILING for each of them independently — an hours-only
+// budget is a real thing to want — and a Budget with neither is not set at all
+// ([Budget.Set]), which is the whole of how `--yolo` keeps its old behaviour.
+//
+// THE SPENT FIGURES ARE READ, NEVER ACCUMULATED HERE. Wall comes off the clock
+// and USD off the session's own journaled usage (rail.go reads the same
+// figure), so this is a reading and not a second ledger to drift.
+type Budget struct {
+	Wall      time.Duration
+	USD       float64
+	SpentWall time.Duration
+	SpentUSD  float64
+}
+
+// Set reports that somebody stated a ceiling. It is the arming question and
+// nothing else reads the two fields to ask it.
+func (b Budget) Set() bool { return b.Wall > 0 || b.USD > 0 }
+
+// Exhausted reports that the run is over on the budget, and says which ceiling
+// in words a person reads. A budget nobody set is never exhausted.
+//
+// THE WORDS ARE THE PERSON'S AND NOT THE MACHINERY'S: "the four hours are up",
+// not "wall limit exceeded".
+func (b Budget) Exhausted() (bool, string) {
+	if b.Wall > 0 && b.SpentWall >= b.Wall {
+		return true, fmt.Sprintf("the %s this was given are up", spellDuration(b.Wall))
+	}
+	if b.USD > 0 && b.SpentUSD >= b.USD {
+		return true, fmt.Sprintf("the $%.2f this was given is spent", b.USD)
+	}
+	return false, ""
+}
+
+// Left is what is still there to spend, floored at zero on each ceiling. A
+// ceiling nobody set answers zero, which callers read together with
+// [Budget.Set] rather than as "nothing left".
+func (b Budget) Left() (time.Duration, float64) {
+	var wall time.Duration
+	if b.Wall > b.SpentWall {
+		wall = b.Wall - b.SpentWall
+	}
+	var money float64
+	if b.USD > b.SpentUSD {
+		money = b.USD - b.SpentUSD
+	}
+	return wall, money
+}
+
+// spellDuration writes a budget in the units a person stated it in. It is here
+// rather than in spellout.go because it answers about a CEILING — a round
+// figure somebody typed — and not about an elapsed time, which is what every
+// other duration in this package is and which rounds differently.
+func spellDuration(d time.Duration) string {
+	switch {
+	case d >= time.Hour && d%time.Hour == 0:
+		if hours := int(d / time.Hour); hours == 1 {
+			return "hour"
+		} else {
+			return fmt.Sprintf("%d hours", hours)
+		}
+	case d >= time.Minute:
+		return fmt.Sprintf("%d minutes", int(d/time.Minute))
+	default:
+		return d.String()
+	}
+}
+
+// Landing is ONE UNIT OF WORK COMING HOME, in the fields a principal decides
+// on. It is a reading of a task node and never the node itself: the interface
+// must be answerable by something that has never seen this package's graph.
+//
+// Signature IS WHAT MAKES TWO FAILURES THE SAME FAILURE. It is what the loop
+// guard counts ([Steward.Report]), and it is supplied by the caller rather than
+// derived here because what "the same failure" means belongs to whoever
+// classified the landing — the sibling taxonomy lane owns that word, and a
+// Landing carrying one it wrote is exactly the hand-off this field is for. An
+// empty Signature is a landing the guard cannot count, and it is then never
+// counted rather than lumped in with every other unsigned one.
+type Landing struct {
+	ID        uint64
+	Title     string
+	State     TaskState
+	Report    string
+	Signature string
+
+	// Ending is WHY a failed landing stopped where it did, in the harness's own
+	// typed word ([TaskEnding]). It is here for one question: whether this
+	// failure is a finding about the WORK at all ([Landing.aboutTheWork]).
+	Ending TaskEnding
+
+	// Files is what this unit of work changed, worktree-relative and in the
+	// words its own ledger uses. It answers whether a failed unit's work exists
+	// on the tree anyway, having been done by somebody else
+	// ([Remains.absorbedBy]).
+	Files []string
+
+	// Merged says the work came home — not merely that the node said done, but
+	// that what it made is on the person's own branch. Only a merged landing may
+	// absorb a failed one, because a landing that finished and could not come
+	// home is not the tree holding anything.
+	Merged bool
+	// Retained names changed work kept outside this session's deliverable.
+	Retained  string
+	InPlace   bool
+	Delivered bool
+	Elsewhere bool
+	Produced  bool
+
+	// Checked says this unit's OWN check read the work and accepted it. It is
+	// narrower than done on purpose — a unit taken as it stands, one landed with
+	// the check switched off and one a person accepted are all done and none of
+	// them was judged — and [Remains.absorbedBy] will not let a landing nobody
+	// judged speak for somebody else's work.
+	Checked bool
+}
+
+// aboutTheWork reports whether this landing's failure says anything about the
+// job at all.
+//
+// A NODE THAT DIED ON THE WIRE OR WAS REFUSED BY THE PROVIDER FOUND NOTHING OUT.
+// The connection dropped, or an upstream would not serve the request: neither is
+// evidence that the ask is unfinished, and reading one as a gap is the harness
+// mistaking its own bad afternoon for a fact about the work. Measured (#513):
+// the reef cell's third task died on an API 404, its parent had already written
+// the very file it was for and merged it home with its own check green, and the
+// run carried on for the rest of its wall over a finished tree because a dead
+// sibling was still being counted as work that did not finish.
+//
+// EVERY OTHER ENDING IS THE WORK'S and is left exactly as it was — a check that
+// found gaps, a loop guard, a threshold, a person stopping it, a working copy
+// that could not be made.
+func (l Landing) aboutTheWork() bool {
+	return l.Ending != TaskEndingWire && l.Ending != TaskEndingUpstream
+}
+
+// unsatisfied reports a landing that did not finish the work it was given.
+//
+// FAILED AND UNVERIFIED ARE BOTH UNSATISFIED HERE, and that is not the same
+// claim task_contract.go makes about them. There, keeping the two apart is what
+// stops a broken judge from cascading; here the question is only "is this unit
+// finished", and "nobody could say" is not "yes".
+func (l Landing) unsatisfied() bool {
+	return l.State == TaskFailed || l.State == TaskUnverified
+}
+
+// CheckRun is one of the session's declared checks, run and read.
+//
+// Tail is the END of what it printed, for [checkpointResultTail]'s reason: what
+// a check concluded is in its last lines.
+type CheckRun struct {
+	Command string
+	Passed  bool
+	Tail    string
+	// Unread says why this check was not started. NOBODY LOOKED IS A FACT, AND A
+	// FACT ABOUT THE RUN REACHES THE RECORD: it is neither a pass nor a failure,
+	// and an empty value means the command was read normally.
+	Unread string
+	// Failures carries stable identities read from a failed command's own
+	// output. Empty remains honest for a non-test validation or output the
+	// generic reader cannot parse: the command is red, but what failed is unknown.
+	Failures []string
+
+	// Ran says the command STARTED AND FINISHED — it was found, it executed, and
+	// the shell gave an exit status. A command that would not start and one the
+	// window cut off both answer false, and both are DIFFERENT NEWS from a check
+	// that ran and failed: a check nobody could run taught nobody anything about
+	// the tree, so a baseline may not record it as already-red (recording it
+	// there would silence a real failure on it later).
+	Ran bool
+}
+
+// Remains is the end of a turn as a principal is shown it.
+//
+// Reader is the mark reader's one line about what is left. An empty line may be
+// the reader saying the ask is met, nobody being there to ask, or a call that did
+// not come back; the fields below keep apart the facts that the prose cannot.
+// The three readings under it are what a person would have looked at before
+// agreeing: the acceptance for the whole ask, how the units of work landed, and
+// what the session's own declared checks say about the tree right now.
+type Remains struct {
+	Said       string
+	Reader     string
+	Acceptance string
+	Landings   []Landing
+	Checks     []CheckRun
+
+	// Landed says whether this session has finished ANY unit of work THROUGH A
+	// TASK. A session that has landed nothing has not finished an ask, whatever a
+	// reader of its transcript makes of it, and [Steward.Decide] refuses to call
+	// that done.
+	Landed bool
+	// Delivery is frozen from the original ask, never from a worker handback.
+	Delivery deliveryContract
+
+	// Made says this session put work on the deliverable WITH ITS OWN HANDS —
+	// non-empty regular files it created, or files under the tree WHOSE CONTENT
+	// STILL DIFFERS from what it was before the session wrote them, no task
+	// involved.
+	//
+	// MADE IS ABOUT CONTENT AND NOT ABOUT PATHS. A path the session wrote is not
+	// a change the session made: a `git stash`, a revert, an edit that puts a
+	// file back the way it was all leave the path in the ledger and nothing in
+	// the tree. Measured (#534's follow-up): the attrs cell edited the file that
+	// held the fix, stashed it to compare against the baseline, never popped it,
+	// and finished — the door said `finishing here · what was asked is done` over
+	// a tree with zero changed files ([Agent.changedInDeliverable]).
+	//
+	// A SESSION THAT CHANGED THE DELIVERABLE HAS FINISHED SOMETHING. Landed is a
+	// reading of the task graph, so a run that did the whole job inline had it
+	// false over a green tree: one measured cell wrote the fix and a 196-line test
+	// file, went green on 43 tests, never started a task, and read "nothing has
+	// been finished yet" at the end of both of its replies — the same first line
+	// twice, which is the standstill's fingerprint, so it stopped over finished
+	// work one second after tidying up (#513).
+	Made bool
+
+	// ReaderSaysDone says the mark reader was asked and answered that NOTHING IS
+	// LEFT — which is not the same as Reader being empty, because that is also
+	// what silence looks like ([readerLine]).
+	//
+	// IT IS THE SECOND OPINION Made HAS TO HAVE. A session's own files are not
+	// evidence about themselves: what makes inline work count as finished work is
+	// somebody who is not the writer looking at the session and saying so.
+	ReaderSaysDone bool
+
+	// ReaderUnreachable says the mark reader was asked and the call did not come
+	// back — a transport fault, an expired window or a nil response. It is not set
+	// when there was nobody to ask, when there was no digest worth asking about,
+	// or when a reader answered with something that was not prose.
+	//
+	// A READER NOBODY COULD REACH IS NOT A READER WHO DISAGREED. In the measured
+	// Human-Agent-Society-reef-145-chat cell the reader timed out, the finished
+	// green inline fix was moved to a task, and that task did the work again for
+	// nine and a half minutes (#582). This field lets the declared checks stand in
+	// for that missing second opinion without weakening the witness law anywhere
+	// a reader was absent or actually named a gap.
+	ReaderUnreachable bool
+
+	// Running names the units of work that are IN FLIGHT — started, or queued
+	// behind something that is — in the words a person reads them by.
+	//
+	// WORK THAT IS STILL RUNNING IS NEITHER DONE NOR A STANDSTILL, and this is
+	// the field that makes both halves of that sayable. An ask with something
+	// still moving is not finished, however tidy everything that already landed
+	// looks; and a run whose unmet set has not changed BECAUSE it is waiting on
+	// something is not going round in a circle, it is waiting, so the floor under
+	// carrying on ([Steward.standstill]) must not fire on it.
+	//
+	// RUNNING MEANS IN FLIGHT AND NOTHING ELSE. Work that is merely UNSETTLED is
+	// not the same thing: a unit queued behind a prerequisite that settled short
+	// will never start, and putting it here would hold that floor open for the
+	// rest of a run that had already stopped getting anywhere — which is the
+	// whole reason the field below exists beside this one.
+	Running []string
+
+	// Blocked is the work that will not start, said whole: what each unit is
+	// waiting on and what became of that. It is PART OF WHAT IS LEFT — a unit
+	// waiting on something that is not coming is a gap in the ask exactly as a
+	// failed one is — and it is never a reason to keep carrying on.
+	Blocked []string
+
+	// BaselineRead says the before-reading has LANDED. It runs in the background
+	// at the start of an unattended run, so a reading assembled in the first
+	// minutes has no baseline yet — and with none, NO CHECK IS COUNTED AS THIS
+	// RUN'S OWN RED. Naming a check before anybody knows whether it was already
+	// failing is the mistake this whole field exists to stop, made in a hurry.
+	BaselineRead bool
+
+	// WasFailing is the checks that were ALREADY RED before this session did any
+	// work, by the same command names Checks carries. It is meaningless unless
+	// BaselineRead.
+	//
+	// A CHECK IS OURS ONLY IF WE TURNED IT RED. An acceptance that says "the
+	// existing test suite passes" is written over whatever the project's suite
+	// does today, and where one test was red before anybody touched anything
+	// that sentence can never be true: the run reads its own failure in the
+	// project's, carries on into it, and spends its whole ceiling on somebody
+	// else's bug. Measured (#513): the attrs cell's acceptance was `tox -e py`
+	// passes over a suite with one pre-existing failure, and it never stopped.
+	//
+	// EMPTY WITH BaselineRead IS A CLEAN TREE ONLY IF Unread IS EMPTY TOO; empty
+	// without BaselineRead is a reading that has not landed. A session that never
+	// takes one — every watched session — counts no check as its own, which is
+	// the one safe answer when nobody knows what was red to begin with.
+	WasFailing []string
+	// WasFailingTests keeps failure identities inside baseline-red commands,
+	// keyed by the exact declared command both readings ran.
+	WasFailingTests map[string][]string
+
+	// Unread is the current checks with no usable before-reading: one declared
+	// after that reading, one that changed the tree and had its answer thrown
+	// away, one the shell could not run, one the window never reached.
+	//
+	// A CHECK WHOSE READING WAS THROWN AWAY DOES NOT MAKE EVERY RED LOOK NEW.
+	// With WasFailing alone, a baseline that discarded its ONLY check came back
+	// empty — which the field above calls a clean tree — over a project with 85
+	// pre-existing failures, and every one of them then read as this run's own
+	// (#513: the attrs cell's `python -m pytest tests/` was discarded because
+	// pytest writes `.pytest_cache/`). So what could not be read is carried
+	// separately and is never counted either way.
+	Unread []string
+
+	// Stashed is how many entries `git stash list` names in the deliverable tree
+	// at the terminal reading ([Agent.terminalAudit]). Zero for a tree that is
+	// not a repository, and zero where there is no git to ask.
+	//
+	// A STASH IS WORK THAT IS NOT IN THE TREE, AND IT IS SAID OUT LOUD. Every
+	// other reading here — the checks, the reconciliation, the session's own
+	// ledger — reads the tree as it stands, and a tree with the fix stashed out
+	// of it looks exactly like a tree the fix was never written into. The one
+	// party that knows better is git, so it is asked, and what it says becomes a
+	// line in [Remains.unmet] rather than a fact nobody carried: a done cannot be
+	// decided over it, and the carry-on brief tells the model exactly what is
+	// wrong instead of sending it to write the fix a second time.
+	Stashed int
+}
+
+// finishedSomething answers the first question [Remains.unmet] asks: has this
+// session finished ANYTHING at all?
+//
+// THREE ROADS, AND THE TWO INLINE ROADS NEED A WITNESS. A unit of work that came
+// home through a task is finished work on its own account — something ran it,
+// something checked it, and the graph says so. Work this session did with its
+// own hands is finished work only with the mark reader agreeing that nothing is
+// left, or with declared checks that actually ran over the tree standing in
+// when that reader could not be reached. The session grading its own inline
+// edits is the one reading this whole file exists to stop relying on; both
+// witnesses are readings the writer did not merely assert.
+func (r Remains) finishedSomething() bool {
+	return r.Landed || (r.Made && (r.ReaderSaysDone || r.stoodInForTheReader()))
+}
+
+// checksRan reports that at least one of the session's declared checks STARTED
+// AND FINISHED over the tree. Passed is deliberately not consulted: a red check
+// is still a reading, while a command that never started taught nobody anything
+// and cannot witness the work merely by appearing in the acceptance.
+func (r Remains) checksRan() bool {
+	for _, check := range r.Checks {
+		if check.Ran {
+			return true
+		}
+	}
+	return false
+}
+
+// stoodInForTheReader reports that the session's declared checks were read as
+// the witness [Remains.Made] needs, because the mark reader could not be reached.
+// A red reading still stands in — what it found is then named by [Remains.unmet]
+// instead of being collapsed into the false claim that nothing was finished.
+func (r Remains) stoodInForTheReader() bool {
+	return r.Made && !r.ReaderSaysDone && r.ReaderUnreachable && r.checksRan()
+}
+
+// witnessIsTheOnlyGap reports that the ONLY thing between this reading and a
+// finished ask is a witness the reader could not supply. That is the one road
+// on which the declared checks are worth reading before the goal owner is asked:
+// a failed landing, moving work, a stash or a reader's named gap would remain
+// whatever the checks said, so none of them buys this reading.
+func (r Remains) witnessIsTheOnlyGap() bool {
+	if !r.Made || !r.ReaderUnreachable || r.ReaderSaysDone || r.Landed {
+		return false
+	}
+	unmet := r.unmet()
+	return len(unmet) == 1 && unmet[0] == nothingFinishedYet
+}
+
+// nothingFinishedYet is the one sentence every reading uses when it has no
+// finished work to point at.
+const nothingFinishedYet = "nothing has been finished yet"
+
+// checksStoodInForTheReader is what an ending says when the mark reader could
+// not be reached and the session's declared checks were the second opinion
+// instead. It is spelled once so the stopped-turn and handover roads cannot
+// give different accounts of the same ending.
+const checksStoodInForTheReader = "the reader could not be reached, so the checks stood in for it"
+
+// unmet lists, in a person's words, what stands between this and finished. An
+// empty answer is the only thing that may become [DecideDone].
+func (r Remains) unmet() []string {
+	var out []string
+	if !r.finishedSomething() {
+		out = append(out, nothingFinishedYet)
+	}
+	for _, title := range r.Running {
+		out = append(out, title+" is still running")
+	}
+	// The blocked lines arrive as whole sentences, because what a stuck unit of
+	// work is waiting on is the only useful thing anybody can say about it.
+	out = append(out, r.Blocked...)
+	// AND WITH NO TASK IN THE PICTURE, THE READER'S LINE IS PART OF WHAT IS LEFT.
+	//
+	// #468's law is that a settled landing and a check that ran outrank a reading
+	// of the transcript, and it stands: where a unit of work came home, the
+	// reader's opinion about it is not asked here. But a session that did the
+	// whole job inline has no landing for the line to outrank, and the reader is
+	// then the only account of the work anybody has — so a reader naming a gap in
+	// a session with nothing on the rail is a gap, and the run carries on into it.
+	if len(r.Landings) == 0 {
+		if line := strings.TrimSpace(r.Reader); line != "" {
+			out = append(out, line)
+		}
+	}
+	for _, landing := range r.Landings {
+		if landing.needsDelivery() && !r.Delivery.acceptsRetained() && !(r.Delivery.Kind == "report" && r.Delivery.Quote != "" && landing.Produced) {
+			where := "its retained task work"
+			if landing.Retained != "" {
+				where = "retained branch " + landing.Retained
+			}
+			out = append(out, workWord(landing.Title, landing.ID)+" is on "+where+"; its changes have not reached the requested workspace")
+		}
+		if !landing.unsatisfied() {
+			continue
+		}
+		// WHAT IS LEFT IS READ FROM THE TREE, NOT FROM A SIBLING'S DEATH. A unit
+		// that never found anything out is not a gap in the ask, and neither is
+		// one whose work another unit has since done and brought home.
+		if !landing.aboutTheWork() {
+			continue
+		}
+		if r.absorbedBy(landing) != "" {
+			continue
+		}
+		if title := strings.TrimSpace(landing.Title); title != "" {
+			out = append(out, title+" did not finish")
+			continue
+		}
+		out = append(out, fmt.Sprintf("unit %d did not finish", landing.ID))
+	}
+	// AND WORK THAT IS SITTING IN A STASH IS WORK THAT IS NOT IN THE TREE. It is
+	// named before the checks because it is the reason a check may be answering
+	// about the wrong tree: a session that stashed its own fix to compare against
+	// the baseline and never popped it has a green suite, a tidy reconciliation
+	// and nothing to ship ([Remains.Stashed]).
+	if r.Stashed == 1 {
+		out = append(out, "1 stash entry holds work that is not in the tree")
+	} else if r.Stashed > 1 {
+		out = append(out, fmt.Sprintf("%d stash entries hold work that is not in the tree", r.Stashed))
+	}
+	// AND ONLY THE RED THIS WORK TURNED RED IS LEFT. An unchanged failure is not
+	// evidence of a new regression; the goal reader still decides whether the
+	// requested behavior itself was delivered. A command remains the unit that
+	// is run, but when both red outputs name failures, those identities are
+	// compared inside it: pytest red on A before and B after is new red, not the
+	// same answer.
+	//
+	// AND WITH NO BASELINE YET, NOTHING IS COUNTED. The reading runs in the
+	// background at the start of the run, and until it lands nobody knows which
+	// red is the project's — so the honest answer about the checks is silence
+	// rather than a guess, and [stewardBrief] says the reading is still going.
+	if r.BaselineRead {
+		for _, failure := range r.newCheckFailures() {
+			line := failure.Command + " does not pass"
+			if len(failure.Failures) > 0 {
+				line += ": " + strings.Join(failure.Failures, ", ")
+			}
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+// attributableRed is every red check the baseline actually READ, which is the
+// only red anybody can say whose it is. A check the before-reading could not
+// read is not evidence in either direction and is left out of the arithmetic
+// entirely ([Remains.Unread]).
+func (r Remains) attributableRed() []string {
+	return verify.Subtract(r.redChecks(), r.Unread)
+}
+
+// redChecks is every declared check that is failing NOW, in the order they ran.
+func (r Remains) redChecks() []string {
+	var out []string
+	for _, check := range r.Checks {
+		// A CHECK NOBODY STARTED IS NOT A CHECK THAT FAILED. Its reason travels
+		// on the reading and is named at the ending instead.
+		if check.Unread != "" {
+			continue
+		}
+		if !check.Passed {
+			out = append(out, check.Command)
+		}
+	}
+	return out
+}
+
+func (r Remains) newCheckFailures() []CheckRun {
+	old := make(map[string]bool, len(r.WasFailing))
+	for _, command := range r.WasFailing {
+		old[command] = true
+	}
+	unread := make(map[string]bool, len(r.Unread))
+	for _, command := range r.Unread {
+		unread[command] = true
+	}
+	var fresh []CheckRun
+	for _, run := range r.Checks {
+		if run.Passed || run.Unread != "" || unread[run.Command] {
+			continue
+		}
+		names, changed := verify.NewCommandFailure(old[run.Command], r.WasFailingTests[run.Command], run.Failures)
+		if changed {
+			run.Failures = names
+			fresh = append(fresh, run)
+		}
+	}
+	return fresh
+}
+
+// alreadyRed is what this reading found failing that was failing before the work
+// began — the checks [Remains.unmet] deliberately did not name.
+func (r Remains) alreadyRed() []string {
+	if !r.BaselineRead {
+		return nil
+	}
+	newRed := map[string]bool{}
+	for _, run := range r.newCheckFailures() {
+		newRed[run.Command] = true
+	}
+	var old []string
+	for _, command := range r.attributableRed() {
+		if !newRed[command] {
+			old = append(old, command)
+		}
+	}
+	return old
+}
+
+// absorbedBy names the landing that already did this one's work, and "" when
+// nothing did.
+//
+// A UNIT'S WORK IS ITS FILES. A failed unit whose every file has since been
+// changed by a unit that finished AND came home is not a gap in the ask: the
+// thing it was for is on the person's branch, put there by somebody else, and
+// naming it as unfinished sends the run back to write a file that is already
+// written. In the reef cell the parent wrote its child's only file itself, went
+// green on its own check and merged — and the child, dead on the wire, was still
+// read as work outstanding.
+//
+// IT IS DELIBERATELY STRICT IN FOUR WAYS. A failed unit that changed NOTHING is
+// never absorbed, because nothing of it can be shown to be done. Only a landing
+// that is done, MERGED and CHECKED may absorb: work that finished and could not
+// come home is not the tree holding anything, and work nobody judged is not
+// evidence about anybody's job — least of all somebody else's. And every file
+// must be covered: a unit half of whose work somebody else did is a unit with
+// work left.
+//
+// THE RESIDUAL IS A GREEN MERGED REVERT, and it is accepted deliberately. A
+// landing that reverted the failed unit's edits, was judged against the ask and
+// came home green is the tree AS JUDGED — the check read what would ship and
+// said it holds — so the ask is met over the files in question whatever any
+// individual edit did to them. Reading the diff here instead would be this
+// function second-guessing the one reader in the building that actually looked.
+//
+// THE WHOLE SET IS READ RATHER THAN WHAT CAME AFTER, because a landing carries
+// no clock and the question is not who was first — it is whether the file is
+// home NOW. The reef cell settles that on its own: the unit that absorbed the
+// dead one has the lower id and landed later.
+func (r Remains) absorbedBy(failed Landing) string {
+	if len(failed.Files) == 0 {
+		return ""
+	}
+	for _, landing := range r.Landings {
+		if landing.ID == failed.ID || landing.State != TaskDone {
+			continue
+		}
+		if !landing.Merged || !landing.Checked {
+			continue
+		}
+		if !covers(landing.Files, failed.Files) {
+			continue
+		}
+		return workWord(landing.Title, landing.ID)
+	}
+	return ""
+}
+
+// absorbed is every "<title> was absorbed by <title>" this reading found, for
+// the journal: a unit that stopped counting as unfinished without anybody
+// deciding anything must say who did its work, or the file records a gap that
+// closed for no reason anybody can read afterwards.
+func (r Remains) absorbed() []string {
+	var out []string
+	for _, landing := range r.Landings {
+		if !landing.unsatisfied() || !landing.aboutTheWork() {
+			continue
+		}
+		if by := r.absorbedBy(landing); by != "" {
+			out = append(out, workWord(landing.Title, landing.ID)+" was absorbed by "+by)
+		}
+	}
+	return out
+}
+
+// covers reports whether every one of want appears in have. The lists are a
+// handful of paths each, so the walk is the honest shape.
+func covers(have, want []string) bool {
+	held := make(map[string]bool, len(have))
+	for _, path := range have {
+		held[strings.TrimSpace(path)] = true
+	}
+	for _, path := range want {
+		if !held[strings.TrimSpace(path)] {
+			return false
+		}
+	}
+	return true
+}
+
+// DecisionVerb is one of the three answers there are to a turn that stopped.
+type DecisionVerb string
+
+const (
+	// DecideCarryOn re-opens the turn on Brief.
+	DecideCarryOn DecisionVerb = "carry on"
+	// DecideDone says the ask is finished and the turn may end.
+	DecideDone DecisionVerb = "done"
+	// DecideStop ends the session's work and says why, in Reason.
+	DecideStop DecisionVerb = "stop"
+)
+
+// Decision is what a principal answered.
+//
+// Observed is WHAT THE ANSWER WAS TAKEN ON, in the same words a person reads —
+// the items a reading actually showed. It rides beside the brief because the
+// brief is addressed to the MODEL and is written to be worked from, while the one
+// line a person is shown when carrying on stops ([checkpointCarriedOnNote]) has
+// to say what was seen and nothing else. A note that had only the brief to go on
+// asserted "it is still not finished" as a fact, which is a claim nobody took a
+// reading of (#468).
+type Decision struct {
+	Verb     DecisionVerb
+	Brief    string
+	Reason   string
+	Observed []string
+	// Spent marks the ONE stop that is about money and hours rather than about
+	// the work: the budget is gone. It is read where a stop may have to end a
+	// turn over work that is still moving ([Agent.endTurnUnderSteward]), which
+	// only this stop may do — SPENDING IS THE THING A BUDGET FORBIDS, and
+	// waiting for the moving work to come home is more of exactly what ran out.
+	// Every other stop is about the work and can afford to let the work finish.
+	Spent bool
+}
+
+// carryOn, done and stop are the three constructors, so no caller in this
+// package assembles a Decision field by field and forgets one.
+func carryOn(brief string, observed ...string) Decision {
+	return Decision{Verb: DecideCarryOn, Brief: brief, Observed: observed}
+}
+func done(brief string) Decision  { return Decision{Verb: DecideDone, Brief: brief} }
+func stop(reason string) Decision { return Decision{Verb: DecideStop, Reason: reason} }
+
+// stopSpent is the budget's own stop, and it is spelled apart from [stop]
+// because the two are answered differently over work that is still moving
+// ([Decision.Spent]).
+func stopSpent(reason string) Decision {
+	return Decision{Verb: DecideStop, Reason: reason, Spent: true}
+}
+
+// ── THE PERSON ──────────────────────────────────────────────────────────────
+
+// Person is the principal of an attended session, and IT ADDS NOTHING.
+//
+// Every method answers what the engine answered before this interface existed,
+// and the emptiness is load-bearing rather than a stub waiting to be filled:
+// a person holds their own acceptance, spends against their own judgement,
+// reads a landing and decides what to do about it themselves, and carries a
+// stopped turn on by typing. The one thing it holds is the ask, because
+// [Principal.Ask] has to answer something and the session already knows it —
+// and the floor under carrying on, which is not an addition either: it is the
+// same law [Steward] has always had, on the road that never got it.
+type Person struct {
+	mu  sync.Mutex
+	ask string
+	// floor is the standstill under this person's turns ([standstillFloor]).
+	//
+	// IT IS PER STRETCH AND NOT PER SESSION. What ends a stretch is the person
+	// saying something new ([Person.hear]) or a reading with nothing left in it,
+	// so an answered ask and the next one are judged apart — and a conversation
+	// that meets the same gap again an hour later meets it for the first time
+	// since.
+	floor standstillFloor
+}
+
+// NewPerson builds the principal of an attended session.
+func NewPerson() *Person { return &Person{} }
+
+func (p *Person) Ask() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.ask
+}
+
+// Acceptance is empty for a person, and that is the answer rather than a gap:
+// somebody watching the work does not need the done-condition written down for
+// them, and writing one on their behalf would be the harness deciding what they
+// meant.
+func (p *Person) Acceptance() string { return "" }
+
+// Budget is unset for a person: an attended session has always run until they
+// stopped it, and the spend rail (rail.go) is the ceiling they can already set.
+func (p *Person) Budget() Budget { return Budget{} }
+
+// Report answers nothing, which is what makes a landing's note reach the person
+// exactly as it always has: the news arrives, and what happens next is theirs.
+func (p *Person) Report(Landing) string { return "" }
+
+// Decide is [Agent.readRemains]'s own rule with one law added: a reader with
+// something to say re-opens the turn on it, silence ends the turn, AND A READER
+// THAT SAYS WHAT IT SAID LAST TIME STOPS IT ([standstillFloor]). Nothing else a
+// person could be shown is consulted, because nothing else was.
+//
+// THE ECHO IS THE ADDED LAW AND #888 IS WHY. Measured 2026-09-11: a reply had
+// reported that `zeta.txt` did not exist, and the reader re-opened the turn
+// three times running with the same observation — that the missing file had not
+// been reported — until the per-turn ceiling stopped the fourth. The model spent
+// three turns explaining that the observation was mistaken, and the person read
+// all three, because a carry-on is recorded as a user line and its answer as an
+// ordinary reply. A second identical reading is not a second piece of evidence;
+// it is the first one said twice, and this road was the only one on which that
+// was allowed to buy another turn.
+func (p *Person) Decide(r Remains) Decision {
+	line := strings.TrimSpace(r.Reader)
+	if line == "" {
+		// A DONE ANSWER ENDS THE STRETCH, for [Steward.Decide]'s reason: an ask
+		// that finished is not the same stretch as the one asked after it, and a
+		// floor that remembered across the finish would stop a conversation on
+		// its first carry-on.
+		p.forget()
+		return done("")
+	}
+	// AND NOTHING IS A STANDSTILL WHILE SOMETHING IS STILL MOVING. A reading that
+	// has not changed because this turn's own work has not come home yet is a
+	// turn waiting, not a turn repeating itself.
+	if len(r.Running) > 0 {
+		p.forget()
+		return carryOn(line, line)
+	}
+	// THE OBSERVATION IS THE LINE ITSELF, which is not an addition to what a
+	// person's session decides: the reader's line is the whole of what was
+	// read here, and saying so is what lets the one note a person ever sees
+	// on this road quote what was seen rather than assert a conclusion. It is
+	// therefore both halves of the floor's fingerprint — what is left, and what
+	// was written about it, are one line here.
+	p.mu.Lock()
+	moved := p.floor.moved(line, line)
+	p.mu.Unlock()
+	if !moved {
+		return stop(standstillReason([]string{line}))
+	}
+	return carryOn(line, line)
+}
+
+// forget drops the floor, so the next reading is a first one.
+func (p *Person) forget() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.floor.forget()
+}
+
+// hear records the person's own words, and the LAST of them stands.
+//
+// It is unexported because it is not part of the interface: the SESSION tells
+// its principal what was asked, and no caller outside this package has a reason
+// to. Last-wins is [Agent.rememberAskLocked]'s own rule, kept rather than
+// improved on — what a person is asking for is the thing they most recently
+// said, and this must answer exactly what the engine already answered.
+func (p *Person) hear(ask string) {
+	ask = strings.TrimSpace(ask)
+	if ask == "" {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.ask = ask
+	// AND A NEW THING SAID IS A NEW STRETCH. The floor is about one ask being
+	// carried on; the moment somebody types, whatever the reader kept saying
+	// about the ask before it is about a conversation that has moved.
+	p.floor.forget()
+}
+
+// ── THE STEWARD ─────────────────────────────────────────────────────────────
+
+// stewardRepeats is how many times one failure signature may come home before
+// the Steward stops.
+//
+// THREE, because two is a coincidence and four is an evening. The first
+// landing is the work failing; the second is the repair failing the same way,
+// which is still news; the third says the road is not going anywhere and every
+// further attempt is the same money spent on the same wall. A stop with a
+// report is strictly better than a fourth attempt: the report is the thing a
+// person can act on, and it exists either way.
+const stewardRepeats = 3
+
+// Steward is the principal of an unattended session: it holds the ask, an
+// acceptance written for the whole of it, and a budget, and it answers on the
+// absent person's behalf out of evidence rather than opinion.
+//
+// EVERYTHING IT DECIDES IS DECIDED FROM FACTS THE SESSION ALREADY HAS. It never
+// calls a model: the reader's line, how the units landed, and what the declared
+// checks say are gathered by the caller and handed over ([Remains]), and this
+// type is the policy over them. That is what makes every one of its answers
+// testable without a network, and it is why the loop guard can be trusted — a
+// guard that had to ask a model whether two failures were the same failure
+// would be a guard that fails open on a bad evening.
+type Steward struct {
+	mu         sync.Mutex
+	ask        string
+	acceptance string
+	checks     []string
+	delivery   deliveryContract
+	// deliveryReading is the one in-flight destination reading shared by both
+	// ending seams. The network call runs outside this lock; closing the channel
+	// publishes the frozen result to every waiter.
+	deliveryReading chan struct{}
+	checkMemory     checkMemories
+
+	// wall and money are the CEILINGS; started and spent are how the figures
+	// against them are read. spent is a closure onto the session's own
+	// journaled usage rather than a number kept here, for rail.go's reason: a
+	// second ledger drifts.
+	wall    time.Duration
+	money   float64
+	started time.Time
+	spent   func() float64
+	now     func() time.Time
+
+	// failures counts landings by signature, and stopped is the reason the
+	// guard fired. Once stopped is set every answer is the same stop: a
+	// principal that changed its mind after saying stop would be a rail with a
+	// hole in it.
+	failures map[string]int
+	stopped  string
+
+	// floor is THE LAST CARRY-ON THIS STEWARD MINTED, and it is the shared
+	// standstill every principal that can carry on decides with
+	// ([standstillFloor]).
+	//
+	// IT LIVES HERE BECAUSE THE LOOP IT BOUNDS IS LONGER THAN A TURN. The
+	// per-turn ceiling on carrying on (checkpoint.go's [checkpointCarryOnCap])
+	// counts on a meter the turn owns, and every other way out of a turn builds a
+	// fresh one — so a session whose task landings kept waking new turns was
+	// bounded by a counter that reset before it could ever fire, and the measured
+	// run repeated one byte-identical brief until its wall ran out (#468). A
+	// floor kept on the principal cannot be restarted by a new turn, which is the
+	// only place it means anything.
+	floor standstillFloor
+}
+
+// NewSteward builds the principal of an unattended session.
+//
+// spent reads the session's accumulated cost in US dollars and MAY BE NIL, in
+// which case no money is ever counted against the ceiling — which is honest
+// rather than convenient: a build with no cost figures must not stop a run on a
+// number it invented.
+func NewSteward(ask string, budget Budget, spent func() float64) *Steward {
+	return &Steward{
+		ask:      strings.TrimSpace(ask),
+		wall:     budget.Wall,
+		money:    budget.USD,
+		started:  time.Now(),
+		spent:    spent,
+		now:      time.Now,
+		failures: map[string]int{},
+	}
+}
+
+func (s *Steward) Ask() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ask
+}
+
+// hear records the goal this session exists to reach, AND IT RECORDS IT ONCE.
+//
+// This is where a Steward parts company with a [Person], whose ask is simply
+// the last thing they typed. The acceptance is written against this sentence
+// and frozen against it ([Steward.setAcceptance]); a goal that moved underneath
+// it would leave the session measuring its work against a done-condition for
+// something else. Somebody who wants a different goal is somebody who is
+// present, and what a present person does is start a session.
+func (s *Steward) hear(ask string) {
+	ask = strings.TrimSpace(ask)
+	if ask == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ask != "" {
+		return
+	}
+	s.ask = ask
+	// AND A GOAL THAT IS BEING RECORDED IS A STRETCH BEGINNING, so the floor
+	// under carrying on starts empty ([Steward.forget]'s reason, said at the
+	// other end).
+	s.floor.forget()
+}
+
+func (s *Steward) Acceptance() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.acceptance
+}
+
+// setAcceptance writes the session's acceptance ONCE and never again.
+//
+// IT IS IMMUTABLE FOR THE SESSION and this is the whole of the enforcement: a
+// done-condition a running model can rewrite is a done-condition the model
+// grades itself against, which is the exact reading this side of the codebase
+// was built to stop relying on. It reports whether the write landed, so the
+// caller journals a fact rather than an intention.
+func (s *Steward) setAcceptance(text string) bool {
+	return s.setAcceptanceContract(s.Ask(), text, nil)
+}
+
+// setAcceptanceContract freezes the declared verifier beside the acceptance,
+// under the same lock and for the same ask. Prose supplies no commands; an
+// invalid declaration supplies none either. A late answer for another ask or
+// a second contract cannot replace the first one's execution authority.
+func (s *Steward) setAcceptanceContract(ask, text string, declared []string) bool {
+	return s.setAcceptanceDelivery(ask, text, declared, deliveryContract{})
+}
+
+// setAcceptanceDelivery freezes delivery beside the same acceptance and checks.
+func (s *Steward) setAcceptanceDelivery(ask, text string, declared []string, delivery deliveryContract) bool {
+	checks, _ := declaredCheckList(declared)
+	if strings.TrimSpace(ask) == "" {
+		checks = nil
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.acceptance != "" || strings.TrimSpace(ask) != s.ask {
+		return false
+	}
+	s.acceptance = text
+	s.checks = checks
+	s.delivery = validDelivery(ask, delivery)
+	return true
+}
+
+// declaredChecks returns a copy because a caller assembling a checker door
+// cannot be allowed to edit the frozen contract through its backing slice.
+func (s *Steward) declaredChecks() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.checks...)
+}
+
+func (s *Steward) Budget() Budget {
+	s.mu.Lock()
+	wall, money, started, spent, now := s.wall, s.money, s.started, s.spent, s.now
+	s.mu.Unlock()
+	budget := Budget{Wall: wall, USD: money}
+	if !started.IsZero() {
+		budget.SpentWall = now().Sub(started)
+	}
+	if spent != nil {
+		budget.SpentUSD = spent()
+	}
+	return budget
+}
+
+// since is how long ago something happened ON THE CLOCK THIS STEWARD MEASURES
+// ITS WALL WITH.
+//
+// IT EXISTS SO THAT A SHARE OF THE WALL AND THE WALL ITSELF ARE READ OFF ONE
+// CLOCK (turnwall.go's [Agent.pastTurnWallShare]). Two clocks over one ceiling
+// are two answers to how much is left, and the second of them is always the one
+// a test cannot move.
+func (s *Steward) since(moment time.Time) time.Duration {
+	s.mu.Lock()
+	now := s.now
+	s.mu.Unlock()
+	return now().Sub(moment)
+}
+
+// setClock and setStarted are the ONE DOOR to the two fields of the Steward's
+// clock that ever move, and both take s.mu. EVERY WRITE TO NOW OR STARTED AFTER
+// CONSTRUCTION GOES THROUGH THEM: the product reads both fields under this same
+// lock ([Steward.Budget], [Steward.since], wallIsUp in wallclock.go), so a write
+// that skips it is a data race the detector catches the moment the clock is
+// moved on a live session whose wall clock is already reading it (#957 — go
+// test -race red on clean dev through nearWall in checkpoint_test.go).
+//
+// Almost every caller is a fixture winding the clock forward; the one that is
+// not is makePrincipal in principal_wire.go, handing over the session's own
+// start. It uses the door too, and stewardclock_law_test.go is what keeps every
+// caller on it.
+
+// setClock replaces the clock the wall and the turn's share are measured with.
+func (s *Steward) setClock(now func() time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.now = now
+}
+
+// setStarted moves when the run began, which winds the wall's remainder without
+// moving a turn's own stretch, because both are read off the one clock.
+func (s *Steward) setStarted(at time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.started = at
+}
+
+// Report turns one landing into the next attempt's brief, and it is the road a
+// failed unit of work now has instead of a sentence addressed to nobody.
+//
+// THE AUDIT'S OWN REPORT IS THE BRIEF. Whoever read the work wrote down what it
+// did and what stopped it; that is already the most specific account of the gap
+// anybody in this session has, and re-deriving it from a fresh model would be
+// paying to be told the same thing less accurately.
+//
+// A LANDING THAT FINISHED PRODUCES NOTHING. There is nothing to open on the
+// strength of a unit that did what it was asked, and a Steward that briefed one
+// anyway would be a session that never runs out of work to do.
+//
+// AND THE GUARD COUNTS BEFORE IT ANSWERS. Three landings with one signature
+// (see [stewardRepeats]) stop the session for good, with the report as the
+// thing a person reads. An unsigned landing is not counted at all — a guard
+// that folded every unsigned failure into one bucket would stop a session that
+// was making progress on three different problems.
+func (s *Steward) Report(landing Landing) string {
+	if !landing.unsatisfied() {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped != "" {
+		return ""
+	}
+	if signature := strings.TrimSpace(landing.Signature); signature != "" {
+		s.failures[signature]++
+		if s.failures[signature] >= stewardRepeats {
+			s.stopped = fmt.Sprintf("the same thing has stopped this %d times running: %s",
+				s.failures[signature], stewardReason(landing))
+			return ""
+		}
+	}
+	report := strings.TrimSpace(landing.Report)
+	if report == "" {
+		return ""
+	}
+	return report
+}
+
+// stewardReason is what a stop says about the landing that caused it, in a
+// person's words: the report if there is one, the title if there is not, and
+// the id when there is nothing else to name it by.
+func stewardReason(landing Landing) string {
+	if report := strings.TrimSpace(landing.Report); report != "" {
+		return firstLine(report)
+	}
+	if title := strings.TrimSpace(landing.Title); title != "" {
+		return title
+	}
+	return fmt.Sprintf("unit %d", landing.ID)
+}
+
+// Decide is the end of a turn, answered on the absent person's behalf.
+//
+// THE ORDER IS THE POLICY, and it is an order over EVIDENCE:
+//
+//  1. A GUARD THAT HAS FIRED OUTRANKS EVERYTHING. Once the same failure has come
+//     home [stewardRepeats] times the session is over, whatever a reader says.
+//  2. AN EXHAUSTED BUDGET STOPS, and it stops with a report rather than with
+//     silence — a run that spent its hours and said nothing is a run nobody can
+//     learn from.
+//  3. WHAT LANDED AND WHAT RAN COME BEFORE ANY READER'S LINE. This is the rung
+//     that moved, and it is the whole of #468. A reader's line is a reading of the
+//     TRANSCRIPT — what the session said about itself — while a settled landing
+//     and a check that ran are readings of the work. So the unmet set is taken
+//     first, and a session whose units of work are done and whose checks all
+//     passed is FINISHED, however much a reader still has to say about it. The
+//     measured run had a task merged home with twenty-two checks green, and was
+//     carried on past it for the rest of its wall on a line somebody's sidecar
+//     wrote about the transcript.
+//  4. WITH SOMETHING GENUINELY LEFT, THE ADMITTED UNMET FACTS ARE THE BRIEF. A
+//     reader's words enter those facts for inline work, where there is no task
+//     landing to outrank them; they cannot replace an independent task, delivery
+//     or check fact with a fresh obligation.
+//  5. WORK STILL IN FLIGHT IS NEITHER OF THE TWO ENDINGS. An ask with a unit of
+//     work still going is not finished, and it is not going round in a circle
+//     either — it is waiting, so the floor below is not asked about it and what it
+//     remembers is dropped ([Remains.Running]).
+//  6. AND THE SAME THING TWICE RUNNING IS A STANDSTILL, not a third go
+//     ([Steward.standstill]).
+//
+// THE FROZEN DONE-CONDITION IS NEVER EVIDENCE HERE. It is written before any work
+// happens, out of the ask alone, and it reaches the decision only as the context a
+// brief opens with ([stewardBrief]) — a sentence the session wrote for itself is
+// not a reading of anything.
+func (s *Steward) Decide(r Remains) Decision {
+	s.mu.Lock()
+	stopped := s.stopped
+	s.mu.Unlock()
+	if stopped != "" {
+		return stop(stopped)
+	}
+	if spent, why := s.Budget().Exhausted(); spent {
+		return stopSpent(why)
+	}
+	unmet := r.unmet()
+	if len(unmet) == 0 {
+		// A DONE ANSWER FORGETS WHAT WAS LEFT LAST TIME. The fingerprint below is
+		// about ONE STRETCH of carrying on, and an ask that reached done ended
+		// that stretch: a session that finishes, is asked for more, and meets the
+		// same gap again is meeting it for the first time since — and a floor
+		// that remembered across the finish would stop it on its first carry-on.
+		s.forget()
+		brief := ""
+		if r.stoodInForTheReader() {
+			brief = checksStoodInForTheReader
+		}
+		brief = withUnknownRedChecks(brief, r)
+		return done(brief)
+	}
+	// THE UNMET SET IS THE AUTHORITY. Reader prose is admitted into that set on
+	// the inline road above; it must not replace an independent task, delivery or
+	// check fact with a new obligation of its own.
+	brief := stewardBrief(r, unmet)
+	// AND NOTHING IS A STANDSTILL WHILE SOMETHING IS STILL MOVING. An unmet set
+	// that has not changed because the work has not come home yet is a session
+	// waiting, not a session repeating itself, and what the floor remembers from
+	// before the wait is about a tree that has since been worked on.
+	if len(r.Running) > 0 {
+		s.forget()
+		return carryOn(brief, unmet...)
+	}
+	if halted := s.standstill(unmet, brief); halted != "" {
+		return stop(halted)
+	}
+	return carryOn(brief, unmet...)
+}
+
+// forget drops what the floor remembers, so the next carry-on is a first one.
+// It is called wherever the STRETCH the fingerprint is about has ended: an ask
+// that finished, and work that is still moving under it.
+func (s *Steward) forget() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.floor.forget()
+}
+
+// standstill is the floor under carrying on: it answers a REASON TO STOP when
+// this steward is about to say what it said last time, and "" when something has
+// moved.
+//
+// A STANDSTILL IS A STOP AND NOT A CARRY-ON. The evidence that a run is getting
+// somewhere is that what is left CHANGES; a session that reaches the end of a turn
+// with the same unmet set and writes the same brief has learned nothing from the
+// turn it just spent, and every further round is the same money against the same
+// wall. The measured run wrote one byte-identical brief four times in a hundred
+// seconds and then wrote it until its hours were up (#468).
+//
+// BOTH READINGS ARE COMPARED, because either one standing still is the same
+// event: the unmet set is what the work and the checks showed, and the brief is
+// what a reader added on top of it. A change in either is progress enough to go
+// again.
+//
+// AND IT SETS [Steward.stopped], SO IT HOLDS. A floor that only answered this one
+// call would be re-asked by the next turn with a fresh meter under it, which is
+// exactly the counter that was already there and could not fire.
+func (s *Steward) standstill(unmet []string, brief string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.floor.moved(strings.Join(unmet, "; "), brief) {
+		return ""
+	}
+	s.stopped = standstillReason(unmet)
+	return s.stopped
+}
+
+// stewardBrief writes what is left to do out of what is unmet. It names the
+// acceptance first when there is one, because the gaps under it are only worth
+// anything against the thing they are gaps in.
+func stewardBrief(r Remains, unmet []string) string {
+	var out strings.Builder
+	if acceptance := strings.TrimSpace(r.Acceptance); acceptance != "" {
+		out.WriteString("what was asked is finished when: ")
+		out.WriteString(acceptance)
+		out.WriteString("\n\n")
+	}
+	out.WriteString("it is not finished yet — ")
+	out.WriteString(strings.Join(unmet, "; "))
+	out.WriteString(".")
+	// AND WHAT WAS ALREADY BROKEN IS SAID OUT LOUD RATHER THAN SILENTLY DROPPED.
+	// A worker handed a brief that does not mention the red it can plainly see
+	// will go and fix it, which is the whole failure in its other form; told
+	// that it was red before the work and is not being counted, it can leave it
+	// alone or say so.
+	return withWhatIsKnownAboutTheChecks(out.String(), r)
+}
+
+// withWhatIsKnownAboutTheChecks appends the sentences a continuation brief owes
+// about the declared checks.
+//
+// WHEN THE CHECKS STOOD IN FOR AN UNREACHED READER, THE BRIEF SAYS SO. A worker
+// handed a red check without that account would know what failed and not why
+// this reading was allowed to replace the missing witness.
+//
+// A BRIEF WRITTEN BEFORE THE BASELINE LANDED SAYS SO. A worker told nothing about
+// the checks reads the silence as "they pass"; told that nobody has finished
+// reading them yet, it knows the one thing that is actually true.
+//
+// AND WHAT WAS ALREADY BROKEN IS SAID OUT LOUD RATHER THAN SILENTLY DROPPED. A
+// worker handed a brief that does not mention red it can plainly see will go and
+// fix it, which is the whole failure in its other form.
+func withWhatIsKnownAboutTheChecks(brief string, r Remains) string {
+	if r.stoodInForTheReader() {
+		brief += "\n\n" + checksStoodInForTheReader
+	}
+	if !r.BaselineRead && len(r.Checks) > 0 {
+		return brief + "\n\n" + baselineStillReading
+	}
+	if already := r.alreadyRed(); len(already) > 0 {
+		brief += "\n\n" + alreadyRedSentence(already)
+	}
+	return withUnknownRedChecks(brief, r)
+}
+
+func withUnknownRedChecks(brief string, r Remains) string {
+	unread := make(map[string]bool, len(r.Unread))
+	for _, command := range r.Unread {
+		unread[command] = true
+	}
+	var checks []string
+	for _, command := range r.redChecks() {
+		if unread[command] {
+			checks = append(checks, command)
+		}
+	}
+	if len(checks) == 0 {
+		return brief
+	}
+	line := "one check has no usable before-reading, so its current result cannot establish a regression from this work: "
+	if len(checks) > 1 {
+		line = fmt.Sprintf("%d checks have no usable before-reading, so their current results cannot establish regressions from this work: ", len(checks))
+	}
+	if brief == "" {
+		return line + strings.Join(checks, ", ")
+	}
+	return brief + "\n\n" + line + strings.Join(checks, ", ")
+}
+
+// baselineStillReading is what a brief says while the before-reading of the
+// checks is still running, so silence about them is never read as "they pass".
+const baselineStillReading = "what the checks said before this work is still being read, " +
+	"so nothing is being counted against them yet"
+
+// alreadyRedSentence says what the tree was already failing before this work, in
+// a person's words and with the commands named so nobody has to guess which.
+func alreadyRedSentence(already []string) string {
+	if len(already) == 0 {
+		return ""
+	}
+	was := "1 check was"
+	if len(already) > 1 {
+		was = fmt.Sprintf("%d checks were", len(already))
+	}
+	return was + " already failing before this work; that does not show the requested result works: " + strings.Join(already, ", ")
+}

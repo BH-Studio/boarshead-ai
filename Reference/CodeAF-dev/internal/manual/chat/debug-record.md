@@ -1,0 +1,169 @@
+# The debug record
+
+## How do I see what happened — turning the record on with /debug, --debug or CODEAF_DEBUG
+
+When a turn goes wrong and the answer is not in what you can see, you can ask codeaf to
+keep the **debug record** of a run: everything that run did, in a folder of its own. There
+is one switch and three ways to say it, and they all mean the same thing.
+
+```
+/debug                            in a conversation, from here to the end of it
+codeaf chat --debug               and the same flag on `codeaf do` and `codeaf exec`
+CODEAF_DEBUG=1 codeaf             for one shell, one run
+```
+
+`CODEAF_CALL_LOG_BODIES=1` — the older word, if it is the one in your shell history —
+means the same thing now.
+
+**A recording launch keeps its conversation in this terminal.** The record is written by
+the process that makes the calls, and ordinarily `codeaf` hands your conversation to this
+folder's background session host — which was never told to record, and would leave you a
+folder holding `run.json` and no request bodies at all. So a run that is recording takes
+the in-process road, by the pin exactly as by the flag. The conversation ends with the
+terminal, the way `--no-host` does.
+
+**It does not change what the run does.** Nothing is asked differently, nothing is slower,
+no model is told anything new. With it off, a run costs one check and writes nothing at
+all; that is why it is safe to leave the flag out and reach for it only on the day you
+need it.
+
+**`/debug` cannot be turned off again.** You type it because something has already gone
+wrong, and a switch you could turn back off would only ever leave you half a record — the
+half after the thing you were trying to catch. It lasts for the rest of the conversation,
+and the next one starts with it off.
+
+`/debug` answers with the folder either way: the first time it says
+`recording this conversation · it goes to …`, and a second time
+`the record is already on · it goes to …`.
+
+## Does /debug turn the record on for my other conversations — what each door covers
+
+The three doors mean the same record and not the same reach. **With the pin or the flag,
+every conversation this process holds is recorded, each into its own folder; `/debug`
+records only the conversation you typed it in.** The pin and the flag were handed to that
+codeaf on purpose, before anything opened; `/debug` was typed inside one conversation, and
+one codeaf can be holding several.
+
+So if you have two conversations open and type `/debug` in one, the other one keeps
+writing nothing — its prompts, its files and its replies do not land in a folder its
+person never asked for. Each conversation that is being recorded has a folder of its own,
+named by its own run.
+
+Where the pin or the flag already turned everything on, `/debug` says so rather than
+pretending it did something: `the record is already on for every conversation this codeaf
+holds · this one goes to …`, naming your own conversation's folder. And in a conversation
+that belongs to no run at all, it says `this conversation has no run to record.` instead
+of switching on a record that would go nowhere.
+
+## Where is the debug record — the folder for a run, and what is in it
+
+Every run gets a folder of its own, named after that run:
+
+```
+~/.codeaf/logs/trace/<run>/
+```
+
+`<run>` is sixteen characters minted when the run starts — when you open a conversation,
+and when `codeaf do` or `codeaf exec` begins. It is the id every record in that folder
+carries, so records from two runs can never be read as one.
+
+Under `CODEAF_HOME` the folder moves with everything else codeaf keeps.
+
+**The folder holds the record of that run, and the first thing in it is `run.json`** —
+written the moment the run starts, and saying which door opened it (`chat`, `resume`,
+`do`, `exec`), which model was asked for, which build of codeaf this was, which folder the
+run was pointed at, and when it began. It is the file that tells you which run a folder
+you found afterwards actually was.
+
+Beside it the run's own records accumulate: `events.jsonl`, one line per thing that
+happened, and a `calls/` folder with one file per model call named by that call's id.
+Every record carries the run it belongs to, and — where the work it came from has a name —
+the piece of work, so a long run reads as the plan it was rather than a pile of calls in
+time order.
+
+**With the switch on, those files fill as the run happens.** Each model call writes its
+request and its answer under `calls/`. Each tool call — including one a door refused
+before it ran — appends a line to `events.jsonl`. So does each choice the run made: which
+machine was asked first, whether a slow answer got a second machine, and how hard the
+model was asked to think. A run that called nothing still has `run.json`, so a folder you
+found afterwards still says which run it was.
+
+Each of the three doors also prints one line to the error output when it finishes, and
+only when there is something to go and look at:
+
+```
+debug record: ~/.codeaf/logs/trace/52dfbdde3f1a7c04
+```
+
+**With the switch off, nothing is created at all** — no folder, no line, nothing to clean
+up afterwards.
+
+## Why did that call fail — the request, the answer and the choice
+
+With the debug record on, the answer is in the run's folder. `calls/<id>.json` is that
+one model call whole: the request that went out, the answer that came back, the
+endpoint's own sentence if it failed, and the thinking text where the endpoint sent it
+separately. `events.jsonl` is the rest of the turn in order — each tool that ran, failed
+or was refused, and each routing, hedge and effort choice, with the reason it was made.
+
+A tool a door refused is recorded as refused, not as failed, and the line names who
+said no — `approval`, `write-scope`, `task-ground` — in their own words. A hedge that did
+not fire is recorded as loudly as one that did: both are the same choice answered two
+ways, and a turn that waited ninety seconds with nothing saying why is the folder this
+exists to prevent.
+
+The **model-call log** is still there and still always on: `codeaf logs` prints the last
+calls with the status each came back with, the provider's own first sentence on a
+failure, how long it took and what it cost. What the log holds is the **shape** of a
+call — how many messages, how many tools, which ceiling, which provider — and not what you
+wrote. The old `CODEAF_CALL_LOG_BODIES` pin still adds the whole request and reply to each
+line of `calls.jsonl` as well as turning the debug record on. With that pin on, the live
+file is allowed 256 MB (32 MB without it). The bodies also live in the run's folder now,
+which is where they were always meant to live, so the file you grep can stay small.
+
+## Is my key in the debug record — what it never holds
+
+**No key, ever.** Nothing that looks like a credential is written into the record: an
+authorization or `api-key` field, anything after `Bearer`, and anything shaped like an
+`sk-…` token are each replaced by the word `[redacted]` before anything reaches the disk.
+
+**And not only the shapes.** Every credential this machine is actually configured with —
+the model key, the search keys, an application secret you pasted for your own Google
+registration — is handed to the record by name as the run opens, and is replaced wherever
+it appears, whatever it looks like. That matters because a key with no recognisable shape
+at all (a Google `AIza…`, a Groq `gsk_…`, the plain token a self-hosted endpoint was
+given) can come back inside a provider's own error message. You can grep the folder for
+`authorization` or for your own key and find nothing.
+
+**Everything else in it is yours.** The record is built to hold what you wrote, what your
+files say and what the model answered — that is the point of it — so the folder is
+readable by you and nobody else on the machine (the folder is `0700`, its files `0600`),
+it never leaves the state root, and nothing is sent anywhere. Treat a folder you attach to
+a bug report the way you would treat the conversation itself.
+
+## How much does the debug record keep — the size law, and what happens when it fills
+
+Two ceilings, and both are about never losing the run you are looking at.
+
+- **256 MB per run.** When a run's folder reaches it, the record writes one last line
+  saying it was capped and stops. It keeps everything it already had rather than making
+  room by dropping the start of the run — which is where the choice that went wrong
+  usually is.
+- **20 runs kept.** When a new run opens its folder and there are more than twenty, the
+  oldest whole folders are removed until twenty remain. A run is kept complete or not at
+  all; nothing is ever deleted from inside a run that is still going. **A run that is
+  still going is never removed either**, however low you set the count — retention is a
+  rule about runs that are over, so a second conversation opening cannot delete the record
+  of the one you are debugging.
+
+Both move for one shell when you need them to:
+
+```
+CODEAF_TRACE_MAX_MB=1024 codeaf chat --debug     a bigger ceiling for one run
+CODEAF_TRACE_KEEP=3 codeaf chat --debug          keep fewer folders around
+```
+
+If the record cannot be written at all — a full disk, a folder that is not writable —
+codeaf says so once on the error output, naming the path, and the run carries on exactly
+as it would have with the record off. **A record that cannot be written is never a failed
+run.**

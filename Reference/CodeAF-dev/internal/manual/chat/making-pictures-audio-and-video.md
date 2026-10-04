@@ -1,0 +1,633 @@
+# Making pictures, audio and video
+
+codeaf can produce media as well as read it: a picture from a description, a
+spoken audio file from text, a piece of music from a brief, a short video from a
+prompt. Each one is a tool on the list, each one costs money, and each one saves
+a file and tells you where it went.
+
+**These tools are only there when a model behind them is.** codeaf resolves one
+model per kind of media — drawing, speaking, composing, filming — from your
+settings, and a kind with no model available simply has no tool, rather than a
+tool that refuses. So `generate_image`, `speak`, `generate_music` and
+`generate_video` may each be present or absent independently, and asking for one
+that is absent gets you an honest "I do not have that here" rather than a failed
+attempt.
+
+**All four work in tasks, in adaptive runs and inside saved harnesses**, not only
+in this conversation — see "Can a task or a harness make media?" below.
+
+## Can you draw me a picture or make an image?
+
+Yes, with `generate_image`, when a drawing model is available.
+
+Arguments: `prompt` (required), `reference_paths`, `aspect_ratio`, `size`, `path`,
+`model`.
+
+The picture is written to a file, and the result codeaf reads is one line naming
+it — **the whole path, absolute, from the root** — like:
+
+```
+/home/you/work/.codeaf/images/20260817-142201-sunset-over-the-harbour.png — 1024×1024 png, 1.4MB, generated on <model>
+```
+
+The file suffix follows the image bytes. If a provider returns JPEG bytes for a
+path ending in `.png`, codeaf changes the saved name to `.jpg` and reports that
+actual path, so the name and the file agree.
+
+The path is whole because that line is what you are shown in place of the
+picture on a terminal that cannot draw one, and a path relative to a directory
+you are not standing in is a path you cannot open.
+
+The image itself never enters the conversation, because a picture carried in the
+transcript is re-sent on every step of every turn afterwards. If codeaf needs to
+look at what it made, it opens the file like any other picture. **You do not
+have to open the file yourself** — see the next section.
+
+Leave `path` out and the name is a timestamp plus a few words of your prompt,
+saved where this session keeps its pictures. Give `path` and you choose the name
+and folder; an existing file there is overwritten, exactly as `write` would.
+
+`aspect_ratio` (for example `16:9`) and `size` (for example `1024x1024`) are
+passed to the image model untouched. Leave them out for its own default.
+
+## Do I only get a file path, or can I see the image you made?
+
+**You see it, in colour, in the terminal, without doing anything at all.**
+
+Over `--host`, codeaf fetches the generated picture from the other machine into this
+machine's cache and paints that local copy in the terminal when the tool finishes. The
+line under it remains the far path, because that is where the conversation wrote it. The
+path is clickable: opening it hands the read-only local copy to your desktop. Home's `made for you` band
+also lists the far machine's generated pictures, audio, music and video under the
+conversation that made them, and those paths open through the same file door.
+
+## Where did my picture go over ssh
+
+Over `--host`, the picture is written on the other machine and then its bytes are fetched
+back for the terminal preview. The row paints the fetched copy and names the far path
+under it. cmd+click that path on a Mac, ctrl+click it on Linux, or type `/files <path>`;
+codeaf opens the read-only cached copy with the viewer on the machine you are sitting at.
+If the picture is over the connection's 16MB fetch limit, the far machine refuses the
+transfer by name and the path remains the honest answer. The refusal ends with the machine
+that still has it, exactly: ` · the picture remains on <machine>`.
+
+The line above is what codeaf itself reads — a path is all that goes into the
+conversation. The screen adds a compact **preview** / **open original** control after
+the call finishes. Images start collapsed in both chat and task pages; no mosaic is
+automatically drawn. Attached pictures use the same controls, preserving their
+numbered `[#1 shot.png]` markers.
+
+Click **preview**, or use **alt+i** for the last visible image, for a terminal preview
+at up to **20 rows**. Attached messages expand one picture at a time. Click **collapse**
+to close it. An image tool's ordinary row also opens with `enter`, and a `view_image`
+expansion retains what the looking model said.
+
+Click the expanded image itself or **[open original]**, or use **alt+o**, to open the
+full-resolution file in your
+system's viewer. In `--host` sessions, engine-owned files are fetched and mirrored
+locally first. Local attachments open directly from this machine. A plain SSH login
+cannot launch a viewer on your laptop automatically; use the local `--host` client or
+retrieve the file yourself.
+
+The optional preview uses half-block characters, two pixels per terminal cell. It is
+explicitly **low resolution**, regardless of terminal brand: use the original to read
+screenshot text or inspect fine detail. PNG, JPEG, GIF and WebP previews require 256
+colours or better and graphical Unicode support. Missing or unsupported previews
+retain the original-file action. Original opening is available on colourless and
+screen-reader displays too.
+
+The "what is on the screen" page has the preview limits and fallback details.
+
+## Can you edit, restyle or combine images I already have?
+
+Yes — that is `reference_paths`, and it is the same tool.
+
+Give one path and the prompt becomes an instruction about that picture: change
+the background, ink the sketch, put it in another style. Give several and they
+are combined. The references are files in your workspace — **png, jpeg, webp or
+gif, up to 10MB each** — and anything else is refused by name, e.g.
+`could not read art/missing.png`, before a penny is spent.
+
+The useful part: **the path `generate_image` just returned is itself a valid
+reference**, so codeaf can pass its own last render back in and iterate — a
+diagram redrawn until it is right, a character kept the same across pictures.
+
+## Can you use a different model for one picture, sound or video?
+
+Yes. All four making tools — `generate_image`, `speak`, `generate_music`,
+`generate_video` — take an optional `model` argument: which model to use **for
+that one call**, when the default is wrong for it. A photoreal render on one
+model, a diagram on another, a different voice vendor for one line — without
+touching any setting.
+
+The word is matched against the catalog **within that kind of media**: a full
+slug works, and so does a fragment like a vendor or family name — `seedream`,
+`gemini`, `grok`. The word `best` picks the strongest advertised model of that
+kind. A word that matches nothing is refused before any money is spent — `no
+image model matches "xyz"` — and a word that names a model of the wrong kind is
+refused by naming what it actually makes, e.g. `fish-audio/s1 makes speech, not
+image`.
+
+**Leaving `model` out uses the session's default**, resolved from your settings
+as ever, and the next call without the argument rides the default again — a
+one-call choice never changes any setting. The result line always names the
+model that actually generated the file, so you can tell which one made what.
+
+This is the same freedom you have yourself in `/settings` → Providers, handed
+to codeaf per call: ask it to "draw this one with gemini" or "try the best
+image model" and it can, just in time.
+
+## Which image model was used, and how do I see the prompt you sent?
+
+**The step row names it, and opening the step shows the input.**
+
+While a picture is being drawn the row is the tool and its clock. When it
+finishes the row reads:
+
+```
+generate_image circle.png · seedream-5    1.2 MB · 2.4s
+```
+
+The file is what you are reading for, so it leads; the image model behind the
+middle dot is dim, because it qualifies the file rather than being the point of
+it. It is the **short** spelling — the vendor prefix comes off, so
+`bytedance/seedream-5` reads `seedream-5`. If the model is not known — the call
+is still running, or the conversation was recorded by an older build — the row
+says **nothing at all** there rather than a placeholder.
+
+Click the row, or select it with ↑/↓ and press **enter**, to open the step. It
+shows what went in, as prose rather than as JSON:
+
+```
+"a small red circle, flat vector, centred on white"
+1024x1024
+from art/sketch.png
+drawn with seedream-5
+```
+
+The prompt first, in quotes, exactly as it was sent — a very long one folds at
+twelve lines and `… N more lines` lifts the rest. Then one line for each other
+input you gave: the size or the aspect ratio, and the pictures it worked from.
+An input you left out has no line, because leaving `size` out means the image
+model's own default and codeaf will not guess at what that is. The picture
+itself, and the path under it, follow below.
+
+If the call asked for a model in its own words, the line keeps both halves —
+`asked for best · drawn with seedream-5` — so you can see what was requested and
+what actually ran. A running call that asked for one says `asked for seedream`
+until it finishes.
+
+A call that **failed** has no file and no model beside it on the row — there was
+no picture to attribute. The model it tried is named inside the failure the
+expansion shows, e.g. `Image generation failed (bytedance-seed/seedream-5-0-pro):
+…`.
+
+To change which model draws, just say so: "draw this one with gemini", "use the
+best image model". That is the `model` argument on the tool, described in the
+section above, and it changes nothing permanently. For a new default, use
+`/settings` → Providers.
+
+## Why does a picture or video look generic, blurry, or like AI slop?
+
+Four causes, all fixable — none of them is "the model is bad at this".
+
+**The prompt left too much undecided.** Every dimension a prompt does not
+decide — the medium, the light, the palette, the mood, the era — the image or
+video model fills with its statistical average, and that average is exactly what
+generic AI output looks like: over-smooth, over-lit, style-less. The fix is
+specificity: codeaf writes the decisions into the prompt rather than asking for
+"a nice picture of X" and hoping. Ask it to redo a generic render "as a
+photograph, natural light" or "as a flat diagram, two colours" and the words go
+straight to the model.
+
+**Every dimension was decided — to the genre's own cliché.** A fully detailed
+prompt can still land on the average when each detail is what everyone in that
+genre writes: the glowing shape on a dark field, the neon palette, the adjective
+pile ("ultra-detailed", "cinematic"). Eight models given that prompt return
+eight competent copies of the same picture, because the prompt asked for the
+mean of the genre. And the mean cannot be escaped from inside the genre —
+recolor a glowing dark-mode network and it is still a glowing dark-mode
+network. The exit is a **real medium, named**: a print process, a photographic
+setup, a drafting or filmmaking tradition. A real medium carries its own
+physics and its own, different average — a risograph poster or an editorial
+photograph simply is not drawn from the pool "digital AI art" comes from. This
+applies however the render is made: the same law covers a prompt sent through
+`generate_image` and one a script of codeaf's own sends to an API.
+
+## Why is everything you make glowing on a dark background?
+
+Because that is the statistical center of the genre the prompt stayed inside —
+"digital tech illustration" resolves to luminous lines on a dark field almost
+regardless of the other words — and because saying **"no glow" does not work**:
+image and video models barely read negation, so the word "glow" in "no glow"
+pulls toward glow. Two fixes, and they work together:
+
+- **Leave the genre, do not redecorate it.** Name a real medium with real
+  physics — "flat vector print, two spot colors on warm paper", "daylight
+  editorial photograph", "pencil technical drawing on vellum". Each of those has
+  its own average, and none of them glows.
+- **Specify positively until the default has no room.** Instead of forbidding,
+  describe what IS there: the surface (matte paper, cloth, brushed metal), the
+  light (overcast daylight, one window, flat studio), the palette by name.
+  Matte ink on cream paper *cannot* glow; a prompt that establishes it never
+  needs the word "no".
+
+When a render comes back, codeaf judges it against the genre as well as the
+brief — "could this be mistaken for every other image of its kind?" — and
+iterates when the answer is yes.
+
+**Nothing asked for sharpness.** `generate_image` takes `size` (for example
+`1024x1024`) and `generate_video` takes `resolution` (for example `1080p`), both
+passed to the model untouched; left out, the model's own default decides, and a
+default can be modest. Ask for "1080p" or "a larger size" and it is passed
+through — a sharper render costs more and, for video, takes longer.
+
+**The first render was accepted as the last.** A first render is a draft. codeaf
+can look at what it made (`view_image`, or `read` on the file), judge it against
+the brief, and iterate — the path a render returned is a valid
+`reference_paths` entry, so "fix the hands, keep everything else" is one more
+call, not a fresh roll of the dice. For video, `seed` holds a shot steady while
+one thing about it is changed.
+
+A different model is also a real lever: the `model` argument tries another one
+for a single call, and `best` picks the strongest advertised — see "Can you use
+a different model for one picture, sound or video?".
+
+## Can you read this out loud, or make a voiceover?
+
+Yes, with `speak`, when a speech model is available.
+
+Arguments: `text` (required), `voice`, `path`, `model`. It writes an **mp3** and answers
+with the path, the file size and the model, e.g.
+
+```
+.codeaf/audio/20260817-142433-good-morning-harbour-road.mp3 — 84.2KB of mp3 audio, spoken by <model>
+```
+
+**Leave `voice` out and the provider's default voice speaks.** Name one only if
+you asked for a particular voice, because a voice the model does not have is a
+failed generation rather than a near miss.
+
+With no speech model set in `/settings` → Providers, the default is
+`fish-audio/s2.1-pro`, falling back to `fish-audio/s1`, then `hexgrad/kokoro-82m`
+and then `openai/gpt-4o-mini-tts` on a catalog that does not advertise it. A
+model you set yourself wins over all of them.
+
+There is no duration in the result: nothing here opens the mp3 to measure it, and
+a guessed length would be worse than none. Play the file to hear it — codeaf
+cannot listen to audio.
+
+## Can you write me music, compose a song, or make a backing track?
+
+Yes, with `generate_music`, when a music model is available. It is a **different
+model and a different tool from `speak`** — one composes, the other reads text
+aloud — so a machine can easily have one and not the other.
+
+Arguments: `prompt` (required), `path` and `model`. The prompt describes the **music** —
+genre, instruments, tempo, key or mood, how it should develop — and is not lyrics
+to sing and not text to be read out.
+
+**The call returns immediately with a background job**, exactly as
+`generate_video` does, because a compose takes most of a minute:
+
+```
+job 4 started; composing on <model> — the finished piece arrives as a note naming the file. Log at /path/to/.codeaf/jobs/4.log
+```
+
+codeaf keeps working — on other clips, on a stitch, on the conversation —
+while the piece is written, and when it lands codeaf is told in a note at the
+next step:
+`job 4 finished: .codeaf/music/20260818-160204-a-calm-solo-piano-loop.mp3 — 1.6MB of mp3 audio, composed by <model>`.
+A compose that fails says so the same way: `job 4 failed: music generation
+failed (<model>): …`. It shows in `jobs list` as `job 4 · music · running · 12.3s
+· a calm solo piano loop`, and `jobs kill 4` stops it — `music (job 4) stopped;
+no music was saved`. Like every job, it dies when the conversation ends.
+
+**There is no length argument**, because the endpoint has none: the model writes
+a piece of its own choosing — half a minute to a minute in practice — and you
+cannot ask for eight seconds, or for three minutes. Nor is there a format
+argument; you get what the model sends. **The length stops mattering the moment
+the piece goes under a video**: `edit_video` with `action: score` loops a piece
+that is shorter than the cut and trims one that is longer, so fitting it needs
+no measuring and no arithmetic — see "Can you put music under a video, or add a
+soundtrack?". The compose tool itself still neither measures nor trims, because
+the length is the model's choice, not the brief's.
+
+**Every call costs the same whatever comes back**, around **$0.08**, because the
+price is per call and not per second. That makes a short clip and a long one the
+same money, so it is worth writing a full description and iterating on the
+description rather than calling it repeatedly hoping for something shorter.
+
+Music and speech land in **different folders** — `music/` and `audio/` — so a
+session's takes of a theme are not mixed in with its voiceovers.
+
+## Can a task or a harness make media, or only this conversation?
+
+All of them can, under the same rule.
+
+- **A task** (`propose_task`) carries the same media verbs this conversation
+  does. A task briefed to draw a diagram has the hand that draws it.
+- **An adaptive run**'s nodes carry them too.
+- **A saved harness** may whitelist `generate_image`, `speak`, `generate_music`,
+  `generate_video` and `view_image`, and a step may call them. The list the
+  designer is offered is the same list the run resolves against, so a design can
+  never name a verb the run could not execute. See the "saved shapes of work"
+  page.
+
+The rule is the same everywhere: **no model for that kind of media, no verb** —
+absent rather than present and refusing.
+
+One thing worth knowing about tasks: when a task is stopped for running too long,
+it gets a final "land now" turn to save what it has. That turn keeps the saving
+tools — `write`, `edit` and every media verb it had — so a task whose deliverable
+is a picture can still produce it. It used to keep only `write` and `edit`, and a
+task that had spent its whole life painting would answer that it had no image
+tooling available.
+
+## Can you make a video?
+
+Yes, with `generate_video`, when a video model is available — and this one
+behaves differently from most tools, because a render takes **minutes**.
+(`generate_music` behaves the same way, for the same reason.)
+
+**The call returns immediately with a background job**, like `bash` with
+`background: true`:
+
+```
+job 3 started; filming on <model> — the finished video arrives as a note naming the file. Log at /path/to/.codeaf/jobs/3.log
+```
+
+It keeps working while you and codeaf carry on talking. When it lands, codeaf is
+told in a note at the next step:
+`job 3 finished: .codeaf/video/20260817-143001-a-ferry-at-dawn.mp4 — 4.2MB of mp4 video, 8.0s with sound, filmed on <model>`.
+The length and the sound answer are measured from the file itself — a clip that
+landed silent says `without sound` — and when the file cannot be measured the
+note simply omits both rather than guessing. A render that fails says so the
+same way: `job 3 failed: video generation timed out (<model>); no video was
+saved`. Nothing waits for it and nothing polls it.
+
+With no video model set in `/settings` → Providers, the default is
+`bytedance/seedance-2.5`, falling back to `bytedance/seedance-2.0-mini` on a
+catalog that does not advertise it. A model you set yourself wins over both.
+
+Arguments: `prompt` (required), `duration` in seconds, `aspect_ratio`,
+`resolution`, `seed`, `model`, `frame_paths`, `reference_paths`, `path`.
+
+- `frame_paths` pins the motion: the first picture is the opening frame, a second
+  is the closing one. **More than two is refused** — the wire has no third slot.
+- `reference_paths` sets the look — style, palette, a face — and not the motion.
+- An image `generate_image` just made is a valid frame or reference.
+- `resolution` is how sharp the render is, spelled the video model's way (for
+  example `720p` or `1080p`) and passed through untouched. Leave it out for the
+  model's own default; a higher resolution is a slower, costlier render.
+- `seed` is a fixed number that makes the render's randomness repeatable, when
+  the model takes one. The same seed with the same prompt and pictures
+  re-renders close to the same shot — hold it steady to change one thing about
+  a shot that was mostly right, leave it out for a fresh roll.
+
+The render **is** a job: it shows in `jobs list` as
+`job 3 · video · running · 42.1s · a ferry at dawn`, and `jobs kill 3` stops it —
+`video (job 3) stopped; no video was saved`. Like every job, it dies when the
+conversation ends. The provider gives up after **10 minutes** and no file is
+saved.
+
+## Can you make a longer video — several clips, a whole story, 2 minutes of film?
+
+Not in one render, and yes by joining several — a single render is a short
+clip, because the video providers top out around ten seconds; nothing in
+codeaf extends one render. A longer video is several `generate_video` calls
+joined with **`edit_video`**, whose `join` action lays clips end to end and
+carries every one of their audio streams. Whether the result hangs together is
+decided by three facts about the render tool:
+
+- **Every render is independent.** The video model sees one prompt and the
+  pictures passed to that one call — never the conversation, never an earlier
+  clip. A prompt that says "the hero" without describing him reaches a model
+  that has never met the hero, so everything that must match across clips is
+  described in every prompt.
+- **Pictures are the only thread between clips.** The same `reference_paths`
+  handed to every call keep a face and a costume steady. For clips that should
+  **connect** — one shot flowing into the next — the last frame of a finished
+  clip is passed as the next call's opening `frame_paths` entry, and that frame
+  is saved with `edit_video`'s `frame` action, which takes the closing frame by
+  default (in a saved harness step, whose `generate_video` has no `frame_paths`,
+  the same slot is the first `reference_paths` entry). That chain makes connected
+  clips a sequence: they cannot all render in parallel.
+- **Each clip lands with its own sound**, and its note says so. `edit_video`'s
+  join carries all of it: a clip with sound keeps its own, a silent clip is given
+  silence of its own length, so the cut cannot go quiet part-way through. A
+  continuous score is separate — `generate_music`, a background job whose file
+  exists only once its note has landed, laid under the finished cut with
+  `edit_video`'s `score` action.
+
+Even chained, clips are distinct shots with some drift between them — a
+stitched video is a cut, not one continuous take. Fewer scenes in one setting
+read as more coherent than many scattered ones.
+
+## Why is a stitched video incoherent, or silent after the first clip?
+
+Both come from the facts above, and both are fixable.
+
+**The story or the characters are not coherent:** the clips were rendered
+independently with nothing shared — each `generate_video` call reaches the
+video model alone, with no memory of the other clips. The fixes are the
+threads that do cross: the same reference images on every call, every prompt
+describing everything that must match, and — for shots that should flow into
+each other — the previous clip's final frame passed as the next clip's opening
+frame, which means rendering those clips one after another rather than all at
+once.
+
+**No sound, or no audio after the first clip:** the clips almost certainly
+landed with sound — each clip's landing note says `with sound` or `without
+sound`, measured from the file — and the join dropped it. **A cut joined with
+`edit_video` cannot do that**: its join gives every clip an audio stream, real
+or generated, so there is no way for the sound to stop part-way through. A cut
+that *is* silent after the first clip was joined by hand in the shell instead,
+where an ffmpeg filter that only touches the video streams carries just the
+first input's audio and discards the rest without a word. The fix is to join it
+again with `edit_video`, not to repair the command. Music is separate either
+way: a score under the whole cut is `generate_music` — started early, because it
+is a background job whose file arrives as a note — then laid under the joined cut
+with `edit_video`'s `score` action, which loops or trims it to fit by itself.
+
+## Can you join clips together, stitch or concatenate videos into one video?
+
+Yes, with `edit_video` and `action: join`. It is **local, free and instant** —
+nothing about it is a render, and it costs no money at all.
+
+Give it `clips`: the video files to lay end to end, **in the order they should
+play**, at least two of them. Optionally `path` for where to save the result;
+leave it out and the cut lands where this session keeps its video, under a
+timestamped name.
+
+Two things it decides for you, and they are the two a hand-written ffmpeg
+command gets wrong:
+
+- **Every clip's audio is carried.** A clip with sound keeps its own; a clip
+  with none is given silence of its own measured length. So the joined cut has
+  one continuous audio stream and **cannot** go quiet part-way through.
+- **Every clip is fitted to the first clip's frame** — scaled to fit inside it
+  and letterboxed with black, never stretched — and resampled to the first
+  clip's frame rate, because concatenating mixed rates produces a cut whose
+  timing drifts.
+
+The answer is measured off the file that now exists, not claimed:
+
+```
+.codeaf/video/20260901-181201-joined-cut-of-4-clips.mp4 — 34.0s with sound, 1280×720 at 24fps, 12.4MB of mp4 video, joined from 4 clips
+```
+
+Limits, in its own words. At most **64 clips** in one call — `a join takes at
+most 64 clips at a time` — and a join of one is refused rather than quietly
+copied: `a join needs at least 2 clips; one clip is already the video`. A file
+with no picture in it is named: `score.mp3 has no video in it, so there is
+nothing to join`. One call is given up on after five minutes — `ffmpeg gave up
+after 5m0s` — and leaves nothing half-written behind.
+
+## How long is this video, and does it have sound?
+
+`edit_video` with `action: measure` answers, for a video file already on disk,
+for nothing, in about a tenth of a second. Give it `video`; it writes nothing.
+
+```
+shots/ferry.mp4 — 8.0s with sound, 1280×720 at 24fps, 4.2MB of mp4 video
+```
+
+Length, sound, frame size, frame rate and file size, each **measured from the
+file** and each simply absent when the file does not state it — a fact nobody
+measured is never guessed at.
+
+**This is not the same question as `read`.** `read` on a video hands the file to
+a video-reading model and answers what *happens* in it: who is in the shot, what
+the text on screen says, whether the cut works. That costs money and takes a
+moment. `measure` answers the arithmetic a cut is planned from — how long the
+clips are, whether the join has any sound to carry — and costs nothing. Ask
+`measure` when the question has a number for an answer.
+
+A clip codeaf rendered itself already states both facts in its landing note, so
+measuring one again is only worth it after something has been done to it.
+
+## Can you save a frame, a still or a thumbnail out of a video?
+
+Yes, with `edit_video` and `action: frame`. Give it `video`, optionally `at` and
+`path`.
+
+`at` takes **`closing`** (the default), **`opening`**, or a number of seconds.
+The everyday words work too — `last`, `final`, `end`, `first`, `start`.
+
+**The default is the closing frame because that is the one that connects two
+renders.** Every `generate_video` call is independent and remembers nothing, so
+the only way to make one shot flow out of another is to hand the finished clip's
+final frame to the next call as its opening `frame_paths` entry. Save the frame,
+pass it, and the shots join instead of cutting.
+
+It is saved as a **png** — lossless, because the picture is often handed straight
+back to a render — and lands where this session keeps its pictures. `jpg`, `jpeg`
+and `webp` also work if you name one in `path`; anything else is refused: `a
+frame is saved as a picture — .mp4 is not one of jpeg, jpg, png, webp`.
+
+**A moment past the end of the clip is refused, not saved empty.** An ffmpeg
+seeked past the last frame decodes nothing, writes nothing and reports success,
+so the refusal is codeaf's own and it carries the clip's measured length: `Could
+not save the frame: ferry.mp4 runs 4.2s and has no frame at 9s — ask for a
+moment inside it, or for the closing frame`. `closing` is a seek from the end and can
+never be past one.
+
+The answer names the whole absolute path, the picture's measured shape, and which
+frame of which clip it is:
+
+```
+/home/you/work/.codeaf/images/20260901-181330-the-closing-frame.png — 1280×720 png, 812.4KB, the closing frame of ferry.mp4
+```
+
+## Can you put music under a video, or add a soundtrack?
+
+Yes, with `edit_video` and `action: score`. Give it `video` and `audio` — an mp3
+from `generate_music` or `speak`, or any file with sound in it.
+
+**The music's own length does not matter.** A piece shorter than the video is
+looped until it fills it; a longer one is trimmed. That is the whole reason
+`generate_music`'s missing length argument stops being a problem: the piece it
+wrote is fitted to the cut, not the other way round. The answer says which
+happened — `score.mp3 looped to fit` or `score.mp3 trimmed to fit`.
+
+**It goes UNDER what is already there.** A video with its own sound keeps it and
+the music is mixed beneath at level `0.3`; a silent video gets the music at full
+level. `level` sets that yourself (1 is as recorded), and `replace: true` drops
+the video's own sound instead of mixing under it. `level: 0` is refused, and the
+refusal points at the argument that meant it: `level is how loud the music is
+and must be above zero; use replace to drop the video's own sound`.
+
+`fade` is seconds to fade the music out at the end, and it is worth naming when
+the piece was looped: a loop that stops dead mid-phrase sounds like a mistake
+somebody made. Left out, the score ends where the picture does.
+
+The picture is **copied, not re-encoded**, so scoring a finished cut takes
+seconds and loses no quality.
+
+## Can you edit video without a video model — and what if this machine has no ffmpeg?
+
+Two separate answers, and the first is the useful one.
+
+**`edit_video` needs no model, no key and no money.** It is the one media verb
+that is not gated on your settings: it is there on a machine that cannot
+generate a single frame, because measuring, framing, joining and scoring footage
+you already have is real video work that needs nothing bought. Drop a screen
+recording or a camera clip in the folder and all four actions apply to it.
+
+**What it does need is ffmpeg and ffprobe on the machine.** They are not
+downloaded on demand. Without them the verb is **absent** rather than present and
+refusing — codeaf simply does not have it, the same way it does not have
+`generate_video` without a video model — so asking gets an honest "I do not have
+that here" rather than a failed attempt. Install ffmpeg (it carries ffprobe with
+it) and the verb appears on the next conversation.
+
+The four actions are `measure`, `frame`, `join` and `score`; anything else is
+refused by name: `Unknown action: transcode. Use measure, frame, join, score.`
+There is deliberately no trim, no crop, no speed change and no transition —
+those are `bash` and ffmpeg directly, and they always were. What lives here are
+the four operations a *generated* film is assembled from, where getting them
+wrong is silent.
+
+**`edit_video` works in tasks, in adaptive runs and inside saved harnesses**
+under the same one condition, exactly as the making verbs do.
+
+## Where do I find the file for the image you generated — where pictures, audio, music and video end up?
+
+In one of three places, decided by whose folder the workspace is:
+
+- If the session **owns** its workspace (codeaf made it), files land straight in
+  it, like anything else the work produced.
+- If the workspace is **your repository**, they land in the session's own
+  `artifacts/` folder instead, so nothing of codeaf's is dropped in your project.
+- With no session folder at all, they land under
+  `<workspace>/.codeaf/images`, `/audio`, `/music` or `/video`.
+
+Either way every generated file gets a row in the deliverables index, so
+`/files` finds it again later by name and date, from any directory. Give the
+tool an explicit `path` and that decision is yours instead.
+
+**A saved program lands its files in the same three places**, and they get the
+same row: a film a harness assembles is a deliverable of the conversation that
+ran it, not something hidden away in a folder of its own.
+
+**A refused action leaves nothing behind.** When `edit_video` will not do
+something — a join of one clip, a clip nothing can be read out of, a fade longer
+than the picture — no empty file is left where the result would have gone. A
+`path` you named yourself is never touched by that, whatever is already in it.
+
+## What does a picture, a voiceover, a piece of music or a video cost?
+
+Real money, and more than a message does.
+
+Generation is billed by the provider per image, per stretch of audio, per piece
+of music, per render — a video is the expensive one, often more than a whole
+conversation of talking. **Music is billed per call**, around $0.08, whatever
+length comes back. That spend lands on **the session's total**, not on the turn
+that asked for it: no single turn is charged for a render that arrived ten
+minutes after it ended. `/cost` shows the total, and a picture you asked for is
+inside it.
+
+The permission rules apply as they do to any other tool, so under the default
+approval mode you are asked before a generation runs. See the permissions page
+for how to change that.

@@ -1,0 +1,356 @@
+package tui3
+
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// ── /status AND /cost: THE STATUS LINE, ASKED OUT LOUD ──────────────────────
+//
+// The row at the bottom of the frame answers both of these questions already,
+// and it answers them by dropping whatever does not fit: at [hudTight] the
+// cache share and the forecast are gone, and at [tierPhone] nine of eleven
+// facts have moved to a sheet a FINGER opens ([app.deckPress]). A person on a
+// keyboard, on a narrow terminal, with the mouse turned off (config's ui.mouse)
+// has no door onto any of it. These two commands are that door.
+//
+// THEY ARE NOTES AND NOT PANELS. Everything else that shows a list on this
+// surface takes the screen — the picker, the settings, the sheet — and that is
+// right for a thing you ACT on and wrong for a thing you READ: the answer to
+// "what has this cost me" is three lines long, it is wanted while a turn is
+// running, and it is wanted again in ten minutes with the first answer still
+// above it to compare against. A note stays in the conversation and scrolls
+// with it; a sheet has to be dismissed before the person can type the next
+// thing, which is the one thing they opened it to decide.
+//
+// AND NEITHER OF THEM ASSEMBLES A METER OF ITS OWN. /status prints
+// [app.deckItems] — the same list, built by the same functions, that the phone
+// sheet draws — and /cost prints the figures the status line's own formatters
+// make of the same fields. A second assembly of the context meter is exactly
+// what statusdeck.go's list exists to prevent, and a command is not an
+// exception to it.
+
+// statusText is /status: every fact the status line can carry, one per line.
+//
+// The list is [app.deckItems] whole, because the phone sheet and this command
+// are ONE surface asked for in two ways — its head even says "status"
+// ([deckSheetTitle]). A row that appears on one and not the other would make
+// "what does this session say about itself" a question with two answers.
+//
+// Its differences from the sheet are about the MEDIUM rather than about the
+// facts:
+//
+//	identity       the build and file path are not status-line segments at any
+//	              width — they are things a person copies into another program
+//	              — and a note is selectable text while a sheet at forty-four
+//	              columns would cut either. /help prints the file for the same
+//	              reason.
+//	a zero bill   the status line keeps "$0.00" because it is a LIVE row, and a
+//	              segment that came into existence on the first priced turn
+//	              would shove every segment beside it sideways. A note is
+//	              written once and read once, so design-law-v2 §16 applies to it
+//	              plainly — and /cost's answer to the same session is "nothing
+//	              spent yet", which this list has to agree with.
+//
+// The crew used to be a third difference — a line this command added under the
+// model and the sheet did not have. It is on [app.deckItems] now, directly under
+// the model, so the two surfaces say it the same way and this function no longer
+// places it (statusdeck.go says why it is the full reading there and one word on
+// the live row).
+func (a *app) statusText() string {
+	return labelledLines(a.statusItems())
+}
+
+// statusItems is the whole list /status prints: [app.deckItems] with the three
+// differences of medium this command makes, then the build and file rows. It is
+// the ONE list behind both the text form and [app.statusJSON], so the two forms
+// cannot disagree about a fact. The transformations below are described at
+// length on [app.statusText]; they live here because they are the list rather
+// than its rendering.
+func (a *app) statusItems() []deckItem {
+	// The totals are refreshed FIRST. A command typed between turns must answer
+	// from what the session holds now and not from whatever the last event left
+	// on these fields ([app.take] keeps the larger of the two, so this can only
+	// move figures forward).
+	a.refreshUsage()
+	// AND THE WORK'S HALF OF THE BILL IS REFRESHED WITH IT, for the same reason:
+	// a command typed between turns answers from the ledger as it stands now
+	// rather than from whatever the frame clock last left on the field
+	// (treespend.go).
+	a.readTreeSpend()
+	sheet := a.deckItems()
+	items := make([]deckItem, 0, len(sheet)+1)
+	for _, item := range sheet {
+		if item.label == deckSegWords[segCost] && a.spendShown() <= 0 {
+			continue
+		}
+		// THE PLACE IS SAID IN FULL HERE, and on a remote session that is the
+		// third difference of medium this function makes. The status line and the
+		// sheet carry an abbreviated path because they are rows in a frame; this
+		// is a note a person reads once and copies out of, and `devbox:/srv/app`
+		// is the thing they would paste into scp or into another terminal. The
+		// abbreviated form would make them reconstruct it.
+		if a.hosted() && item.label == "place" {
+			item.value = a.hostedPath(a.workspace)
+		}
+		// THE ROW IS COMPACT AND THE NOTE IS A SENTENCE. On a healthy hosted
+		// link the row says `devbox · 3ms`; /status has room to say what that
+		// number is. While redialling, the existing sentence is already whole
+		// and is kept verbatim instead.
+		if a.hosted() && item.label == deckSegWords[segLink] && a.linkLatency > 0 && a.linkNote() == "" {
+			item.value = "the round trip to " + a.host + " is about " + latencyWord(a.linkLatency)
+		}
+		// AND AN OWNED SESSION SAYS WHERE IT ACTUALLY IS, here and nowhere else.
+		// The frame calls it "codeaf" because the path is bookkeeping a person
+		// did not ask to read (host.go's [ownedWord]) — but this note is the one
+		// surface whose whole job is the full truth, and "where did my files go"
+		// is exactly the question somebody opens it to answer.
+		if a.owned && !a.hosted() && item.label == "place" {
+			item.value = a.workspace
+		}
+		items = append(items, item)
+	}
+	// phone lane: `keeping watch` used to be added HERE and nowhere else, which
+	// made it the one fact /status carried that the phone's own sheet did not —
+	// on the tier where every other fact had moved into that sheet. It is part of
+	// [app.deckItems] now, so both surfaces say it and neither says it twice.
+	// THE BUILD IS A LOOKUP FACT, NOT LIVE TELEMETRY. It stays off the bottom
+	// row and phone sheet, where an immutable revision would spend a row all
+	// session, and appears here whole when a person asks which codeaf is
+	// holding this conversation.
+	if a.build != "" {
+		items = append(items, deckItem{label: "build", value: a.build})
+	}
+	if a.file != "" {
+		// AND THE JOURNAL IS ON WHOSE DISK. A session file is the one path on
+		// this list a person is actively invited to copy, and over a connection it
+		// is the far machine's — so it is named the way they would have to name it
+		// to reach it, rather than as a bare path that looks like one of theirs.
+		items = append(items, deckItem{label: "file", value: a.hostedPath(a.file)})
+	}
+	return items
+}
+
+// statusJSON is /status --json: [app.statusItems] serialized as ONE JSON object
+// with the labels as keys and the values as strings, in the order the text form
+// prints them.
+//
+// It is built by hand from the ordered slice rather than marshalled from a map,
+// because a Go map randomizes key order — and the point of the two forms is that
+// they list the same facts in the same order. Each label and value still goes
+// through [json.Marshal] for its escaping, so the result is guaranteed to be
+// well-formed.
+func (a *app) statusJSON() string {
+	items := a.statusItems()
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, item := range items {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		key, _ := json.Marshal(item.label)
+		value, _ := json.Marshal(item.value)
+		b.Write(key)
+		b.WriteByte(':')
+		b.Write(value)
+	}
+	b.WriteString("}\n")
+	return b.String()
+}
+
+// statusFacts is what THE PAYLOAD RULE lifts out of /status: the second column
+// of every row, which is the fact the label in front of it is naming
+// (payload.go's [columnFacts]).
+//
+// IT IS WHAT THE PHONE SHEET HAS ALWAYS DRAWN. [app.deckItemRow] puts the label
+// in the dim tier and the fact in the ink one, and has since the sheet existed —
+// so this command, which is the same list asked for in the other medium, was the
+// half of one surface where the hierarchy was missing. The rule did not arrive
+// here; it arrived at the note that had been drawing the sheet's own rows flat.
+//
+// THE CREW ROW IS THE ONE VALUE THAT IS NOT ONE FACT. Every other row on this
+// page answers its label with a single thing — a path, a model id, a figure —
+// and the crew answers with a preset word and three role words with three model
+// ids threaded between them ([app.crewWord]). Lifting that whole run would put
+// ink on `brain`, `hands` and `checks`, which are the question rather than the
+// answer, and a row where everything is bright is a row where nothing is. So the
+// value is recognized by being exactly what [app.crewWord] built — the same
+// function, asked again, so there is nothing here to drift — and the three ids
+// [config.CrewClassModels] names go in its place.
+func (a *app) statusFacts(text string) []string {
+	facts := columnFacts(text, false)
+	crew := a.crewWord()
+	if crew == "" {
+		return facts
+	}
+	out := make([]string, 0, len(facts)+2)
+	for _, fact := range facts {
+		if fact == crew {
+			// AND UNDER `--one-model` THERE IS NOTHING HERE TO LIFT. The word names
+			// the flag rather than four rows ([app.crewReading]), the ids
+			// [config.CrewClassModels] would put up are exactly the ones the flag
+			// has taken out of the run, and the model that IS seating every call is
+			// already the lifted fact one row above. So the row keeps its sentence
+			// and stays in the dim tier, which is what a row whose answer is a
+			// sentence should do (#444).
+			if reading, ok := a.crewReading(); ok && !a.oneModel {
+				out = append(out, reading.models...)
+			}
+			continue
+		}
+		out = append(out, fact)
+	}
+	return out
+}
+
+// costText is /cost: what this conversation has spent, and on what.
+//
+//	spend        $0.42
+//	tokens       48.1k in · 3.2k out
+//	cache        31.2k read · saved $0.0180
+//	model calls  14
+//	time         3m12s
+//
+// EVERY LINE IS DROPPED WHEN ITS FIGURE IS NOT THERE, which is design-law-v2
+// §16 said about a command instead of about a row: a session that has not been
+// told what it cost must say nothing about money rather than say "$0.00", and a
+// provider that publishes no cache accounting must say nothing about caches
+// rather than teach a person their cache never hits (session.Usage says the
+// same about its own zeroes).
+//
+// THE ONE THING IT WILL NOT DO IS GO SILENT. A command typed on purpose that
+// prints nothing reads as a command that broke, so a session with no figures at
+// all gets a sentence saying so — /select's answer to the same problem.
+func (a *app) costText() string {
+	// This is [app.refreshUsage] with the report KEPT, because two of the five
+	// lines are not on the fields it folds into: [app.take] holds the running
+	// totals a status line needs and drops the turn count and the wall clock,
+	// which are the session's own and are read straight off the report.
+	var u session.Usage
+	if a.agent != nil {
+		u = a.agent.Usage()
+	}
+	a.take(u)
+	// AND THE WORK'S HALF, off the ledger, so the split below is this moment's
+	// and not the last frame's (treespend.go).
+	a.readTreeSpend()
+
+	items := make([]deckItem, 0, 8)
+	add := func(label, value string) {
+		if value != "" {
+			items = append(items, deckItem{label: label, value: value})
+		}
+	}
+
+	// The label is the sheet's word for the same figure ([deckSegWords]), and so
+	// are "context" and "cache" — a person who has read one of these surfaces has
+	// read the vocabulary of the other.
+	if spent := a.spendShown(); spent > 0 {
+		add(deckSegWords[segCost], dollars(spent))
+		// AND THIS IS THE ONE PLACE THE BILL IS TAKEN APART. The figure above is
+		// the whole tree — the conversation and every task it started — because
+		// that is the number a person is deciding on, and the status line has
+		// room for exactly one. Here there is room to say what it is made of, so
+		// somebody who watched it jump can see which half moved without opening
+		// another page. The two lines add up to the line above them, always: the
+		// split is drawn only when both halves come off the ledger
+		// ([app.spendSplit]).
+		if conversation, tasks, ok := a.spendSplit(); ok {
+			add("conversation", dollars(conversation))
+			add("tasks", dollars(tasks))
+		}
+	}
+	add("tokens", tokenHalves(a.inputTokens, a.outputTokens, a.tokens))
+	add(deckSegWords[segCache], cacheWords(a.cacheRead, a.cacheSaved))
+	// "model calls" and not "turns". A turn is what the PERSON took — one message
+	// and everything that answered it — and a conversation of nine messages that
+	// reports "turns 41" is a surface using a person's word for a machine's
+	// count.
+	//
+	// It is EVERY request that went to the provider: the turn's own calls, the
+	// auxiliary ones nobody asked for by name (the session's title, a judge, a
+	// picture being looked at), and every call a task's agents made on their own
+	// lanes. That is what makes it the honest denominator for the bill above it,
+	// which is the sum over exactly this many — Turns counts only the
+	// conversation's own steps by law, and would have named a smaller number
+	// than the money was spent over.
+	if u.Calls > 0 {
+		add("model calls", itoa(u.Calls))
+	}
+	if u.EmptyReflex > 0 {
+		add("empty reflex answers", itoa(u.EmptyReflex))
+	}
+	if a.tree.Unbilled > 0 {
+		add(spendUnbilledWord, itoa(a.tree.Unbilled)+" "+spendUnbilledSaid)
+	}
+	add("time", tookWord(u.Duration))
+
+	if len(items) == 0 {
+		return "nothing spent yet — this session has not sent a turn."
+	}
+	return labelledLines(items)
+}
+
+// tokenHalves is the tokens line: what was sent against what was written.
+//
+// The two halves are what a person can ACT on — a prompt that keeps growing is
+// a conversation to compact, and output is what the model was actually asked to
+// do — and the combined figure is the fallback for a session that has only ever
+// been given the total. It is never "0 in · 0 out": that is a session nobody has
+// told anything about, and [tokenWord] spelling its zero is not permission to
+// print it.
+func tokenHalves(in, out, both int) string {
+	switch {
+	case in > 0 && out > 0:
+		return tokenWord(in) + " in · " + tokenWord(out) + " out"
+	case in > 0:
+		return tokenWord(in) + " in"
+	case out > 0:
+		return tokenWord(out) + " out"
+	case both > 0:
+		return tokenWord(both)
+	default:
+		return ""
+	}
+}
+
+// cacheWords is the cache line: what came off a warm prefix, and what that was
+// worth.
+//
+// The cash is printed ONLY when it is real, on the terms [app.cacheSaved] is
+// held: it is the session's cache reads priced at the model this conversation
+// is on, and only where BOTH a prompt price and a cache-read price are
+// published. So a session on a model that publishes no cache-read price says
+// how much it read and stops there, rather than learning to say it saved the
+// whole prompt price. The count leads and the money follows it, which is
+// the order [app.warmSegment] puts the same pair in on the status line.
+func cacheWords(read int, saved float64) string {
+	if read <= 0 {
+		return ""
+	}
+	word := tokenWord(read) + " read"
+	if saved > 0 {
+		word += " · saved " + savedWord(saved)
+	}
+	return word
+}
+
+// labelledLines lays a note out in two columns: the label, then the fact,
+// aligned down the page so the eye reads the facts rather than hunting them.
+//
+// It is the sheet's own geometry ([deckLabelWidth]) and /help's own rendering
+// (commands.go's [helpText]) — a note is prose in the transcript, so it wraps
+// and nothing is cut to a width this function does not know.
+func labelledLines(items []deckItem) string {
+	width := deckLabelWidth(items)
+	lines := make([]string, 0, len(items))
+	for _, item := range items {
+		pad := width - ansi.StringWidth(item.label)
+		lines = append(lines, item.label+strings.Repeat(" ", pad)+item.value)
+	}
+	return strings.Join(lines, "\n")
+}

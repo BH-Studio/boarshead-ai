@@ -1,0 +1,792 @@
+package tui3
+
+import (
+	"path/filepath"
+	"strings"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// ── DETACH AND ATTACH ───────────────────────────────────────────────────────
+//
+// THE SURFACE DRAWS ONE CONVERSATION AND POINTS AT A DIFFERENT ONE BY MOVING,
+// NOT BY CLOSING. That is the whole of this file, and it is [app.openSession]
+// split along the one line that used to make the conversation being left stop
+// existing — `a.agent.Close()`.
+//
+// Detach takes the surface off an agent: it stops every lane this surface holds
+// on it, folds the box and the readings that are the PERSON's rather than the
+// agent's into a sidecar, and clears the per-conversation fields. The agent
+// itself is untouched — its turn goes on streaming into its own journal, its
+// tasks go on running, its presence file goes on heartbeating.
+//
+// Attach points the surface at an agent: it takes up the conversation bundle,
+// bumps every lane generation, rebuilds the screen from the agent's own record
+// ([app.replay], [app.measureContext]), re-subscribes the standing lanes, joins
+// an in-flight turn from its first token ([session.Agent.Attach]) and puts the
+// sidecar's readings back.
+//
+// EVERYTHING NOT IN THE SIDECAR IS REBUILT FROM THE AGENT OR FORGOTTEN. That is
+// the bargain that makes this a third of the size of a surface that held N
+// conversations: the transcript, the rail, the meters, the pending cards, the
+// model and the title are all facts about the agent, and the agent still has
+// them.
+
+// aside is a detached conversation's PERSON-SIDE readings: the few things on
+// screen that are not facts about the agent and would therefore be lost when
+// the surface stops drawing it.
+//
+// EVERYTHING NOT IN THIS STRUCT IS FORGOTTEN BY A SWITCH AND REBUILT FROM THE
+// AGENT ON THE WAY BACK. Adding a field here is adding a thing the surface must
+// keep correct while it is not drawing it, which is the expensive kind of
+// state; the test is "would a person notice it was gone", not "could we".
+type aside struct {
+	// A send held behind an atomic replay remains with its conversation.
+	hostDeferred []func() tea.Cmd
+	// openingPrompt survives a switch while the title and transcript arrive.
+	openingPrompt string
+	// draft is the unsent sentence in the box, and chips are the pictures
+	// attached to it. parks are the messages waiting for this conversation's
+	// running answer, kept in their send order with their own attachments.
+	//
+	// THE PARKS STAY PARKED WHILE THIS PROCESS KEEPS THE CONVERSATION. Folding
+	// them into the box was correct only for quitting, where the draft file is
+	// the last place the words can survive. A switch leaves the turn alive, so
+	// its watcher can send these messages when that turn ends (keeper.go).
+	draft string
+	parks []parked
+	// parkSending is the narrow crossing where the oldest parked message has
+	// left for the held agent but the answer to that submit has not reached the
+	// surface yet. It follows the sidecar so returning mid-send cannot send the
+	// same message again when the stream closes.
+	parkSending bool
+	// parkNotes are receipts from held sends and memory commands. They land in
+	// this conversation when it comes forward rather than in whichever unrelated
+	// conversation happened to be on screen at the time.
+	parkNotes []string
+	// draftCursor is optional for older sidecars assembled without a caret.
+	draftCursor *int
+	chips       []chip
+	// pastes are the documents the draft's compact tokens stand for
+	// (pastechip.go). They travel with the sentence because the sentence is
+	// meaningless without them: a draft restored with `[paste 1 · 42 lines]` in
+	// it and nothing behind the tag would send the tag to a model as though those
+	// were the words.
+	pastes []pasteChip
+	// sends are the conversation's own messages that have left the box and not
+	// settled (recipient.go's [outboxSnapshot]). They travel with the draft
+	// because a message nobody has answered for is the same kind of fact as one
+	// nobody has sent yet: words the person typed that are still theirs.
+	sends []outboxSnapshot
+	// composers are the unsent lines typed into this conversation's TASK PAGES,
+	// each under its own reader (recipient.go). Main's own box is [aside.draft]
+	// above and is deliberately not in here.
+	//
+	// THEY ARE KEPT WITH THE CONVERSATION AND NEVER WITH THE PERSON, which is the
+	// opposite of the rule the draft follows, and for the reason the room id below
+	// follows the same one: a task id means something only inside the graph that
+	// minted it, so a line typed at task 7 belongs to the conversation task 7 is
+	// running in and to no other.
+	composers map[recipient]composerState
+	// offset is where they were reading and stick whether they were pinned to
+	// the foot of the transcript.
+	offset int
+	stick  bool
+	// askLeft is what was LEFT of the approval countdown, and zero is no
+	// question or no clock.
+	//
+	// IT IS THE REMAINDER AND NOT THE STAMP. Storing [app.askAt] would mean the
+	// countdown ran while the person was in another project, which is precisely
+	// what the focus gate already refuses to do (consent.go's [app.tickAsk]:
+	// ten seconds is "long enough to read a command and a rule", and there is
+	// nobody reading a conversation that is not on screen). Attach rebases it so
+	// the card comes back with the reading time it had.
+	askLeft time.Duration
+	// askPaused rides along unchanged, keeping the one exception [app.pauseAsk]
+	// makes intact: a question a person has already touched stays paused.
+	askPaused bool
+	// room is the node whose page was open, and zero is none. THE ID ONLY: the
+	// page itself is rebuilt on the way back from the agent's own journal, which
+	// is what opening a room from the rail does anyway.
+	room uint64
+	// since is when this conversation was detached.
+	since time.Time
+	// title is what the surface was CALLING this conversation when it was left.
+	//
+	// IT IS A FALLBACK AND NOT THE ANSWER. The switcher asks the agent first, so
+	// a title groomed while nobody was watching is the one drawn (hop.go's
+	// [hopTitle]) — this is for the agent that has none to give, where the only
+	// other candidate is the transcript's own file name, and names.go states
+	// outright that a file name may never be offered to anybody as a title.
+	title string
+}
+
+// laneStops are the standing subscriptions this surface holds on the agent in
+// front, each with the function that LEAVES it (K1's Watch… doors).
+//
+// THEY EXIST BECAUSE A SUBSCRIBER THAT WALKS AWAY WITHOUT SAYING SO IS A PARKED
+// GOROUTINE AND A QUEUE THAT GROWS FOREVER (session's agent.go states this on
+// [eventStream.pump]). While nothing ever detached, dropping the channel was
+// free — the agent was being closed in the same breath. Under a switch the
+// agent goes on living, so every lane has to be given back.
+//
+// A nil stop is a door that does not offer one: an older seam, or a scripted
+// agent in a test that never heard of the Watch… variants. Calling through this
+// struct is always safe.
+type laneStops struct {
+	tasks     func()
+	wakes     func()
+	designs   func()
+	runs      func()
+	titles    func()
+	questions func()
+}
+
+// leave gives every standing lane back and forgets the stops.
+func (l *laneStops) leave() {
+	for _, stop := range []func(){l.tasks, l.wakes, l.designs, l.runs, l.titles, l.questions} {
+		if stop != nil {
+			stop()
+		}
+	}
+	*l = laneStops{}
+}
+
+// attachable is the agent door onto an in-flight turn: the whole of what the
+// turn has said so far, then its live tail, on one channel (session's
+// [Agent.Attach]).
+//
+// It is asserted rather than added to [Agent] for [taskAgent]'s reason: a
+// scripted agent in this package's tests has never heard of one, and a surface
+// driven by one must stay representable.
+type attachable interface {
+	Attach() (<-chan session.Event, bool, func())
+}
+
+// attachReplayer is the same door taken TOGETHER WITH THE REPLAY, in one atomic
+// reading (session's [Agent.AttachReplay]). It exists because the two taken
+// separately drew the running turn twice: the journal already holds a turn's
+// completed steps mid-turn, and the attach backlog replays those same steps in
+// their live form — so a surface that replayed and then attached showed the
+// turn's first half in both renderings, stacked. events is nil when no turn is
+// in flight, and the entries are then the whole record.
+type attachReplayer interface {
+	AttachReplay() ([]session.DisplayEntry, <-chan session.Event, func())
+}
+
+// convKey is a transcript's IDENTITY, and it is computed here and nowhere else.
+//
+// THE SYMLINKS ARE RESOLVED BECAUSE `/tmp` AND `/private/tmp` ARE ONE FILE ON
+// THIS PLATFORM AND TWO STRINGS. Two spellings of one transcript would be two
+// keys in the keeper, which is two agents on one journal — a flock conflict with
+// ourselves and a conversation this process could open twice. A link that cannot
+// be resolved (a transcript just minted, a filesystem that will not answer)
+// falls back to the cleaned path, because a name we cannot canonicalise is still
+// a name, and refusing to key it would be worse than keying it twice.
+// resolveTranscript is the symlink walk behind [convKey], a var so that a test
+// can prove it is never asked about a path on another machine.
+var resolveTranscript = filepath.EvalSymlinks
+
+// convKey on the app is the one every reader of [app.behind] must use, because
+// over --host the paths in a row are THE ENGINE MACHINE'S and resolving them
+// here walks this laptop's disk for a file that was never on it. That walk is
+// not merely useless: on macOS `/home` is an automounter's mount point, so
+// `Lstat("/home/<name>")` on the Mac waits on autofs for a quarter of a second
+// or more — and home asked it for every row on every frame, which is why typing
+// on a hosted home took a second per key (2026-08-27). A hosted key is the
+// cleaned spelling and nothing else; the far machine's `/tmp`-versus-
+// `/private/tmp` ambiguity belongs to its engine, which keys its own keeper.
+func (a *app) convKey(path string) string {
+	if a.hosted() {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return ""
+		}
+		return filepath.Clean(path)
+	}
+	return convKey(path)
+}
+
+func convKey(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if real, err := resolveTranscript(path); err == nil {
+		return filepath.Clean(real)
+	}
+	return filepath.Clean(path)
+}
+
+// front is the conversation on screen, assembled as the bundle a door would
+// have handed over.
+//
+// IT IS READ OFF THE SURFACE RATHER THAN REMEMBERED FROM THE DOOR, and that is
+// deliberate: the older seam hands back an agent alone ([Options.Fresh]), and a
+// remembered bundle would then be nine zero fields where the surface is holding
+// nine live ones. What is true is what the surface has.
+func (a *app) front() Conversation {
+	// The connection and the two far readings are copied out the same way: what
+	// the surface is holding IS this conversation's, and it has to travel with it
+	// into the keeper so that coming back does not leave the previous
+	// conversation's connection answering for this one (tui3.go's
+	// [Conversation.Link]).
+	link := a.link
+	return Conversation{
+		Agent:            a.agent,
+		SessionFile:      a.file,
+		Workspace:        a.workspace,
+		Place:            a.place,
+		Owned:            a.owned,
+		ContextWindow:    a.ctxWindow,
+		DraftFile:        a.draftFile,
+		History:          a.history,
+		RecentSessions:   a.recentSessions,
+		SaveApproval:     a.saveApproval,
+		SaveBashApproval: a.saveBashApproval,
+		ApplyApprovals:   a.applyApprovals,
+		TaskRoom:         a.farRoomRecord,
+		TaskIndex:        a.farTasks,
+		Link:             &link,
+	}
+}
+
+// detachConversation takes the surface off the conversation in front and hands
+// back the readings that would otherwise be lost.
+//
+// IT DOES NOT CLOSE THE AGENT AND IT DOES NOT INTERRUPT THE TURN. Those are the
+// two lines [app.openSession] used to run that this deliberately does not, and
+// they are the whole feature: the conversation being left goes on working.
+//
+// The caller is what decides where the agent goes — the keeper, or
+// [app.closeFront], which closes it for real.
+func (a *app) detachConversation() *aside {
+	main := a.mainComposer()
+	side := &aside{
+		hostDeferred: a.hostDeferred,
+		// The box and the parked messages are separate while this process can
+		// keep the conversation alive. The shared-handle exception below folds
+		// them because its engine ends the conversation during the swap.
+		//
+		// THE THREE ARE READ THROUGH MAIN AND NOT OFF THE SCREEN (recipient.go).
+		// A conversation can be put down while a task's page is in front, and the
+		// box then holds that page's steering line — which is not this
+		// conversation's unsent message and must not come back as one.
+		draft:         a.mainDraftText(),
+		parks:         a.parks,
+		parkSending:   a.parkSending,
+		chips:         main.chips,
+		pastes:        main.pastes,
+		sends:         main.sends,
+		offset:        a.offset,
+		stick:         a.stick,
+		since:         a.now(),
+		title:         a.title,
+		openingPrompt: a.openingPrompt,
+	}
+	// A SHARED HANDLE CANNOT KEEP A WAITING TURN. Its engine interrupts and
+	// closes the old conversation during the swap, so the only honest fallback
+	// is quitting's one: put the waiting words back in the box and put every
+	// attachment back on its tray, after attachments already on the draft.
+	if a.shared {
+		side.draft = a.leavingDraft()
+		side.parks = nil
+		side.parkSending = false
+		for _, p := range a.parks {
+			side.chips = append(side.chips, p.chips...)
+			side.pastes = append(side.pastes, p.pastes...)
+		}
+	}
+	// Folded parked words are new text at the end only on the shared-handle
+	// fallback; otherwise every switch restores the exact insertion point the
+	// person left in the main composer.
+	cursor := main.box.cursor
+	if side.draft != main.box.String() {
+		cursor = len([]rune(side.draft))
+	}
+	side.draftCursor = &cursor
+	if left, held, ok := a.questionReadingLeft(); ok {
+		side.askLeft, side.askPaused = left, held
+	}
+	if a.room != nil {
+		side.room = a.room.id
+	}
+	// AND EVERY PAGE'S OWN UNSENT LINE GOES WITH THE CONVERSATION ITS PAGES
+	// BELONG TO (recipient.go). It is taken after the box above and before
+	// [app.clearConversation] below forgets the lot, and it includes the line in
+	// the box right now when a page is the thing holding it.
+	side.composers = a.composersAside()
+	// THE DEBOUNCE IS DISARMED HERE AND THE FILE IS THE CALLER'S BUSINESS. A
+	// save armed by this conversation must not fire after the switch and write
+	// this box under the NEXT conversation's name (draft.go's [draftSaveMsg]
+	// carries the file it was armed for, and this is the other half of that
+	// guard). What happens to the file itself differs by caller: a conversation
+	// going into the keeper keeps its crash insurance, and one being closed has
+	// no crash to insure against.
+	a.draftPending = false
+	// THE OVERLAYS CLOSE BEFORE ANYTHING MOVES. Every one of them is a door onto
+	// something process-wide or a mode the person is in the middle of, and
+	// neither survives arriving somewhere else.
+	a.closeForSwitch()
+	// AND EVERY STANDING LANE IS GIVEN BACK. This is the inversion of
+	// [app.openSession]'s last line: it re-subscribed because the agent was
+	// being replaced, and this unsubscribes because the agent is being left
+	// alive with nobody reading it.
+	a.stops.leave()
+	a.clearConversation()
+	return side
+}
+
+// clearConversation empties every surface field that belongs to the
+// conversation being left.
+//
+// THE LIST IS [app.openSession]'S PLUS THE NINE ROWS IT USED TO LEAVE OVER.
+// /resume never called [app.dropTasks], never reset copy mode, never reset the
+// rewind marks, never cleared the per-turn fold state and never bumped the lane
+// generations other than [app.gen] — so a resumed session carried the previous
+// conversation's rail, its rooms, its pilots, a frozen viewport of a transcript
+// that was gone and a cut line through it. That was latent while switching was
+// rare. It is not latent here.
+func (a *app) clearConversation() {
+	a.discussionFeeds = nil
+	a.questionReplacement = nil
+	a.entries = nil
+	a.turnLandings = nil
+	a.recordRows = 0
+	abandonLive(a.entries, &a.live)
+	abandonLive(a.entries, &a.think)
+	a.sel = -1
+	// AND THE ECHO GOES WITH THE CONVERSATION IT WAS TYPED INTO (echo.go): an
+	// index into a transcript that has been replaced points at somebody else's
+	// row, and a confirmation arriving after the swap would take the mark off it.
+	a.echoAt = -1
+	a.dropAsks()
+	a.follows = nil
+	// The offers and the sign-ins belong to the conversation that raised them
+	// (connect.go), and a browser standing open on one is a browser nobody is
+	// coming back to.
+	// AND THE FORMING BLOCKS GO WITH IT (formingblock.go). A wait is a proposal
+	// somebody approved in THIS conversation, and one carried across the switch
+	// would spin at the tail of a transcript it has nothing to do with — with no
+	// door left to answer it, because the answer comes back on a lane this
+	// session no longer reads.
+	a.waits = nil
+	a.dropConnectAsks()
+	a.connPanel = connectPanel{}
+	// The harness offer's own question goes with the conversation that raised it
+	// (harness.go); what is left here is the panel and the live step row, which
+	// are drawings rather than questions.
+	a.dropHarnessAsks()
+	a.harnPanel = harnessPanel{}
+	a.crewUI = crewPanel{}
+	a.harnessStep = ""
+	a.harnessName = ""
+	// And the picked harness with them: a chip is a choice about the NEXT
+	// message of this conversation (harnesspick.go).
+	a.harnPick, a.harnChip = harnessPick{}, ""
+	// The skill picker goes with them; the names it attached belong to the
+	// session being put down, not to the one taking the box (skillpick.go).
+	a.skillPick = skillPick{}
+	a.abandonConnects()
+	a.turn = 0
+	// The scrollback's mark and the compacted region both belong to the
+	// transcript being put down. [app.replay] rebuilds both on the way back —
+	// clearing them here is what makes that the design rather than luck.
+	a.replayFrom, a.replayFloor = 0, 0
+	a.earlier, a.earlierFloor, a.earlierFrom, a.earlierSeam = nil, 0, 0, false
+	a.transcript = nil
+	a.historyGen++
+	a.historyLoading = false
+	// A page or conversation replacing this one also owns the wheel reports that
+	// have not reached their frame yet. Letting one land afterwards would move a
+	// transcript the gesture was never made over.
+	a.unfolded = map[int]bool{}
+	// Per-turn fold state carried across would be applied to another
+	// conversation's turn NUMBERS, which is the same index meaning something
+	// else.
+	a.workOpen = map[int]bool{}
+	a.dropHover()
+	// A frozen viewport and a cut line are modes a person is in the middle of,
+	// and there is no honest way to be in the middle of one in a conversation
+	// nobody is looking at (copymode.go, rewind.go).
+	a.copy = copyMode{mark: -1}
+	a.rew = rewindMode{}
+	a.rewSay, a.rewSayAt = "", time.Time{}
+	// The rail goes with its nodes, its rooms and its pilots (task.go).
+	a.dropTasks()
+	// Which paths in THIS transcript were linkable. It is cleared at every turn
+	// end anyway (app.go's [app.settle]); leaving it would be a memo about a
+	// conversation that is no longer on screen.
+	a.pathSeen = nil
+	a.stream = nil
+	// EVERY LANE GENERATION, not only the turn's. An event already in flight on
+	// any of them must discard itself rather than land in the conversation that
+	// took this one's place — which is the law app.go's generation comment
+	// states and which /resume only ever kept for one of the eight.
+	a.gen++
+	a.convGen++
+	a.taskGen++
+	a.designGen++
+	a.titleGen++
+	a.titleLane = nil
+	a.orchGen++
+	a.roomGen++
+	a.pilotGen++
+	a.wakeGen++
+	a.state = stateIdle
+	a.resetMeters()
+	a.endRecall()
+	a.offset, a.stick = 0, true
+	// The box goes with the conversation it was typed at: the sidecar is holding
+	// it, and the arriving conversation has its own.
+	//
+	// AND ON THE KILL RING FIRST (draftring.go). The sidecar's answer to where
+	// the sentence is lasts only as long as the conversation is kept — a tab
+	// closed, a conversation evicted — and the ring is the net that still has
+	// the words after that. The push dedupes, so an ordinary switch away and
+	// back does not fill the walk with copies of one sentence.
+	a.noteKilled()
+	//
+	// ALL OF THE BOXES, which is what [app.forgetComposers] adds (recipient.go):
+	// the compact pastes the tokens in the sentence stood for, and every task
+	// page's own unsent line. A stash carried across would be words addressed to
+	// nodes the arriving conversation has never heard of, in a numbering its own
+	// tasks will reuse — the same argument the rail, the folds and the lane
+	// generations are cleared on above.
+	a.input.setText("")
+	a.chips = nil
+	a.pastes = nil
+	a.forgetComposers()
+	a.parks = nil
+	a.parkSending = false
+	a.touch()
+}
+
+// closeForSwitch puts away every overlay that must not survive a switch.
+//
+// TWO KINDS OF THING ARE HERE AND THEY FAIL DIFFERENTLY. A picker, a panel and
+// a sheet are doors onto something PROCESS-WIDE — the model catalog, the
+// profile, the shared memory store, the machine's deliverables index — and a
+// person who left /settings open in one project and found it open in another
+// would reasonably believe it was that project's settings. Copy mode, the
+// rewind sheet and the expand sheet are modes a person is in the MIDDLE of, and
+// there is nothing to be in the middle of in a conversation nobody is drawing.
+//
+// HOME IS NOT CLOSED HERE. It is usually the thing that caused the switch, and
+// it closes itself on the keystroke that did (home.go).
+func (a *app) closeForSwitch() {
+	a.pick.close()
+	a.mem.close()
+	a.permPanel.close()
+	// AND THE STANDING PAGE, which is a door onto what stands over the
+	// conversation this window was holding: the shelves are read per
+	// conversation, so one left open across a switch would be three headings
+	// about somewhere else (place_standing.go). CLOSING IS THE LOOK, so the
+	// place is handed the app to stamp it with, exactly as `esc` does.
+	a.orders.close(a)
+	// AND /subharness, for the reason above and one of its own: a card is an
+	// answer half typed, and carrying one across a switch would leave a person
+	// about to start work in a conversation they are no longer in
+	// (subharness.go).
+	a.subPage.close()
+	a.draftPage.close()
+	a.roster.close()
+	a.shelf.close()
+	a.closeLists()
+	a.closeExpand()
+	if a.at(pageSettings) {
+		a.closeSettings()
+	}
+	if a.deck.open {
+		a.closeStatusSheet()
+	}
+	if a.at(pageTasks) {
+		a.closeTaskSheet()
+	}
+	if a.rewSheet.open {
+		// RESTORING the sentence it is holding: the draft it stashed on the way
+		// in belongs to the person and not to the page that took it, and the
+		// sidecar is about to pick that box up (rewindsheet.go).
+		a.closeRewindSheet(true)
+	}
+	a.closeTaskRecord()
+	// AND THE QUESTION ABOUT CLOSING A TAB, which is a question about a SCREEN
+	// that is being replaced (tabclose.go). It never crosses a switch: answering
+	// it afterwards would act on a tab the person is no longer looking at, and the
+	// gesture is one press away wherever they land.
+	a.dropTabClose()
+}
+
+// attachConversation points the surface at a conversation and hands back the
+// commands it owes itself.
+//
+// conv is the bundle — the agent and the seams minted around it — and side is
+// the sidecar a detach left, or nil for a conversation that was just opened.
+func (a *app) attachConversation(conv Conversation, side *aside) tea.Cmd {
+	a.hostReplayLoading = false
+	a.hostReplayPending = nil
+	a.hostReplayWaiting = false
+	a.hostCalls = 0
+	a.hostDeferred = nil
+	if side != nil {
+		a.hostDeferred = side.hostDeferred
+	}
+	was := a.agent
+	a.takeUp(conv, true)
+	// ANOTHER CONVERSATION'S QUESTIONS DO NOT COME ALONG ([app.forgetQuestions]);
+	// the new lane below replays its own.
+	if a.agent != was {
+		a.forgetQuestions()
+	}
+	agent := a.agent
+	a.openingPrompt = ""
+	if side != nil {
+		a.openingPrompt = side.openingPrompt
+	}
+	// WHEN THIS ONE CAME FORWARD, stamped on the way in so the switcher's own row
+	// can say how long you have been sitting here (hop.go). Every other row
+	// measures from the sidecar its detach left; this is that stamp's other half.
+	a.frontAt = a.now()
+	a.state = stateIdle
+	a.resetMeters()
+	if agent != nil {
+		a.model = agent.Model()
+		a.title = strings.TrimSpace(agent.Title())
+		// A cached earned name survives an agent whose snapshot is still arriving.
+		if a.title == "" && side != nil {
+			a.title = side.title
+		}
+		// THE DIAL BELONGS TO THE AGENT, so what was held about the last one is
+		// dropped and this one's current model is asked about directly — the
+		// third of the three seeded moments (reasoninglevel.go).
+		a.forgetLevels()
+		a.learnLevel(a.model)
+	}
+	a.refreshCreditWarnings()
+	a.hudStale = true
+	// THE SCREEN IS REBUILT FROM THE AGENT'S OWN RECORD. This is the one moment
+	// a person can tell that this is not several terminals, and it is paid on
+	// the switch rather than on the frame.
+	//
+	// THE RECORD AND THE IN-FLIGHT TURN ARE TAKEN AS ONE READING when the agent
+	// offers it: mid-turn the journal already holds the turn's completed steps,
+	// and the attach backlog replays those same steps — two calls made
+	// separately drew them both, and a person resuming into a running turn read
+	// its first half twice. The atomic door hands back entries that stop where
+	// the turn's work begins and a stream that carries the turn whole, so the
+	// split cannot race the turn ending between the two.
+	//
+	// AND IT IS READ FROM A COMMAND, NOT FROM THE LOOP (offloop.go). The record
+	// lives in the engine's process — a session host on this machine, or another
+	// machine entirely — so this door is a call over a pipe, and a switch that
+	// made it from Update was a window that could not draw, could not take a key
+	// and could not read its own conversation's news for as long as the far end
+	// took. What it costs is one frame of an empty transcript, which is the
+	// frame the person is switching away from anyway.
+	var joined tea.Cmd
+	if door, ok := agent.(attachReplayer); ok {
+		a.hostReplayLoading = true
+		joined = a.offLoop(func() func(bool) tea.Cmd {
+			entries, events, stop := door.AttachReplay()
+			return func(here bool) tea.Cmd {
+				if !here {
+					// THE PERSON MOVED ON WHILE THE RECORD WAS COMING. Drawing
+					// it now would put another conversation's transcript on this
+					// screen, and the stream that came with it belongs to a turn
+					// nobody in this window is watching — so it is handed back
+					// rather than left running with no reader.
+					if stop != nil {
+						stop()
+					}
+					return nil
+				}
+				a.replayList(entries)
+				var back []tea.Cmd
+				if events != nil {
+					back = append(back, a.adoptTurn(events, stop))
+				}
+				// AND A QUESTION THIS CONVERSATION WAS NEVER ANSWERED IS ASKED
+				// AGAIN, here rather than beside the lanes below, because it is
+				// the one thing on the switch that can START work rather than
+				// draw what is already there — and it must see the screen
+				// exactly as the replay above left it, including whether that
+				// replay handed this window a turn that is still running
+				// (takeover.go's [app.resumeStoppedTurn]).
+				back = append(back, a.finishHostedReplay(), a.resumeStoppedTurn())
+				a.touch()
+				return tea.Batch(back...)
+			}
+		})
+	} else {
+		a.replay()
+		joined = tea.Batch(a.joinTurn(), a.resumeStoppedTurn())
+	}
+	a.noteStandingHere()
+	a.measureContext()
+	// AND THE MONEY IS ASKED FOR AGAIN, immediately after [app.resetMeters] above
+	// zeroed the figures for the conversation being left. The meters are reset
+	// because every one of them is a fact about ONE conversation, and this is the
+	// same statement's other half: the conversation being taken up has a bill of
+	// its own, restored from its journal by the engine, and a switch that only
+	// ever zeroed would put `$0.00` on the status line of a conversation that has
+	// spent real money (newApp says the rest of why, #128). Synchronous for the
+	// reason everything else on this switch is — the screen is rebuilt from the
+	// agent's own record here, and the bill is part of that record.
+	a.refreshUsage()
+	// AND THE WORK'S HALF OF THE BILL IS READ ON THE WAY IN, through the same
+	// one function every other reading goes through (treespend.go's
+	// [app.readTreeSpend]) rather than a second one, so the row and /cost can
+	// never be two figures. It is taken HERE and not left to the frame clock
+	// because that clock reads the ledger only while the task column has a
+	// roster, and the roster is rebuilt below by a replay that arrives over the
+	// following frames — so the first frame of a conversation whose family is
+	// still working would carry only what its own books hold, which is every
+	// closed node and none of the running ones (#210).
+	a.readTreeSpend()
+	// The rail is rebuilt from the engine's own record rather than carried: the
+	// task lane opens on a replay of the graph's roster (session's
+	// [Agent.WatchTaskUpdates]), so watchTasks re-grows the column row by row
+	// through the same taskUpdate door every live event uses. loadTasks
+	// refreshes only the "@" completion's snapshot (taskmention.go).
+	// AND THE WAITING ROOM IS ASKED ABOUT AGAIN, because the conversation being
+	// taken up is a DIFFERENT one: the far machine holds each session's
+	// outstanding questions with that session, and the list this surface was
+	// handed on the first frame belongs to the one it just left (hostlink.go's
+	// [app.askHeld]).
+	// AND THE TWO CONNECTION LANES ARE ARMED AGAIN FOR THE SAME REASON THE HELD
+	// QUESTIONS ARE ASKED AGAIN. On a door where each conversation has its own
+	// connection, who holds the keyboard and which turns another window started
+	// are facts about THIS conversation's connection; the waits the previous one
+	// armed are parked on the previous one's channels and discard themselves by
+	// generation (watching.go's [followingMsg]).
+	cmds := []tea.Cmd{a.watchTasks(), a.watchWakes(), a.watchDesigns(), a.watchTitles(), a.watchRuns(), a.watchQuestions(), a.loadTasks(),
+		a.askHeld(), a.watchDriving(), a.watchFollowing(),
+		// The program rows are the engine's, so they follow the conversation (delegate.go).
+		a.installDelegates()}
+
+	if side != nil {
+		cmds = append(cmds, a.restoreAside(side))
+	}
+	// THE IN-FLIGHT TURN'S STREAM IS PUMPED LAST, so the replay above has
+	// already put the person's own message on the screen: the journal holds it
+	// from the moment it was submitted, and the events this stream carries
+	// belong to that same turn number rather than to a new one.
+	if joined != nil {
+		cmds = append(cmds, joined)
+	}
+	a.touch()
+	return tea.Batch(cmds...)
+}
+
+// joinTurn puts the surface back on a turn that is still running, from its
+// first token, and answers nil when nothing is in flight.
+//
+// A SURFACE THAT SUBSCRIBED WITHOUT THE REPLAY WOULD DRAW HALF A TURN WITH NO
+// BEGINNING, which is why this goes through [session.Agent.Attach] and not
+// through a plain subscription.
+func (a *app) joinTurn() tea.Cmd {
+	door, ok := a.agent.(attachable)
+	if !ok {
+		return nil
+	}
+	events, running, stop := door.Attach()
+	if !running {
+		// Nothing to watch. The history is the journal and the replay above has
+		// already drawn it, so the surface stays idle rather than waiting on a
+		// channel that would never carry anything.
+		stop()
+		return nil
+	}
+	return a.adoptTurn(events, stop)
+}
+
+// adoptTurn wires an in-flight turn's stream onto the surface — the working
+// state, the clock, and the pump — whichever door handed it over.
+func (a *app) adoptTurn(events <-chan session.Event, stop func()) tea.Cmd {
+	a.stream = events
+	a.streamStop = stop
+	a.state = stateWorking
+	a.lastDelta = time.Now()
+	a.startClock()
+	return tea.Batch(waitEvent(a.stream, a.gen), a.wake())
+}
+
+// mainBox restores a sidecar's text and bounded insertion point together.
+func (side *aside) mainBox() editor {
+	value := []rune(side.draft)
+	cursor := len(value)
+	if side.draftCursor != nil {
+		cursor = max(0, min(*side.draftCursor, len(value)))
+	}
+	return editor{value: value, cursor: cursor}
+}
+
+// restoreAside puts the person's own readings back.
+func (a *app) restoreAside(side *aside) tea.Cmd {
+	// THE BOX IS LAID OUT ON MAIN FIRST AND THE PAGES' OWN LINES ARE PUT BEHIND
+	// IT (recipient.go), in that order: the room reopened at the foot of this
+	// function goes through the same door a rail click does, and that door is what
+	// lays this conversation's task page back out over the top.
+	a.restoreComposers(side.composers)
+	// AND THE SENDS THOSE PAGES ARE STILL WAITING ON COME BACK WITH THEM. A
+	// conversation this window never put down keeps its own rows in the outbox and
+	// this changes nothing for it ([app.steerKnown] answers for that); one read
+	// back off the record gets them here, under the names they were sent with
+	// (steersend.go's [app.restoreSentDrafts]).
+	a.restoreSentDrafts()
+	if side.draft != "" {
+		a.input = side.mainBox()
+	}
+	a.chips = side.chips
+	a.pastes = side.pastes
+	a.sends = side.sends
+	a.parks, side.parks = side.parks, nil
+	a.parkSending = side.parkSending
+	for _, note := range side.parkNotes {
+		a.note(note)
+	}
+	side.parkNotes = nil
+	a.offset, a.stick = side.offset, side.stick
+	// THE COUNTDOWN IS HANDED BACK RATHER THAN RESTAMPED, and only to a question
+	// THE ENGINE STILL HOLDS. It is consumed by [app.startAskClock] when the
+	// replayed turn raises the question again — which it does, because the
+	// event is in the turn's backlog — and it is dropped if nothing is pending,
+	// because a card restored for a question nobody is asking any more is the
+	// worst outcome available: a person would answer it.
+	if side.askLeft > 0 && a.enginePending() {
+		a.askResume, a.askResumePaused = side.askLeft, side.askPaused
+	}
+	var parked tea.Cmd
+	if _, canReport := a.agent.(attachable); !canReport && a.state == stateIdle && len(a.parks) > 0 {
+		// A scripted or older agent with no Attach door cannot tell the keeper
+		// when its turn ended. Coming forward is the first reliable idle edge it
+		// offers, so the oldest waiting message goes through the ordinary front
+		// door here rather than remaining stranded forever.
+		parked = a.sendParked()
+	}
+	if side.room == 0 {
+		return parked
+	}
+	// A ROOM IS A PLACE RATHER THAN A MODE, which is why it is the one thing on
+	// this list that is not a reading. It is cheap to reopen from the node id
+	// and expensive to explain the absence of. A node that finished while the
+	// conversation was away opens as its finished page, which is what opening it
+	// from the rail would do anyway (room.go).
+	a.openRoom(side.room, "")
+	return tea.Batch(parked, a.takeRoomPump())
+}
+
+// enginePending reports whether the agent is still holding an approval question.
+func (a *app) enginePending() bool {
+	door, ok := a.agent.(interface{ PendingConsent() []uint64 })
+	if !ok {
+		// A door that cannot be asked is not evidence either way, and the
+		// alternative — refusing to restore the clock — would silently drop the
+		// reading time on every scripted agent in the suite.
+		return true
+	}
+	return len(door.PendingConsent()) > 0
+}

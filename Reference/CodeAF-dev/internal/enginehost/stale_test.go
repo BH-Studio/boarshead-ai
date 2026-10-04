@@ -1,0 +1,400 @@
+package enginehost
+
+// stale_test.go is the half of this package that keeps a rebuild from trapping
+// somebody: a host that can be asked which build it is, that goes when it is
+// holding nothing, that stays when it is holding work, and that lets itself go
+// once the file it was started from has been replaced under it.
+//
+// These stand a REAL host on a REAL unix socket, which is why they go through
+// [shortHome] — a socket path has about a hundred bytes to spend and a Mac's
+// TMPDIR eats most of them before the test has said anything, so the home is
+// made under /tmp directly and never under whatever TMPDIR happens to be.
+
+import (
+	"net"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/remote"
+)
+
+// liveHost stands a host up on its socket and hands back the workspace it holds.
+func liveHost(t *testing.T, workspace string) {
+	t.Helper()
+	stopped := make(chan error, 1)
+	go func() {
+		stopped <- Run(workspace, Options{
+			Boot: func(remote.Hello) (*remote.Engine, error) {
+				return &remote.Engine{Agent: stubAgent{}, Workspace: workspace}, nil
+			},
+		})
+	}()
+	waitForHostQuietly(t, workspace)
+	t.Cleanup(func() {
+		// Whatever the test did, nothing is left listening: a host that
+		// outlived its test is exactly the thing this file is about.
+		_ = Retire(workspace, true)
+		select {
+		case <-stopped:
+		case <-time.After(5 * time.Second):
+		}
+	})
+}
+
+// waitForHostQuietly waits until the host accepts a connection and completes
+// the remote whois handshake. A socket pathname and a held lock can coexist
+// during startup before the host has replaced a stale socket and begun accepting.
+func waitForHostQuietly(t *testing.T, workspace string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := Ask(workspace, remote.WhoIs{}); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("no host came up")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestWaitForHostQuietlyRequiresAListeningHost pins the remove-to-listen
+// window: a held host lock plus a stale socket file is not readiness.
+func TestWaitForHostQuietlyRequiresAListeningHost(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	dir, err := Dir(workspace)
+	if err != nil {
+		t.Fatalf("resolve the directory: %v", err)
+	}
+	socket := filepath.Join(dir, socketName)
+	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
+	if err != nil {
+		t.Fatalf("plant stale socket: %v", err)
+	}
+	stale.SetUnlinkOnClose(false)
+	if err := stale.Close(); err != nil {
+		t.Fatalf("close stale socket: %v", err)
+	}
+	lock, err := takeLock(filepath.Join(dir, lockName))
+	if err != nil {
+		t.Fatalf("hold host lock: %v", err)
+	}
+
+	ready := make(chan struct{})
+	go func() {
+		waitForHostQuietly(t, workspace)
+		close(ready)
+	}()
+	select {
+	case <-ready:
+		t.Fatal("stale socket plus held lock was accepted as ready")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	if err := releaseLock(lock); err != nil {
+		t.Fatalf("release staged lock: %v", err)
+	}
+	stopped := make(chan error, 1)
+	go func() {
+		stopped <- Run(workspace, Options{
+			Boot: func(remote.Hello) (*remote.Engine, error) {
+				return &remote.Engine{Agent: stubAgent{}, Workspace: workspace}, nil
+			},
+		})
+	}()
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("listening host was not accepted as ready")
+	}
+	t.Cleanup(func() {
+		_ = Retire(workspace, true)
+		select {
+		case <-stopped:
+		case <-time.After(5 * time.Second):
+		}
+	})
+}
+
+// ── which build is holding this ─────────────────────────────────────────────
+
+func TestAHostSaysWhichBuildItIsOnItsOwnSocket(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	liveHost(t, workspace)
+
+	self, err := Ask(workspace, remote.WhoIs{})
+	if err != nil {
+		t.Fatalf("ask the host: %v", err)
+	}
+	if self.Version != remote.Version {
+		t.Fatalf("the host said it speaks %d, want %d", self.Version, remote.Version)
+	}
+	if self.Workspace != workspace {
+		t.Fatalf("the host named %q as its workspace", self.Workspace)
+	}
+	// THE QUESTION IS NOT THE WORK. A host with nothing else on it must not
+	// read its own asker as a reason to say it is busy — that would make every
+	// stale host permanently unretirable.
+	if self.Busy {
+		t.Fatal("a host holding nothing said it was busy")
+	}
+}
+
+// ── it goes when it is holding nothing ──────────────────────────────────────
+
+func TestAHostRetiresWhenAskedAndItIsHoldingNothing(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	liveHost(t, workspace)
+
+	if err := Retire(workspace, false); err != nil {
+		t.Fatalf("retire the host: %v", err)
+	}
+	if conn, err := Dial(workspace); err == nil {
+		_ = conn.Close()
+		t.Fatal("the host was still answering after it agreed to go")
+	}
+	// And the lock is free, which is what lets the next connection start a host
+	// from the binary that is on disk now.
+	dir, err := Dir(workspace)
+	if err != nil {
+		t.Fatalf("resolve the directory: %v", err)
+	}
+	held, err := takeLock(filepath.Join(dir, lockName))
+	if err != nil {
+		t.Fatalf("the retired host is still holding its lock: %v", err)
+	}
+	_ = releaseLock(held)
+}
+
+// ── and it stays when somebody is using it ──────────────────────────────────
+
+func TestAHostIsNotRetiredOutFromUnderAnAttachedSurface(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	liveHost(t, workspace)
+
+	conn, err := Dial(workspace)
+	if err != nil {
+		t.Fatalf("dial the host: %v", err)
+	}
+	surface, err := remote.Dial(conn, "test", remote.Hello{Version: remote.Version})
+	if err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	defer surface.Close()
+
+	self, err := Ask(workspace, remote.WhoIs{StandDown: true})
+	if err != nil {
+		t.Fatalf("ask the host to go: %v", err)
+	}
+	if !self.Busy {
+		t.Fatal("a host with a surface attached said it was holding nothing")
+	}
+	if self.Retiring {
+		t.Fatal("a host with a surface attached agreed to go anyway")
+	}
+	if err := Retire(workspace, false); err != ErrHostBusy {
+		t.Fatalf("retiring a busy host answered %v, want ErrHostBusy", err)
+	}
+	// AND IT IS STILL THERE, which is the whole of the promise: nobody's turn
+	// ended because somebody else's connection wanted a newer build.
+	if _, err := Ask(workspace, remote.WhoIs{}); err != nil {
+		t.Fatalf("the host stopped answering after it refused to go: %v", err)
+	}
+}
+
+// A person who has been told what is running and says stop anyway is obeyed.
+// That is what `codeaf engine --stop` is, and the turn it catches stops where
+// it is and keeps its partial reply — the same thing ctrl+c does locally.
+func TestStopEndsAHostEvenWithASurfaceOnIt(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	liveHost(t, workspace)
+
+	conn, err := Dial(workspace)
+	if err != nil {
+		t.Fatalf("dial the host: %v", err)
+	}
+	surface, err := remote.Dial(conn, "test", remote.Hello{Version: remote.Version})
+	if err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	defer surface.Close()
+
+	stopped, err := Stop(workspace)
+	if err != nil {
+		t.Fatalf("stop the host: %v", err)
+	}
+	if !stopped {
+		t.Fatal("stop found nothing to stop")
+	}
+	if conn, err := Dial(workspace); err == nil {
+		_ = conn.Close()
+		t.Fatal("the host was still answering after it was stopped")
+	}
+}
+
+// Stopping nothing is not a failure and says nothing happened, because that is
+// the ordinary answer on a machine where nobody has connected today.
+func TestStopFindsNothingToStopAndSaysSo(t *testing.T) {
+	shortHome(t)
+	stopped, err := Stop("/home/somebody/api")
+	if err != nil {
+		t.Fatalf("stop with no host: %v", err)
+	}
+	if stopped {
+		t.Fatal("stop claimed to have stopped a host that was never there")
+	}
+}
+
+// ── the binary underneath ───────────────────────────────────────────────────
+
+func TestABinaryRemovedAndRebuiltIsNotTheBinaryThatStarted(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "codeaf")
+	if err := os.WriteFile(path, []byte("first"), 0o755); err != nil {
+		t.Fatalf("write the binary: %v", err)
+	}
+	was, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat the binary: %v", err)
+	}
+	binary := hostBinary{path: path, was: was}
+	if binary.replaced() {
+		t.Fatal("an untouched binary read as replaced")
+	}
+
+	// The install this tree allows and the one it forbids, in that order:
+	// remove-and-write mints a new inode, and a copy over the top keeps the
+	// inode and moves the modification time.
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove the binary: %v", err)
+	}
+	if binary.replaced() != true {
+		t.Fatal("a deleted binary read as unchanged")
+	}
+	if err := os.WriteFile(path, []byte("second"), 0o755); err != nil {
+		t.Fatalf("rebuild the binary: %v", err)
+	}
+	if !binary.replaced() {
+		t.Fatal("a rebuilt binary read as the one that started")
+	}
+
+	// A machine that could not say which file it is never claims to have been
+	// replaced: the capability is absent rather than guessing.
+	if (hostBinary{}).replaced() {
+		t.Fatal("a host with no idea what file it is claimed to be stale")
+	}
+}
+
+func TestAHostWhoseBinaryWasReplacedRetiresOnceItIsHoldingNothing(t *testing.T) {
+	h := stubHost(t, "/home/somebody/api")
+	h.binary = replacedBinary(t)
+	h.quiet = time.Now()
+
+	if !h.sweepOnce() {
+		t.Fatal("a host started from a file that is gone stayed up with nothing to hold")
+	}
+	// AND THE DOOR IS SHUT ON THE WAY OUT, so a surface arriving in the moment
+	// between the decision and the stop is refused rather than handed a
+	// conversation that is about to end.
+	if _, err := h.open(remote.Hello{Version: remote.Version}); err == nil {
+		t.Fatal("a host on its way out opened a new conversation")
+	}
+}
+
+func TestAHostWhoseBinaryWasReplacedStaysWhileItIsHoldingWork(t *testing.T) {
+	h := stubHost(t, "/home/somebody/api")
+	h.binary = replacedBinary(t)
+	h.quiet = time.Now()
+
+	// One conversation with a surface on it. It is not idle, and this host is
+	// not the thing that ends it.
+	if _, err := h.open(remote.Hello{Version: remote.Version}); err != nil {
+		t.Fatalf("open a conversation: %v", err)
+	}
+	h.mu.Lock()
+	h.live = 1
+	h.mu.Unlock()
+
+	if h.sweepOnce() {
+		t.Fatal("a host with a connection on it retired because its binary had moved")
+	}
+	if h.retiring {
+		t.Fatal("a host holding work shut its own door")
+	}
+}
+
+// replacedBinary is a host binary whose file is already gone, which is the
+// simplest true version of "this is not the build that is on disk now".
+func replacedBinary(t *testing.T) hostBinary {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "codeaf")
+	if err := os.WriteFile(path, []byte("gone in a moment"), 0o755); err != nil {
+		t.Fatalf("write the binary: %v", err)
+	}
+	was, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat the binary: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove the binary: %v", err)
+	}
+	return hostBinary{path: path, was: was}
+}
+
+// TestDialStartingHostRetriesOnlyWhileTheHostLockIsHeld pins the cost fix: a
+// refused connect is retried while a host is coming up (its lock held) but not
+// when no host is starting (lock free), which is the ordinary state after a host
+// crash that left a stale socket, so a headless launch does not pay the retry
+// budget on every start.
+func TestDialStartingHostRetriesOnlyWhileTheHostLockIsHeld(t *testing.T) {
+	shortHome(t)
+	workspace := "/home/somebody/api"
+	dir, err := Dir(workspace)
+	if err != nil {
+		t.Fatalf("resolve the directory: %v", err)
+	}
+	// A stale socket that refuses every connect: a crashed host nobody restarted.
+	socket := filepath.Join(dir, socketName)
+	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
+	if err != nil {
+		t.Fatalf("plant stale socket: %v", err)
+	}
+	stale.SetUnlinkOnClose(false)
+	if err := stale.Close(); err != nil {
+		t.Fatalf("close stale socket: %v", err)
+	}
+
+	// Lock free: no host is coming up, so the refusal is final and does not spend
+	// the retry budget.
+	start := time.Now()
+	if conn, err := DialStartingHost(workspace); err == nil {
+		_ = conn.Close()
+		t.Fatal("a stale socket with a free lock answered as a live host")
+	}
+	if spent := time.Since(start); spent >= startingHostWait {
+		t.Fatalf("a free lock spent the retry budget: %v", spent)
+	}
+
+	// Lock held: a host is coming up in its remove-to-listen window, so the same
+	// refused connect is retried across the budget rather than answered at once.
+	lock, err := takeLock(filepath.Join(dir, lockName))
+	if err != nil {
+		t.Fatalf("hold host lock: %v", err)
+	}
+	defer func() { _ = releaseLock(lock) }()
+	start = time.Now()
+	if conn, err := DialStartingHost(workspace); err == nil {
+		_ = conn.Close()
+		t.Fatal("no host was listening, yet the dial answered")
+	}
+	if spent := time.Since(start); spent < startingHostWait {
+		t.Fatalf("a held lock did not retry across the budget: %v", spent)
+	}
+}

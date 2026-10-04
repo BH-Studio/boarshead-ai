@@ -1,0 +1,680 @@
+package session
+
+// What a compaction pass costs, what it keeps, and where the rest of it went.
+//
+// The card's own tests are next door in card_test.go and the journal's in
+// sessionfile_test.go. These are about the three claims this slice makes that
+// nothing else can check: THE PASS CALLS NO MODEL, the text it takes out of the
+// window is still readable somewhere, and the line it says about itself is true.
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/store"
+)
+
+// refusingCompleter is a provider that must never be reached.
+//
+// It is the whole claim of this slice held as a type: compaction stopped being a
+// model call, and the only way to test that a call did not happen is a client
+// whose one behaviour is to fail the test when it does.
+type refusingCompleter struct{ t *testing.T }
+
+func (c *refusingCompleter) CompleteWithMessages(context.Context, []ai.Message, ...ai.Option) (*ai.Response, error) {
+	c.t.Errorf("the compaction pass called the provider")
+	return textResponse("this should never have been asked for"), nil
+}
+
+// exchanges appends n user/assistant/tool rounds to a transcript, and the heavy
+// set says which of them carry a result big enough to be worth stubbing.
+//
+// The shape is the one the stub pass counts in: a turn starts at a user message
+// (stub.go's [stubCut]), so "six exchanges ago" and "two exchanges ago" are
+// positions this builds rather than numbers a test asserts about.
+func exchanges(n int, heavy map[int]string) []ai.Message {
+	var messages []ai.Message
+	for exchange := 1; exchange <= n; exchange++ {
+		id := fmt.Sprintf("c%d", exchange)
+		result := "small enough to keep whole"
+		if text, big := heavy[exchange]; big {
+			result = text
+		}
+		messages = append(messages,
+			textMessage("user", fmt.Sprintf("question %d", exchange)),
+			ai.Message{
+				Role:    "assistant",
+				Content: []ai.ContentPart{{Type: "text", Text: fmt.Sprintf("reading for %d", exchange)}},
+				ToolCalls: []ai.ToolCall{{
+					ID: id, Type: "function",
+					Function: ai.ToolCallFunction{Name: "read", Arguments: `{"path":"a.go"}`},
+				}},
+			},
+			ai.Message{Role: "tool", ToolCallID: id, Content: []ai.ContentPart{{Type: "text", Text: result}}})
+	}
+	return messages
+}
+
+// ── the stub pass ───────────────────────────────────────────────────────────
+
+// THE FIRST PASS IS MECHANICAL AND FREE. A tool result the model has already
+// used becomes one line naming the tool, what it said first, and where the whole
+// of it can be read back — and the results of the last four turns, which are the
+// work in hand, are not touched at all.
+func TestCompactionStubsTheOldToolResultsAndCallsNoModel(t *testing.T) {
+	heavy := strings.Repeat("package main // the whole of it, again and again.\n", 60)
+	agent, workspace := newTestAgent(t, &refusingCompleter{t: t}, func(config *Config) {
+		// A window nothing in this transcript can exceed, so the pass is the
+		// stub pass alone and a fold on top of it is not one more thing to
+		// explain.
+		config.ContextWindow = 2_000_000
+	})
+
+	agent.mu.Lock()
+	agent.messages = append(agent.messages, exchanges(6, map[int]string{1: heavy, 5: heavy})...)
+	agent.mu.Unlock()
+
+	changed, err := agent.compact(context.Background(), nil)
+	if !changed || err != nil {
+		t.Fatalf("compact = %v, %v; want a pass that stubbed", changed, err)
+	}
+
+	agent.mu.Lock()
+	messages := append([]ai.Message(nil), agent.messages...)
+	agent.mu.Unlock()
+
+	// Six exchanges back: a stub, and it names all three mechanical facts.
+	stub := messageText(messages[3])
+	if !strings.HasPrefix(stub, "[tool: read · ") {
+		t.Fatalf("the old result was not stubbed: %q", stub)
+	}
+	if !strings.Contains(stub, "package main") || !strings.Contains(stub, fmt.Sprintf("%d bytes", len(heavy))) {
+		t.Fatalf("the stub says nothing about the result it replaced: %q", stub)
+	}
+
+	// Two exchanges back: VERBATIM. It is what the model is working on.
+	if got := messageText(messages[15]); got != heavy {
+		t.Fatalf("a recent result was stubbed:\n%q", shortLine(got))
+	}
+
+	// And the person's own words, everywhere, exactly as they were typed.
+	for exchange := 1; exchange <= 6; exchange++ {
+		want := fmt.Sprintf("question %d", exchange)
+		if got := messageText(messages[1+3*(exchange-1)]); got != want {
+			t.Fatalf("a user message was rewritten: %q, want %q", got, want)
+		}
+	}
+
+	// THE POINTER POINTS AT SOMETHING. A stub naming a path with nothing at it
+	// is the one failure this pass may not have.
+	path := stubPathIn(t, stub)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(workspace, path)
+	}
+	kept, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("the stub names bytes that are not there: %v", err)
+	}
+	if string(kept) != heavy {
+		t.Fatalf("the spilled result is %d bytes, want the original %d", len(kept), len(heavy))
+	}
+}
+
+// A pass with nothing old enough to stub and nothing over threshold to fold did
+// nothing, and says so — the error [ErrNothingToCompact] has always meant.
+func TestCompactionWithNothingToDoSaysSo(t *testing.T) {
+	agent, _ := newTestAgent(t, &refusingCompleter{t: t}, func(config *Config) {
+		config.ContextWindow = 2_000_000
+	})
+	agent.mu.Lock()
+	agent.messages = append(agent.messages, exchanges(2, nil)...)
+	agent.mu.Unlock()
+
+	if changed, err := agent.compact(context.Background(), nil); changed || !errors.Is(err, ErrNothingToCompact) {
+		t.Fatalf("compact = %v, %v; want ErrNothingToCompact", changed, err)
+	}
+}
+
+// ── the fold ────────────────────────────────────────────────────────────────
+
+// Still over threshold after stubbing: the OLDEST ASSISTANT WORK goes into one
+// marker line, the person's words stay, the recent tail stays, and the marker
+// says how much went and where it can be read.
+func TestCompactionFoldsTheOldestAssistantWorkAndKeepsTheWords(t *testing.T) {
+	agent, _ := newTestAgent(t, &refusingCompleter{t: t}, func(config *Config) {
+		// Threshold 1000 tokens (4000 bytes), verbatim tail 500.
+		config.ContextWindow = 2000
+		// A fold marker with no store behind it points at journal lines, so
+		// this session needs the journal it would have in life.
+		config.SessionFile = filepath.Join(t.TempDir(), "session.jsonl")
+	})
+	long := strings.Repeat("thinking about the parser. ", 100)
+	// The two long messages are told apart, because the check that the marker
+	// points at the folded run has to fail when it points at the run that
+	// stayed in the window.
+	oldest, newest := long+"and that is the oldest sweep.", long+"and that is the newer sweep."
+
+	agent.mu.Lock()
+	for _, message := range []ai.Message{
+		textMessage("user", "the first question"),
+		textMessage("assistant", oldest),
+		textMessage("user", "the second question"),
+		textMessage("assistant", newest),
+		textMessage("user", "the third question"),
+		textMessage("assistant", "the short last word"),
+	} {
+		// The journal is the floor a no-store marker points at, so the fixture
+		// must write the way the turn does: a message that never reached the
+		// file is one the marker can only point at vaguely.
+		agent.messages = append(agent.messages, message)
+		if agent.file != nil {
+			agent.file.append(message, false, nil)
+		}
+	}
+	agent.mu.Unlock()
+
+	changed, err := agent.compact(context.Background(), nil)
+	if !changed || err != nil {
+		t.Fatalf("compact = %v, %v; want a pass that folded", changed, err)
+	}
+
+	agent.mu.Lock()
+	messages := append([]ai.Message(nil), agent.messages...)
+	agent.mu.Unlock()
+
+	var marker string
+	longMessages := 0
+	for _, message := range messages {
+		text := messageText(message)
+		if strings.HasPrefix(text, foldMarkerPrefix) {
+			marker = text
+		}
+		if strings.Contains(text, "thinking about the parser") {
+			longMessages++
+		}
+	}
+	if longMessages >= 2 {
+		t.Fatalf("the oldest assistant work was not folded: %v", textsOf(messages))
+	}
+	if marker == "" {
+		t.Fatalf("no fold marker in %v", rolesOf(messages))
+	}
+	if !strings.HasPrefix(marker, foldMarkerPrefix) || !strings.HasSuffix(marker, "]") {
+		t.Fatalf("fold marker is not a closed [folded …] line: %q", marker)
+	}
+	if !strings.Contains(marker, "message") {
+		t.Fatalf("fold marker = %q", marker)
+	}
+	// The marker names the journal file this session is writing — a path the
+	// model can grep or read — not a store: or journal:line- token neither
+	// tool can open, and it says which tool opens it.
+	journal := agent.config.SessionFile
+	if journal == "" || !strings.Contains(marker, journal) {
+		t.Fatalf("the marker does not name the journal %q: %q", journal, marker)
+	}
+	if !strings.Contains(marker, "grep or read "+journal) {
+		t.Fatalf("the marker names the journal without saying it can be opened: %q", marker)
+	}
+	if strings.Contains(marker, "journal:line-") {
+		t.Fatalf("the marker still uses the unreadable journal:line- form: %q", marker)
+	}
+
+	// THE ISSUE'S VERIFICATION, FOLLOWED THROUGH: take the path out of the
+	// marker the way the model would, open it, and find the folded words at
+	// the lines the marker named. A pointer no test ever follows is a pointer
+	// nobody has checked.
+	path, from, to := foldMarkerTarget(t, marker)
+	if path != journal {
+		t.Fatalf("the marker points at %q, not at this session's journal %q", path, journal)
+	}
+	record, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("the path the marker names does not open: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(string(record), "\n"), "\n")
+	if from < 1 || to > len(lines) || from > to {
+		t.Fatalf("the marker names lines %d..%d of a journal %d lines long: %q", from, to, len(lines), marker)
+	}
+	if !strings.Contains(strings.Join(lines[from-1:to], "\n"), "and that is the oldest sweep") {
+		t.Fatalf("lines %d..%d of %s do not hold the folded work", from, to, path)
+	}
+
+	// EVERY QUESTION IS STILL THERE. Nothing else in a transcript can be
+	// reconstructed from anywhere, so nothing else is protected this way.
+	for _, want := range []string{"the first question", "the second question", "the third question"} {
+		if !holdsText(messages, want) {
+			t.Fatalf("%q was folded away: %v", want, rolesOf(messages))
+		}
+	}
+	// And the tail is verbatim.
+	if !holdsText(messages, "the short last word") {
+		t.Fatalf("the recent tail went into the fold: %v", rolesOf(messages))
+	}
+}
+
+// A general compaction may run between two tool rounds, but the current turn is
+// not old conversation history. Its exact calls and results are the model's
+// working memory and must be left to the use-aware turn-output pass.
+func TestCompactionKeepsTheRunningTurnsToolBatches(t *testing.T) {
+	agent, _ := newTestAgent(t, &refusingCompleter{t: t}, func(config *Config) {
+		config.ContextWindow = 4000
+		config.SessionFile = filepath.Join(t.TempDir(), "session.jsonl")
+	})
+	long := strings.Repeat("working context. ", 700)
+
+	agent.mu.Lock()
+	agent.messages = append(agent.messages,
+		textMessage("user", "old question"),
+		textMessage("assistant", long),
+		textMessage("user", "current work"),
+	)
+	agent.running = true
+	agent.turnFloor = len(agent.messages)
+	agent.messages = append(agent.messages,
+		ai.Message{Role: "assistant", ToolCalls: []ai.ToolCall{{
+			ID: "edit-now", Function: ai.ToolCallFunction{
+				Name: "edit", Arguments: `{"path":"main.go","old_text":"old","new_text":"new"}`,
+			},
+		}}},
+		ai.Message{Role: "tool", ToolCallID: "edit-now", Content: []ai.ContentPart{{Type: "text", Text: "edited main.go"}}},
+		textMessage("user", long),
+	)
+	folded, _ := agent.foldLocked()
+	messages := append([]ai.Message(nil), agent.messages...)
+	agent.mu.Unlock()
+
+	if folded == 0 {
+		t.Fatal("fixture did not create enough old context for a fold")
+	}
+	callKept, resultKept, noteKept := false, false, false
+	for _, message := range messages {
+		for _, call := range message.ToolCalls {
+			callKept = callKept || call.ID == "edit-now"
+		}
+		resultKept = resultKept || message.ToolCallID == "edit-now"
+		noteKept = noteKept || messageContentText(message) == long
+	}
+	if !callKept || !resultKept || !noteKept {
+		t.Fatalf("running work was folded: call=%v result=%v note=%v roles=%v",
+			callKept, resultKept, noteKept, rolesOf(messages))
+	}
+}
+
+// foldMarkerTarget reads a fold marker the way the model is asked to: the file
+// is the word after `grep or read`, and the lines it folded are said after the
+// path in prose so that the path itself stays a word either tool takes.
+func foldMarkerTarget(t *testing.T, marker string) (path string, from, to int) {
+	t.Helper()
+	_, target, opened := strings.Cut(strings.TrimSuffix(marker, "]"), "grep or read ")
+	if !opened {
+		t.Fatalf("the marker names no file to open: %q", marker)
+	}
+	path, span, ranged := strings.Cut(target, ", lines ")
+	if !ranged {
+		path, span, ranged = strings.Cut(target, ", line ")
+	}
+	if !ranged {
+		return path, 0, 0
+	}
+	firstText, lastText, spanned := strings.Cut(span, "..")
+	if !spanned {
+		lastText = firstText
+	}
+	first, firstErr := strconv.Atoi(firstText)
+	last, lastErr := strconv.Atoi(lastText)
+	if firstErr != nil || lastErr != nil {
+		t.Fatalf("the marker's line span is not a pair of numbers: %q", marker)
+	}
+	return path, first, last
+}
+
+// foldMarker itself, as the examples in its comment: a journal path with a
+// line span, a path alone when the lines cannot be named, and the honest
+// fallback when there is no file at all.
+func TestFoldMarkerNamesAGrepableJournalPath(t *testing.T) {
+	const journal = "/home/x/.codeaf/v3/sessions/abc.jsonl"
+	cases := []struct {
+		journal  string
+		from, to int
+		stored   bool
+		want     string
+	}{
+		{journal, 12, 40, false, "[folded 31 messages · grep or read " + journal + ", lines 12..40]"},
+		{journal, 12, 12, false, "[folded 31 messages · grep or read " + journal + ", line 12]"},
+		// One end without the other would read as the location of the whole
+		// run, so the file goes alone rather than pointing at a line where a
+		// hundred of them went.
+		{journal, 0, 40, false, "[folded 31 messages · grep or read " + journal + "]"},
+		{journal, 12, 0, false, "[folded 31 messages · grep or read " + journal + "]"},
+		{journal, 0, 0, false, "[folded 31 messages · grep or read " + journal + "]"},
+		// No file to name. The store is the record that is left, and saying
+		// the journal there would send the model to a path that is not there.
+		{"", 0, 0, true, "[folded 31 messages · full record in the store]"},
+		{"", 0, 0, false, "[folded 31 messages · full record in the session journal]"},
+	}
+	for _, one := range cases {
+		if got := foldMarker(31, one.journal, one.from, one.to, one.stored); got != one.want {
+			t.Fatalf("foldMarker(%q, %d, %d, %v) =\n%q\nwant\n%q", one.journal, one.from, one.to, one.stored, got, one.want)
+		}
+	}
+}
+
+// ── the announcement ────────────────────────────────────────────────────────
+
+// The line the turn after a pass shows, and EVERY CLAUSE IN IT IS A REAL COUNT.
+func TestTheCompactionLineSaysWhatThePassActuallyDid(t *testing.T) {
+	got := compactionHint(compactionPass{stubbed: 14, folded: 31, stored: true}, 0, 0)
+	want := "compacted · stubbed 14 tool results · folded 31 messages · nothing lost — full record in the store"
+	if got != want {
+		t.Fatalf("hint =\n%q\nwant\n%q", got, want)
+	}
+
+	// A count of zero is not a clause. The emptiness law: "folded 0 messages"
+	// is a sentence about nothing.
+	single := compactionHint(compactionPass{stubbed: 1, stored: true}, 9000, 4000)
+	if strings.Contains(single, "folded") {
+		t.Fatalf("a fold that did not happen was announced: %q", single)
+	}
+	if !strings.Contains(single, "stubbed 1 tool result ") || strings.Contains(single, "1 tool results") {
+		t.Fatalf("the singular is wrong: %q", single)
+	}
+	if !strings.Contains(single, "~9k → ~4k tokens") {
+		t.Fatalf("the pass did not say what it saved: %q", single)
+	}
+}
+
+// WITHOUT A STORE THE LINE MAKES THE SMALLER PROMISE. "Nothing lost" is a claim
+// about a record that outlives this session file, and a session with memory off
+// does not have one — it has the journal, which keeps every original line above
+// the marker, and that is what it says.
+func TestTheCompactionLineIsHonestWithoutAStore(t *testing.T) {
+	got := compactionHint(compactionPass{stubbed: 2, folded: 3, stored: false}, 0, 0)
+	if strings.Contains(got, "nothing lost") || strings.Contains(got, "in the store") {
+		t.Fatalf("a session with no store claimed one: %q", got)
+	}
+	if !strings.HasSuffix(got, "full record in the session journal") {
+		t.Fatalf("hint = %q", got)
+	}
+}
+
+// ── the lossless floor ──────────────────────────────────────────────────────
+
+// EVERY EVICTED MESSAGE IS STILL READABLE, and this is the test that opens a
+// real store to prove it rather than a fake that would agree with whatever the
+// code did.
+//
+// The >16KiB result is the interesting one: it cannot be posted whole
+// ([store.MaxMessageBytes]), so the post names a spill file and the stub names
+// the post. Following the pointer has to reach the original bytes, or the floor
+// is a story about a floor.
+func TestCompactionLeavesEveryEvictedMessageReadableInTheStore(t *testing.T) {
+	huge := strings.Repeat("the build output, line after line after line.\n", 800)
+	if len(huge) <= store.MaxMessageBytes {
+		t.Fatalf("the oversized result is only %d bytes", len(huge))
+	}
+	journal := filepath.Join(t.TempDir(), "session.jsonl")
+	agent, brain := brainAgent(t, &refusingCompleter{t: t}, func(config *Config) {
+		config.ContextWindow = 2000
+		// The store is on and still the journal path is the required pointer
+		// — store:N is not something grep or read can open.
+		config.SessionFile = journal
+	})
+	workspace := agent.config.Workspace
+	if agent.chatlog == nil {
+		t.Fatal("a session with a store opened no chat log")
+	}
+
+	long := strings.Repeat("working through the parser. ", 60)
+	recorded := []ai.Message{
+		textMessage("user", "why is the build red"),
+		{
+			Role:    "assistant",
+			Content: []ai.ContentPart{{Type: "text", Text: long}},
+			ToolCalls: []ai.ToolCall{{
+				ID: "c1", Type: "function",
+				Function: ai.ToolCallFunction{Name: "bash", Arguments: `{"command":"go build ./..."}`},
+			}},
+		},
+		{Role: "tool", ToolCallID: "c1", Content: []ai.ContentPart{{Type: "text", Text: huge}}},
+		textMessage("user", "and after that"),
+		textMessage("assistant", long),
+		textMessage("user", "and then"),
+		textMessage("assistant", long),
+		textMessage("user", "so where are we"),
+		textMessage("assistant", "here"),
+		textMessage("user", "one more check"),
+		textMessage("assistant", long),
+		textMessage("user", "last check"),
+		textMessage("assistant", "done"),
+	}
+	for _, message := range recorded {
+		agent.record(message)
+	}
+	// The queue is drained before the pass, because a stub can only name a
+	// pointer that has already landed (chatlog.go).
+	agent.chatlog.settle()
+
+	changed, err := agent.compact(context.Background(), nil)
+	if !changed || err != nil {
+		t.Fatalf("compact = %v, %v; want a pass that ran", changed, err)
+	}
+	agent.chatlog.settle()
+
+	agent.mu.Lock()
+	messages := append([]ai.Message(nil), agent.messages...)
+	agent.mu.Unlock()
+
+	// The pass did both halves of its job: the heavy result is a stub, and the
+	// oldest assistant work is a marker.
+	stub := ""
+	marker := ""
+	for _, message := range messages {
+		text := messageText(message)
+		if strings.HasPrefix(text, "[tool: bash · ") {
+			stub = text
+		}
+		if strings.HasPrefix(text, foldMarkerPrefix) {
+			marker = text
+		}
+	}
+	if stub == "" {
+		t.Fatalf("the heavy result was never stubbed: %v", rolesOf(messages))
+	}
+	if marker == "" {
+		t.Fatalf("nothing was folded, so this proves nothing about eviction: %v", rolesOf(messages))
+	}
+	if !strings.Contains(marker, journal) || !strings.HasSuffix(marker, "]") {
+		t.Fatalf("a stored session still has to name the journal: %q", marker)
+	}
+
+	posted, err := brain.Messages(agent.id, 0, 500)
+	if err != nil {
+		t.Fatalf("read the thread back: %v", err)
+	}
+	if len(posted) == 0 {
+		t.Fatalf("the session posted nothing under %q", agent.id)
+	}
+
+	// Every message this session ever held is findable in the thread — the
+	// person's words, the assistant's work, and the tool result by its pointer.
+	for _, message := range recorded {
+		text := messageContentText(message)
+		if text == huge || strings.TrimSpace(text) == "" {
+			continue
+		}
+		if !postedHolds(posted, text) {
+			t.Fatalf("an evicted message is in no store record: %q", shortLine(text))
+		}
+	}
+
+	// THE POINTER IS SOMETHING THE MODEL CAN OPEN, and it used to be a store id.
+	// Nothing on this belt fetches a store message by id — search_conversations
+	// searches words and clips each hit to a line — so the stub named a handle
+	// only this process could resolve. It is the filed bytes now.
+	pointer := stubPathIn(t, stub)
+	if strings.HasPrefix(pointer, chatRefPrefix) {
+		t.Fatalf("the stub points at %q, which no verb on the belt resolves", pointer)
+	}
+	filed := pointer
+	if !filepath.IsAbs(filed) {
+		filed = filepath.Join(workspace, filed)
+	}
+	full, err := os.ReadFile(filed)
+	if err != nil {
+		t.Fatalf("the stub names bytes that are not there: %v", err)
+	}
+	if string(full) != huge {
+		t.Fatalf("the filed result is %d bytes, want the original %d", len(full), len(huge))
+	}
+
+	// AND THE STORE IS STILL THE FLOOR UNDER IT. The oversized result cannot be
+	// posted whole ([store.MaxMessageBytes]), so its post names a spill file; that
+	// file is the original bytes whether or not any stub points at it.
+	spilled := false
+	for index := range posted {
+		for _, attachment := range posted[index].Attachments {
+			if !filepath.IsAbs(attachment) {
+				attachment = filepath.Join(workspace, attachment)
+			}
+			bytes, err := os.ReadFile(attachment)
+			if err == nil && string(bytes) == huge {
+				spilled = true
+			}
+		}
+	}
+	if !spilled {
+		t.Fatal("no post in the thread spilled the oversized result, so the store floor is a story about a floor")
+	}
+}
+
+// ── replay ──────────────────────────────────────────────────────────────────
+
+// A RESUME REBUILDS THE IDENTICAL WINDOW. The marker means "discard everything
+// above me", and the pass now EDITS above it — a result becomes a stub, a run of
+// work becomes one line — so the whole rebuilt window is re-journaled below it
+// and comes back as ordinary message lines rather than from counts.
+func TestResumeRebuildsTheStubbedAndFoldedWindowVerbatim(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	workspace := t.TempDir()
+	heavy := strings.Repeat("package main // the whole of it, again and again.\n", 60)
+
+	live, err := newAgent(Config{
+		Workspace: workspace, Model: "test/model", System: "SYSTEM",
+		SessionFile: path, ContextWindow: 2000,
+	}, &refusingCompleter{t: t})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	long := strings.Repeat("working through the parser. ", 100)
+	prefix := []ai.Message{
+		textMessage("user", "start with the architecture"),
+		textMessage("assistant", long),
+	}
+	for _, message := range append(prefix, append(exchanges(6, map[int]string{1: heavy}),
+		textMessage("user", "keep going"), textMessage("assistant", long))...) {
+		live.record(message)
+	}
+
+	changed, err := live.compact(context.Background(), nil)
+	if !changed || err != nil {
+		t.Fatalf("compact = %v, %v; want a pass that ran", changed, err)
+	}
+
+	live.mu.Lock()
+	want := append([]ai.Message(nil), live.messages...)
+	live.mu.Unlock()
+	if !holdsPrefix(want, "[tool: read · ") {
+		t.Fatalf("nothing was stubbed, so replay proves nothing: %v", rolesOf(want))
+	}
+	if !holdsPrefix(want, foldMarkerPrefix) {
+		t.Fatalf("nothing was folded, so replay proves nothing: %v", rolesOf(want))
+	}
+	if err := live.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	resumed, err := newAgent(Config{
+		Workspace: workspace, Model: "test/model", System: "SYSTEM", SessionFile: path,
+	}, &refusingCompleter{t: t})
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	t.Cleanup(func() { _ = resumed.Close() })
+
+	resumed.mu.Lock()
+	got := append([]ai.Message(nil), resumed.messages...)
+	resumed.mu.Unlock()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("the resumed window differs from the live one\n got: %v\nwant: %v",
+			textsOf(got), textsOf(want))
+	}
+}
+
+// ── the machinery that is gone ──────────────────────────────────────────────
+
+// The frames rung and the summarizer are DELETED rather than disabled, and the
+// dropping directory they wrote into is gone with them. A capability that cannot
+// work is absent, not broken — and a session folder that still made a frames/
+// directory would be a session still promising one.
+func TestTheFramesDroppingIsGone(t *testing.T) {
+	place := newPlace(t, false)
+	if _, err := os.Stat(filepath.Join(place.Logs(), "frames")); !os.IsNotExist(err) {
+		t.Fatalf("a frames directory is still being made: %v", err)
+	}
+}
+
+// ── small readers ───────────────────────────────────────────────────────────
+
+func holdsText(messages []ai.Message, want string) bool {
+	for _, message := range messages {
+		if strings.Contains(messageText(message), want) {
+			return true
+		}
+	}
+	return false
+}
+
+func holdsPrefix(messages []ai.Message, prefix string) bool {
+	for _, message := range messages {
+		if strings.HasPrefix(messageText(message), prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func postedHolds(posted []store.Message, want string) bool {
+	for _, message := range posted {
+		if strings.Contains(message.Body, want) {
+			return true
+		}
+	}
+	return false
+}
+
+func textsOf(messages []ai.Message) []string {
+	out := make([]string, 0, len(messages))
+	for _, message := range messages {
+		out = append(out, message.Role+": "+shortLine(messageText(message)))
+	}
+	return out
+}
+
+func shortLine(text string) string {
+	if index := strings.IndexByte(text, '\n'); index >= 0 {
+		text = text[:index]
+	}
+	if len(text) > 80 {
+		text = text[:80] + "…"
+	}
+	return text
+}

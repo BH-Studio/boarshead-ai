@@ -1,0 +1,472 @@
+package tui3
+
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/Agent-Field/codeaf/internal/config"
+	"github.com/Agent-Field/codeaf/internal/session"
+	"github.com/Agent-Field/codeaf/internal/standing"
+)
+
+// ── THE SPENDING TAB ────────────────────────────────────────────────────────
+//
+// Money has ONE EDITOR and MANY DOORS (docs/design/spending/DESIGN.md). The
+// editor is this tab: the registry's four money rows, in the order a person
+// worries about them, with the day's own bill above them and — between them —
+// the two rails this build enforces somewhere a settings row cannot reach.
+//
+//	 today             $3.42 of $500 · resets at midnight
+//	 per day           $500
+//	 per conversation  no limit                          this one $0.41
+//	 per plan          asks first above $100
+//	 per task          $5 a task                         set in /crew
+//	 per standing run  $5 a firing                       each order may name its own
+//	 practice          $50 of the day
+//
+// Three of those seven base rows are READINGS and not settings, and the
+// difference is the whole of what keeps this tab honest:
+//
+//   - `today` is where the eye lands, and it answers "what is it costing" before
+//     anybody edits anything. It is a receipt: the cursor steps over it, and
+//     before the first call of the day it is not there at all (the emptiness
+//     law — a `$0.00 of $500` on a fresh morning is a claim nobody made).
+//   - `per task` and `per standing run` are rails this build HAS and does not
+//     keep a settings row for. A task's limit is set in /crew, and a standing
+//     order's per-firing rail is written per item on the `stand` tool. The
+//     design asked for seven rows and the honest way to have seven is to SAY what those two rails are,
+//     not to grow two knobs that write nowhere. A row that pretended to edit a
+//     rail nothing reads would be worse than the absence it was covering.
+//
+// Two more readings exist only when a figure is short: `unwritten` for a row
+// the disk could not take, and `unbilled` for a charged call no provider receipt
+// could price. Their zero state is absence, so the ordinary seven-row tab stays
+// exactly seven rows wide.
+//
+// EVERY VALUE ON THIS TAB IS A SENTENCE FRAGMENT COMPLETING "it may spend…",
+// and every one of them degrades through rowfit rather than being cut: the
+// label is the identity and stays whole, the value gives up its longest
+// spelling first, and the receipt is the first thing off the row (rowfit.go's
+// law 3, the design's "Narrow widths").
+
+// railReading is one row of this tab that is a fact rather than a knob: what it
+// is called, what it says, and the dim fact beside that. Both are [rowField]s
+// because every one of them has a shorter spelling for a narrower frame.
+type railReading struct {
+	name    string
+	value   rowField
+	receipt rowField
+}
+
+// spendingOrder is the four registry rows of this tab, in READING order: the
+// day (the bill), this conversation (the window in front of you), the plan (the
+// question), and codeaf's own slice. Not alphabetical, not registry order, not
+// by key — by how often a person worries about each one.
+var spendingOrder = []string{
+	config.KeyDailyBudget,
+	config.KeySpendRail,
+	config.KeyPlanConsent,
+	config.KeyPracticeBudget,
+}
+
+// spendingItems is the whole Spending tab, readings and rows interleaved.
+//
+// A ROW NOBODY ORDERED IS STILL DRAWN, at the foot, in registry order — the same
+// contract [sheet.tabRows] keeps for every other tab, so a fifth money row lands
+// on this tab reachable before anybody has thought about where it goes.
+func (s *sheet) spendingItems() []sheetItem {
+	mine := map[string]config.Setting{}
+	var order []string
+	for _, row := range s.rows {
+		if meta, ok := settingMetaFor(row); ok && meta.tab == tabSpending {
+			mine[row.Key] = row
+			order = append(order, row.Key)
+		}
+	}
+	items := make([]sheetItem, 0, len(order)+4)
+	add := func(key string) {
+		row, ok := mine[key]
+		if !ok {
+			return
+		}
+		delete(mine, key)
+		meta, _ := settingMetaFor(row)
+		items = append(items, sheetItem{row: row, meta: meta})
+	}
+	if s.today != nil {
+		items = append(items, sheetItem{read: s.today})
+	}
+	// AND WHAT THE MACHINE COULD NOT WRITE DOWN, directly under the day it makes
+	// short. Absent whenever nothing was lost, which is nearly always.
+	if unwritten := unwrittenReading(); unwritten != nil {
+		items = append(items, sheetItem{read: unwritten})
+	}
+	// AND WHAT THE PROVIDER CHARGED WITHOUT PUTTING A FIGURE ON, beside the
+	// missing writes because both facts make every total below them short.
+	if unbilled := unbilledReading(); unbilled != nil {
+		items = append(items, sheetItem{read: unbilled})
+	}
+	add(config.KeyDailyBudget)
+	add(config.KeySpendRail)
+	add(config.KeyPlanConsent)
+	items = append(items, sheetItem{read: taskReading(s.profileDir)}, sheetItem{read: standingReading()})
+	add(config.KeyPracticeBudget)
+	for _, key := range order {
+		if _, left := mine[key]; left {
+			add(key)
+		}
+	}
+	return items
+}
+
+// todayReading is the first row: what the day has cost, against what it is
+// allowed, and when the count starts again.
+//
+// IT IS NIL BEFORE THE FIRST CALL OF THE DAY. A machine that has not spent
+// anything has not spent zero — it has not spent — and `$0.00 of $500` on a
+// quiet morning is exactly the reading the emptiness law exists to prevent.
+func (a *app) todayReading() *railReading {
+	spent, counted := a.spentTodayUSD()
+	if !counted || spent <= 0 {
+		return nil
+	}
+	figure := dollars(spent)
+	rail, err := config.DailyBudgetUSDAt(a.profileDir)
+	if err != nil || rail <= 0 {
+		// No rail is not a missing denominator to be drawn as a gap: the row
+		// says the day's figure and the word that says nothing bounds it.
+		return &railReading{name: spendTodayWord,
+			value: rowSay(figure+" · "+config.NoLimitWord, figure)}
+	}
+	of := figure + " of " + railFigure(rail)
+	return &railReading{name: spendTodayWord,
+		value: rowSay(of+" · resets at midnight", of, figure)}
+}
+
+// spendTodayWord is the first row's name, and it is the same word every door
+// that lands here uses for it.
+const spendTodayWord = "today"
+
+// railFigure is how a LIMIT is written on this surface: whole dollars when the
+// figure is whole, and cents when it is not.
+//
+// IT IS NOT [dollars], and the difference is the point. That function writes
+// what something COST — a measurement, always to the cent, `$0.00` on the status
+// line so its segments do not jump sideways. A limit is a figure somebody TYPED,
+// and `$500.00` is that figure with two cells of noise on the end: nobody sets a
+// daily limit of five hundred dollars and no cents. The day's own spend on the
+// `today` row keeps [dollars], because that half of the line is a measurement.
+// railSpell is that spelling applied to a figure the registry has already
+// formatted. internal/config writes the shortest form that is still the same
+// number ("$4.1"), which is right for a config file and one cell short of what a
+// column of money reads as — this tab's own law is whole dollars when whole and
+// cents otherwise, and this is the one place it is applied.
+func railSpell(value string) string {
+	figure, err := strconv.ParseFloat(strings.TrimPrefix(value, "$"), 64)
+	if err != nil || !strings.HasPrefix(value, "$") {
+		return value
+	}
+	return railFigure(figure)
+}
+
+func railFigure(usd float64) string {
+	switch {
+	case usd == float64(int64(usd)):
+		// A WHOLE LIMIT KEEPS ITS THOUSANDS MARK even though it keeps no pence:
+		// `$50,000` and `$5,000` are told apart at a glance and `$50000` and
+		// `$5000` are not, and a limit is a figure somebody checks in passing.
+		// It is the same mark the cost beside it wears ([groupDigits]).
+		return "$" + groupDigits(strconv.FormatInt(int64(usd), 10))
+	case usd < 0.01:
+		// AND A SUB-CENT LIMIT IS STILL A LIMIT. Two decimals turn a tenth of a
+		// cent into `$0.00`, which is the one reading this tab exists to never
+		// give: the figure a person typed rendered as its own opposite.
+		return subCent(usd)
+	}
+	return groupedDollars(usd)
+}
+
+// subCent is how an amount SMALLER THAN A CENT is written, and it is the one
+// rule both [railFigure] and [dollars] read.
+//
+// THE DEFECT IT FIXES. Four places is right down to a hundredth of a cent and
+// silently wrong under one: a real, positive, non-zero cost of six millionths
+// of a dollar came out as `$0.0000`, which is four zeros where the emptiness
+// law has taught every reader of this surface to see nothing at all. That is
+// the law's own failure mode inverted — it forbids drawing a zero for something
+// unknown, and this drew a zero for something known and spent. A person
+// checking what a turn cost read "nothing", and nothing is the one thing it was
+// not.
+//
+// SO THE FLOOR SAYS IT IS A FLOOR. `<$0.0001` is eight cells, it never rounds
+// to a lie, and it holds one width for every amount beneath it — which is what
+// the status line needs from a segment whose stillness is the point. More
+// decimals were the other answer and they are worse: `$0.000006` is a figure
+// nobody acts on, and the number of cells it costs depends on how small it is.
+//
+// THE RULE ITSELF LIVES IN internal/config ([config.SubCent]), because the
+// receipts beside each limit are written there and drew `$0.0000` while this
+// surface drew `<$0.0001` for the same day.
+func subCent(usd float64) string { return config.SubCent(usd) }
+
+// taskReading is the per-task limit a crew task runs under: the figure set in
+// /crew, which stops the task's next call once the task has spent it. The task
+// also spends against the day and the conversation that started it.
+func taskReading(profileDir string) *railReading {
+	figure := config.CrewTaskMoney(config.CrewTaskCapAt(profileDir))
+	return &railReading{name: "per task",
+		value:   rowSay(figure+" a task", figure),
+		receipt: rowSay("set in /crew · it also spends against the day and this conversation", "set in /crew")}
+}
+
+// standingReading is what one firing of a standing order may spend when the
+// order did not name its own figure ([standing.DefaultPerRunUSD]).
+//
+// IT IS A READING BECAUSE THE RAIL IS PER ITEM. Every standing order carries its
+// own `per_run_usd`, set where the order is written, so there is no single
+// number a settings row could hold — what this row can honestly say is the
+// figure an order that named nothing runs under, and where the other answer
+// lives.
+func standingReading() *railReading {
+	return &railReading{name: "per standing run",
+		value:   rowSay(railFigure(standing.DefaultPerRunUSD)+" a firing", railFigure(standing.DefaultPerRunUSD)),
+		receipt: rowSay("each order may name its own", "set per order")}
+}
+
+// ── what a money row says ───────────────────────────────────────────────────
+
+// spendValue is the VALUE of one money row in up to three spellings.
+//
+// It is the registry's own reading — the figure, or the row's word for zero
+// ([config.Setting.EmptyLabel], which is where `no limit`, `never asks` and
+// `practice off` are written down once) — wrapped in the fragment that completes
+// "it may spend…" for the two rows that have one. `asks first above $100`
+// becomes `asks > $100` becomes `$100`, and the sentence survives three widths
+// further down than a string that could only be cut.
+func spendValue(row config.Setting) rowField {
+	value := row.Value()
+	if value == "" {
+		return rowSay()
+	}
+	// A row holding nothing reads its own word for that and takes no fragment:
+	// "asks first above never asks" is not a sentence.
+	if value == row.EmptyLabel {
+		return rowSay(value)
+	}
+	value = railSpell(value)
+	switch row.Key {
+	case config.KeyPlanConsent:
+		return rowSay("asks first above "+value, "asks > "+value, value)
+	case config.KeyPracticeBudget:
+		return rowSay(value+" of the day", value)
+	}
+	return rowSay(value)
+}
+
+// spendNote is the whole right-hand side of a money row: the value, the pin that
+// froze it, and the receipt — ranked, and fitted to the cells this row's label
+// leaves ([overlayNoteRoom]).
+//
+// THE RECEIPT IS LAST AND THEREFORE FIRST TO GO. That is rowfit's law 3 read
+// forwards: facts are added in priority order and the first that will not fit
+// ends the tail, so a sixty-cell frame keeps `no limit` and drops `this one
+// $0.41` rather than keeping half of each.
+func (s *sheet) spendNote(item sheetItem, width int, ascii bool) string {
+	fields := []rowField{s.markedValue(item, spendValue(item.row), ascii)}
+	if name, pinned := item.row.PinnedBy(); pinned {
+		fields = append(fields, rowSay("set by "+name, name))
+	}
+	if receipt := item.row.Receipt(); receipt != "" {
+		fields = append(fields, rowSay(receipt))
+	}
+	return rowTail(fields, overlayNoteRoom(item.meta.label, width))
+}
+
+// readingNote is the same two ranked facts for a row that is a reading.
+func (s *sheet) readingNote(item sheetItem, width int) string {
+	fields := []rowField{item.read.value}
+	if item.read.receipt.known() {
+		fields = append(fields, item.read.receipt)
+	}
+	return rowTail(fields, overlayNoteRoom(item.read.name, width))
+}
+
+// markedValue puts the changed mark in front of every spelling of a value, so a
+// row a person chose is marked at every width rather than only at the widest.
+func (s *sheet) markedValue(item sheetItem, value rowField, ascii bool) rowField {
+	if !s.changed(item) {
+		return value
+	}
+	mark := changedMark
+	if ascii {
+		mark = "*"
+	}
+	lead := func(spelling string) string {
+		if spelling == "" {
+			return ""
+		}
+		return mark + " " + spelling
+	}
+	return rowField{full: lead(value.full), short: lead(value.short), tiny: lead(value.tiny)}
+}
+
+// ── the doors ───────────────────────────────────────────────────────────────
+
+// openSpending opens the settings panel on the Spending tab, with the cursor on
+// the row the door came from.
+//
+// EVERY DOOR ONTO MONEY COMES THROUGH HERE. The status line's money segment, the
+// spend place's pointer line, `/budget`, and a rail that has just tripped are
+// four ways of asking one question, and a second door that opened a second
+// editor would be a second answer to what the limit is. A key that is not a row
+// of this tab lands on the first row a cursor may rest on, which is what `today`
+// being a receipt means in practice.
+func (a *app) openSpending(key string) tea.Cmd {
+	cmd := a.showPage(pageSettings)
+	a.sheet.tab = spendingTabIndex()
+	a.sheet.query.reset()
+	a.sheet.build()
+	a.sheet.cursorTo(key)
+	a.touch()
+	return cmd
+}
+
+// spendingTabIndex is where the Spending tab sits in the bar. It is looked up
+// rather than written down, so a tab inserted before it moves the doors with it.
+func spendingTabIndex() int {
+	for at, title := range settingTabs {
+		if title == tabSpending {
+			return at
+		}
+	}
+	return 0
+}
+
+// cursorTo puts the cursor on the registry row with this key, and leaves it on
+// the first row it may rest on when nothing on the tab has that key.
+func (s *sheet) cursorTo(key string) {
+	for at, item := range s.items {
+		if item.restful() && item.row.Key == key {
+			s.cursor = at
+			s.top = 0
+			return
+		}
+	}
+	s.cursor = s.clampCursor(0)
+	s.top = 0
+}
+
+// ── the day's own figure ────────────────────────────────────────────────────
+
+// spentTodayUSD is what this MACHINE has spent since midnight, read off the
+// usage ledger every model call writes a line to.
+//
+// IT IS READ ON THE WAY INTO THE PANEL AND NOT ON A DRAW. The ledger grows by a
+// line per call and this walk is over one day of it, which is cheap once and
+// wrong to do sixty times a second — [app.raiseSettings] takes the reading, and
+// every row that quotes it quotes the same one, so the tab cannot disagree with
+// itself while somebody is reading it.
+//
+// The bool is the seam's own distinction and the reason the row can be absent: a
+// door with no ledger behind it, or a day with nothing on it, has NOT COUNTED
+// ZERO — it has not counted.
+func (a *app) spentTodayUSD() (float64, bool) { return a.dayCost, a.dayCosted }
+
+// readDayCost takes that reading, THROUGH THE SEAM THAT ANSWERS FOR THE MACHINE
+// THE WINDOW IS ABOUT — and through the one function that says what a day cost.
+//
+// IT DOES NOT OPEN [app.usageLedger] ITSELF, AND IT USED TO. Over a connection
+// the money belongs to the far machine and arrives through the cache the link
+// keeps warm ([app.usageSince] carries that seam's whole law), so a tab that
+// read this laptop's file drew THIS machine's `today` on a window about
+// somebody else's — the same defect, on the same figure, that the spend place
+// and the top line were both fixed for.
+//
+// AND THE ARITHMETIC IS [spendDayTotal]'S, which is the sum the pointer line on
+// the spend place and the pulse at the top of every place already answer from.
+// The walk that was here counted every row in the file, unpriced ones included,
+// so a day with a free-tier call on it read one way here and another way two
+// keystrokes away. There is one function, so there is one number.
+func (a *app) readDayCost() {
+	a.dayCost, a.dayCosted = 0, false
+	now := a.now()
+	if now.IsZero() {
+		now = time.Now()
+	}
+	day := machineDayStart(now)
+	if day.IsZero() {
+		return
+	}
+	lines, known := a.usageSince(day)
+	if !known {
+		return
+	}
+	a.dayCost, a.dayCosted = spendDayTotal(lines, now), true
+}
+
+// spentThisSessionUSD is what the conversation in front of the person has spent,
+// for the receipt beside its own ceiling. Nothing spent is nothing said.
+//
+// IT IS [app.spendShown] AND NOT `a.cost`, which is the tab's half of issue
+// #269. The status line's money segment draws the conversation's whole tree
+// (treespend.go); this row used to draw the conversation's own books alone, so
+// `$53.58` on the row and `this one $2.53` on the tab were the same money said
+// two ways with a running family between them. One function answers both, so a
+// person who presses the figure to come here reads the figure they pressed.
+func (a *app) spentThisSessionUSD() (float64, bool) {
+	shown := a.spendShown()
+	return shown, shown > 0
+}
+
+// unwrittenReading is the row that appears only when the machine failed to write
+// spending down ([session.UsageDrops]).
+//
+// IT IS HERE BECAUSE A SHORT LEDGER READS AS A CHEAP DAY. The writer drops a row
+// rather than making a turn wait on a disk that has stopped answering, which is
+// the right bargain and the wrong silence: every figure on this tab is then
+// smaller than the truth by however many calls went missing, and nothing on the
+// screen said so. Zero drops draws nothing at all, by the emptiness law — this
+// is the same sentence issue #161's unbilled-call marker makes about the other
+// gap, and it belongs on the same surface.
+func unwrittenReading() *railReading {
+	dropped := session.UsageDrops()
+	if dropped <= 0 {
+		return nil
+	}
+	figure := strconv.FormatInt(dropped, 10)
+	return &railReading{name: spendUnwrittenWord,
+		value:   rowSay(figure+" "+spendUnwrittenSaid, figure+" unwritten", figure),
+		receipt: rowSay("every figure here is short by that much", "the figures are short")}
+}
+
+// unbilledReading is the row that appears only when a charged call ended
+// without a usage block and no provider receipt could put a figure on it. It
+// says nothing at zero by the same emptiness law [unwrittenReading] keeps.
+func unbilledReading() *railReading {
+	return unbilledReadingFor(session.UnbilledCalls())
+}
+
+// unbilledReadingFor is the pure spelling half, separated so the two surfaces
+// can be tested against the same count without changing a process-wide fact.
+func unbilledReadingFor(count int64) *railReading {
+	if count <= 0 {
+		return nil
+	}
+	figure := strconv.FormatInt(count, 10)
+	return &railReading{name: spendUnbilledWord,
+		value:   rowSay(figure+" "+spendUnbilledSaid, figure+" unbilled", figure),
+		receipt: rowSay("no figure was invented", "nothing was invented")}
+}
+
+// These pairs name each shortfall row and what it says. They are constants
+// because the /spend place says the same facts in its own pointer line
+// (spendplace.go), and two spellings of one fact are two facts.
+const (
+	spendUnwrittenWord = "unwritten"
+	spendUnwrittenSaid = "spending records could not be written"
+	spendUnbilledWord  = "unbilled"
+	spendUnbilledSaid  = "calls the host charged for and could not be priced"
+)

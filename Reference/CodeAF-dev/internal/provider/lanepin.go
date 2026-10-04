@@ -1,0 +1,499 @@
+package provider
+
+import (
+	"context"
+	"strings"
+	"sync"
+	"sync/atomic"
+
+	lanes "github.com/Agent-Field/codeaf/internal/lane"
+)
+
+// ── WHAT A PERSON SAID ABOUT THE MACHINE ────────────────────────────────────
+//
+// `internal/lane` decides which endpoint a request should prefer. This file is
+// the one place a PERSON'S answer to the same question overrides it: the
+// `lane.<slot>` row and the `lane.guard` row (internal/config's settings.go),
+// resolved once by the surface and handed down.
+//
+// IT IS A PROCESS-WIDE KNOB AND NOT A FIELD ON Config, for two reasons. The row
+// is about a SESSION and not about an adapter, and two clients in one process —
+// the conversation's and a tool loop's own — must not hold two different answers
+// to "which machine did they ask for". (The other process-wide knob this used to
+// cite, `SetHedgeBudget`, is deleted: what a call may spend rescuing itself is a
+// figure on its own plan now and not a switch anybody throws.) And the row is
+// written WHILE THE PROCESS IS
+// RUNNING, by the picker (internal/tui3's pinLane), and a pin that only took
+// effect at the next launch would be a promise this build did not keep. A
+// settings read per request would keep it too — at the cost of a disk read in
+// front of every first token, which is the one thing the lane law forbids
+// hardest — so the surface WRITES the answer here when it writes the row.
+//
+// The read is a mutex over two words on a path that already takes several, and
+// the write happens when somebody presses enter in a list.
+
+// LanePin is a person's answer to "which machine serves this model", already
+// resolved from the settings row.
+//
+// The three states of the row are three states here, and the zero value is
+// `auto` — nobody said, and the belief chooses per answer.
+//
+//	auto          Lane empty, OpenRouter false   the belief chooses
+//	pinned        Lane named, Borrow false       exactly that machine, or nothing
+//	pinned+borrow Lane named, Borrow true        that machine first, and a rescue may leave it
+//	openrouter    OpenRouter true                no lane choice at all; the router balances
+type LanePin struct {
+	// Lane is the machine named by the row, as the wire spells it. Empty is a
+	// row that names none.
+	Lane string
+	// Borrow is whether a PINNED lane may still be left when it goes slow. It
+	// is false unless somebody said so: a pin means the machine they named, and
+	// widening it on their behalf is not this build's to do.
+	Borrow bool
+	// OpenRouter is the row that asks for NO lane at all and lets the router
+	// balance on price, which is what this build did before it held an opinion.
+	// It is a different fact from `auto`, which asks the belief to choose.
+	OpenRouter bool
+}
+
+// pinned reports whether this row names one machine.
+func (p LanePin) pinned() string { return strings.TrimSpace(p.Lane) }
+
+var (
+	lanePinMu sync.RWMutex
+	lanePin   LanePin
+	// laneGuard is the `lane.guard` row: whether a slow answer is worth one
+	// extra call to rescue. It defaults to ON, which is the row's own default
+	// (internal/config's DefaultLaneGuard) said once more where the mechanism
+	// that reads it lives.
+	laneGuard = true
+)
+
+// SetLanePin states which machine this process's conversation asked for. It is
+// called from wherever the routing row is resolved — the surface, once, at
+// launch — and again by the picker when somebody pins from it.
+func SetLanePin(pin LanePin) {
+	pin.Lane = strings.TrimSpace(pin.Lane)
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	// A ROW THAT CHANGED FORGETS EVERY REFUSAL THIS RUN COLLECTED, and a row
+	// RESTATED forgets nothing (the retirement block at the foot of this file).
+	//
+	// THIS SETTER IS A RESOLVER'S ENTRANCE AND NOT A PERSON'S, which is the
+	// whole reason it can afford that rule. It is called by every place that
+	// READS the row and hands the answer down — the door at launch, and the
+	// standing ticker, which rebuilds a whole posture every five minutes for as
+	// long as the window lives (cmd/codeaf's v3StandingTicker). An experiment
+	// build that forgot here unconditionally therefore forgot what the wire had
+	// said every five minutes and paid the identical 404 again: one at launch,
+	// one at 16:30:02, one at 16:35:00, in one process, in one measured run,
+	// with nobody having touched the row.
+	//
+	// A PERSON'S OWN ACT COMES IN THROUGH [RepinLane] INSTEAD, and it forgets
+	// whatever the row says, because somebody choosing a machine in the picker
+	// is them saying "try again" — and they may well choose the SAME machine,
+	// which is a row that did not change and an instruction that did.
+	if pin != lanePin {
+		retiredPins = map[string]struct{}{}
+		retiredPinLines = nil
+	}
+	lanePin = pin
+}
+
+// RepinLane is [SetLanePin] as A PERSON'S ACT: the picker, `/model @cloudflare`,
+// the `lane` row in the settings panel — anywhere somebody has just said, in
+// their own words, which machine they want.
+//
+// IT FORGETS EVERY REFUSAL WHATEVER THE ROW SAYS, and that is the whole
+// difference from the setter above. Re-choosing the SAME lane is a row that did
+// not change and an instruction that did, and it is the exact keystroke the
+// manual promises works: "pinning again puts it straight back". A build that
+// compared rows here would answer a person who had just re-pinned coreweave
+// with silence, and go on routing their model on auto — which is the sentence
+// on their screen made into a lie.
+//
+// AND IT FORGETS WHAT THE ACCOUNT WAS BELIEVED TO EXCLUDE about that machine
+// (internal/lane's account.go), for the same reason and before the lock is
+// taken — a neighbouring package is never called under this file's lock. A
+// person who has just re-chosen the machine the router said their account
+// cannot reach may have changed the setting, and the next request is how to
+// find out.
+func RepinLane(pin LanePin) {
+	pin.Lane = strings.TrimSpace(pin.Lane)
+	if pin.Lane != "" {
+		lanes.ClearAccountExclusion(pin.Lane)
+	}
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	retiredPins = map[string]struct{}{}
+	retiredPinLines = nil
+	lanePin = pin
+}
+
+// CurrentLanePin is the pin in force.
+func CurrentLanePin() LanePin {
+	lanePinMu.RLock()
+	defer lanePinMu.RUnlock()
+	return lanePin
+}
+
+// PinnedFor is the machine a request for model is held to RIGHT NOW, and empty
+// when it is held to none — `auto`, `openrouter`, a pin the wire has already
+// retired for this model ([retirePinnedLane]), or a pin on a base that has said
+// it will not carry a routing preference at all ([BaseTakesLaneChoice]).
+//
+// It is the pin as the transport will act on it, which is the only thing a
+// surface naming the pin may say: a status line still reading `@coreweave`
+// after coreweave refused the model would be the chrome promising a machine the
+// next request does not ask for. It is memory only and cheap when nothing is
+// pinned, because the chrome asks it on every frame.
+// personAtTheDoor is whether this process was started by a command a person
+// typed and is waiting on — `codeaf do`, `codeaf exec`, `codeaf plan new` — as
+// distinct from a conversation they opened. Its whole content is that EVERY
+// call of such a process is the person's own work: there is no errand beside a
+// typed command, because the command is the errand. cmd/codeaf's
+// typedDoorContext is the one door that sets it.
+var personAtTheDoor atomic.Bool
+
+// SetPersonAtTheDoor states whether somebody typed the command this process is
+// running. It is what lets a headless command's calls — its planning pass and
+// the nodes the session's executor runs for it, whose roles are not ones a
+// person reads — carry the talk pin under `simple` and count as watched
+// (internal/session's someoneIsWatching), without the command opening a
+// conversation it does not have. Tests hand it false again.
+func SetPersonAtTheDoor(here bool) { personAtTheDoor.Store(here) }
+
+// PersonAtTheDoor reports whether a typed command owns this process.
+func PersonAtTheDoor() bool { return personAtTheDoor.Load() }
+
+// readByAPerson is whether a call in this role is one a person is waiting on:
+// a role they are reading, or any role at all inside a command they typed. IT
+// IS THE ONE PREDICATE that decides both whether the talk pin rides a call
+// under `simple` (lanes.go) and whether a refused pin is said to them now
+// rather than parked ([tellRetiredPins]), so the machine a person is asked for
+// and the sentence they get when it is refused can never belong to two
+// different sets of calls.
+func readByAPerson(role lanes.Role) bool { return role.Visible() || PersonAtTheDoor() }
+
+func PinnedFor(model string) string {
+	demanded, _ := PinNow(model)
+	return demanded
+}
+
+// PinNow is that answer and the other half of it, read together: the machine a
+// request for model will demand, and the machine a person's row still names
+// after the wire has stopped asking for it ([retirePinnedLane]).
+//
+// TOGETHER FOR [lanePinFor]'s REASON ONE LAYER UP. The two are one fact about
+// one moment — is the row on the wire, and if it is not, whose name is still on
+// the screen — and a surface that asked them as two questions could draw a
+// machine's name beside a sentence saying nothing is asking for that machine,
+// or draw neither.
+//
+// AND IT IS THE ONE DOOR EVERY SURFACE THAT NAMES THE PIN COMES THROUGH
+// (internal/tui3's laneInForce). The chip, the model row's tail and the fold's
+// mark were drawn from the SETTINGS ROW while the wire asked this file, so a
+// pairing the wire retired mid-session left `@morph` on the model word over
+// three turns another machine answered (issue #1022). The model is folded here,
+// by [lanePinFor], under the same normaliser the retirement was written with — a
+// surface folding a spelling of its own would rebuild that disagreement one
+// layer down.
+//
+// A BASE THAT WILL NOT CARRY A LANE CHOICE AT ALL ANSWERS NEITHER, and that is
+// deliberate: no request demands the machine, so nothing may name it, and what
+// a person reads about that is the base's own sentence
+// ([UncarriedPinLine]) rather than this one.
+func PinNow(model string) (demanded, standDown string) {
+	if CurrentLanePin().pinned() == "" || !BaseTakesLaneChoice() {
+		return "", ""
+	}
+	pin, retired := lanePinFor(model)
+	if retired {
+		return "", pin.pinned()
+	}
+	return pin.pinned(), ""
+}
+
+// SetLaneGuard turns the speed guard on or off, and it is the ONE switch: it
+// moves the rescue and the probe together, because both are the same promise to
+// a person — that this build may spend a little extra to keep an answer moving —
+// and a row that turned off half of it would be a row nobody could reason about.
+//
+// OFF IS A PURSE THAT REFUSES EVERYTHING rather than a flag the race consults.
+// The purse is already the one gate every rescue passes through
+// ([hedgeRace.affords]), so a purse that says no is the whole of "do not rescue"
+// with no second path to keep in step — and it is written onto the plan where
+// every arm of the question reads it (waitplan.go). The probe reads the flag
+// directly, because a probe is not priced in dollars: it is gated on whether
+// anybody is waiting.
+func SetLaneGuard(on bool) {
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	laneGuard = on
+}
+
+// LaneGuardOn reports whether the speed guard is on.
+func LaneGuardOn() bool {
+	lanePinMu.RLock()
+	defer lanePinMu.RUnlock()
+	return laneGuard
+}
+
+// ── A PIN THE WIRE HAS ALREADY REFUSED ──────────────────────────────────────
+//
+// Issue #456, and the ruling #375 asked for. As shipped, a strict pin puts
+// `provider.only: [name]` on EVERY request; the router answers the
+// `permits only:` 404; and the next request demands the same machine again.
+// Every turn of a session pays a 404 round trip to learn a fact this process
+// already knows — and on the turn's own unhedged call, with nowhere to walk to,
+// the turn simply ended and the person read the router's sentence.
+//
+// A PIN IS RETIRED FOR THE MODEL IT WAS REFUSED FOR. A `permits only:` refusal
+// is not an outage and not a slow lane: it is the router saying the PAIRING is
+// impossible, which is exactly the one refusal class the object next door calls
+// Terminal. So the pair is written down here, and every later request for that
+// model routes on auto — exactly as if the row read `auto`.
+//
+// FOUR THINGS IT DELIBERATELY DOES NOT DO. It does not touch the settings file:
+// the row a person wrote is theirs and stays as they wrote it. It does not
+// retire the pin for any OTHER model, because the refusal was about a pairing.
+// It does not outlive the process. And it does not survive somebody CHANGING
+// the row — [SetLanePin] forgets every retirement when the answer moves,
+// because pinning is a person stating the instruction afresh and this build
+// does not get to remember an argument they have just re-opened.
+//
+// THE POLICY LIVES HERE AND NOT IN refusalobject.go. That file answers what a
+// refusal IS — a fact about the wire — and what a person's standing instruction
+// should do about it is a fact about the ROW, which is this file's subject.
+
+// retiredPins is the set of (pinned lane, ledger model) pairs the router has
+// refused this run, guarded by [lanePinMu] alongside the knob itself because
+// the two are read together on the same request path and a second lock would be
+// a second thing to reason about in front of somebody's first token.
+//
+// IT IS KEYED BY THE PAIR AND NOT BY THE LANE. "cloudflare cannot serve this
+// model" is a fact about one model, and a person pinning cloudflare for a
+// second model is asking a question this refusal did not answer.
+//
+// AND IT IS PER RUN RATHER THAN PER TURN OR PER SESSION, which is the whole of
+// what makes the 404 get paid once. A conversation, the errands beside it and
+// every task node it starts are one process and read this one map; a build that
+// kept the fact on an agent would re-pay the round trip for every node it ran.
+var retiredPins = map[string]struct{}{}
+
+// retiredPinLines are the sentences a person is owed and has not been told yet.
+//
+// A LINE IS PARKED BECAUSE THE CALL THAT LEARNED THE FACT IS OFTEN NOT A CALL
+// ANYBODY IS READING. The first `permits only:` refusal of a run is collected
+// by the errand that runs at launch (internal/session's auxiliary.go), whose
+// context carries no stream observer and no report slot at all — so the news an
+// experiment build posted there went nowhere, and every later request was
+// already retired and had nothing to say. The fact is learned once, wherever it
+// is learned; the sentence waits for the next request a person is actually
+// watching ([tellRetiredPins]).
+var retiredPinLines []string
+
+// retiredPinKey folds one pairing into the key both halves of this file use.
+//
+// THE MODEL IS FOLDED THROUGH [laneModel] for the reason the serving set is
+// (refusalobject.go's refuseServing): the bare id and the dated slug are two
+// spellings of one model, and a pair written under one and read under the other
+// would rebuild that disagreement one layer down.
+func retiredPinKey(lane, model string) string {
+	return retiredPinKeyFor(lane, laneModel(model))
+}
+
+// retiredPinKeyFor is that key for a caller that has already folded the model —
+// which is every caller that has to build the key while holding [lanePinMu],
+// because the fold is the half that reaches into another package.
+func retiredPinKeyFor(lane, folded string) string {
+	return strings.ToLower(strings.TrimSpace(lane)) + "\x00" + folded
+}
+
+// retirePin writes one terminal refusal of a person's own pin down, and answers
+// whether THIS call is the one that retired the pair.
+//
+// The answer is what keeps the sentence a person reads to exactly one: a turn
+// that refuses twice, or a ladder that refuses on its way up, must not say the
+// same thing twice about the same pairing.
+//
+// IT REFUSES TO ACT ON A MACHINE NOBODY PINNED. A rescue arm demands a lane of
+// its own, and a refusal of that is the race's business (hedge.go) rather than
+// a person's row. Only a refusal of the lane the pin in force NAMES, and only
+// while that pin is strict, retires anything: a borrowable pin sends no demand
+// of its own, so a refusal naming it was never the row speaking.
+func retirePin(lane, model string) bool {
+	lane, model = strings.TrimSpace(lane), strings.TrimSpace(model)
+	if lane == "" || model == "" {
+		return false
+	}
+	// The key and the sentence are both built OUTSIDE the lock: [laneModel]
+	// reaches into the ledger's own normaliser, and calling a neighbouring
+	// package while holding this file's lock is how a deadlock is built by
+	// somebody else's later edit.
+	key, line := retiredPinKey(lane, model), retiredPinLine(lane)
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	if lanePin.Borrow || !strings.EqualFold(lanePin.pinned(), lane) {
+		return false
+	}
+	if _, already := retiredPins[key]; already {
+		return false
+	}
+	retiredPins[key] = struct{}{}
+	// AND THE SENTENCE IS QUEUED IN THE SAME CRITICAL SECTION THAT DECIDED IT.
+	// One lock, one decision, one line: queued afterwards, a [RepinLane] or a
+	// [SetLanePin] landing in between would empty the queue and this append
+	// would put a sentence about the OLD pin back on it — a person told their
+	// new machine cannot serve a model it was never asked about.
+	retiredPinLines = append(retiredPinLines, line)
+	return true
+}
+
+// pinRetired reports whether the pin in force has already been refused for this
+// model, in which case the request goes out on auto.
+func pinRetired(lane, model string) bool {
+	if strings.TrimSpace(lane) == "" {
+		return false
+	}
+	key := retiredPinKey(lane, model)
+	lanePinMu.RLock()
+	defer lanePinMu.RUnlock()
+	_, retired := retiredPins[key]
+	return retired
+}
+
+// lanePinFor is the pin in force AND whether it has been refused for this
+// model, read together.
+//
+// TOGETHER IS THE POINT AND IT IS THE WHOLE REASON THIS EXISTS. Asked as two
+// questions, a pin that moved between them let one request go out demanding the
+// machine the person had just stopped asking for — the row read under the first
+// lock and the retirement under the second belonging to two different rows. The
+// pair is one fact about one moment (lanes.go's [Client.drawLaneChoice]).
+func lanePinFor(model string) (LanePin, bool) {
+	// THE MODEL IS FOLDED BEFORE THE LOCK IS TAKEN and the lane half of the key
+	// is read under it, which is what makes this one read rather than two:
+	// [laneModel] reaches into the ledger's own normaliser and must not be
+	// called while this file's lock is held, and it does not depend on the pin,
+	// so it can be done first.
+	folded := laneModel(model)
+	lanePinMu.RLock()
+	defer lanePinMu.RUnlock()
+	named := lanePin.pinned()
+	if named == "" {
+		return lanePin, false
+	}
+	_, retired := retiredPins[retiredPinKeyFor(named, folded)]
+	return lanePin, retired
+}
+
+// forgetRetiredPins empties the set and anything parked. It is for tests, which
+// must not inherit one another's refusals — the shipped path forgets through
+// [SetLanePin], and only when the row it is handed is a different row.
+func forgetRetiredPins() {
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	retiredPins = map[string]struct{}{}
+	retiredPinLines = nil
+}
+
+// RescueRetired is the word a retirement travels under: the machine a person
+// pinned said it will not serve this model, so nothing more is demanded of it
+// and this model routes on auto until they pin again.
+//
+// IT IS A REFUSED REASON AND NOT A THIRD KIND OF WAIT. [RescueRefused] is the
+// same wire fact about a machine the RACE demanded; this one is that fact about
+// a machine a PERSON demanded, and only a person's own row earns a sentence
+// about their own row. It is spelled here rather than beside its two neighbours
+// in refusalobject.go because it is the pin's word and that file holds no pin
+// policy.
+const RescueRetired = "retired"
+
+// retiredPinLine is the whole sentence, and it is spelled ONCE, here.
+//
+// Two surfaces say it — the status line while the answer is in flight
+// (internal/tui3's laneRider) and the conversation, which keeps it — and a
+// sentence spelled in two places is a sentence that gets reworded in one. The
+// machine is named the way the person spelled it when they pinned it, because
+// that is the row they will go and look at.
+// RetiredPinLine is that sentence for a surface that has to draw it beside its
+// own furniture (internal/tui3's laneRider). It is exported rather than copied
+// for the reason the two words above it are constants: three packages would
+// otherwise spell one sentence, and a sentence spelled in three places is a
+// sentence that gets reworded in one.
+func RetiredPinLine(lane string) string { return retiredPinLine(lane) }
+
+// RetiredPinTail is the same fact in the room a SETTINGS ROW has for it:
+// `(morph cannot serve this model)`, drawn after the word `auto` on the row
+// whose machine is no longer being asked for (internal/tui3's laneWord).
+//
+// IT IS A THIRD GRAIN OF ONE FACT AND NOT A THIRD CLAIM, which is the same
+// licence the rider and the parked line already take ([retirePinnedLane]): the
+// sentence a person reads in the conversation says what happened and what
+// happens next, and a row they come back to look at has one line to say why the
+// machine they wrote down is not the machine answering. It is spelled here so
+// that all three move together the day the wording moves.
+func RetiredPinTail(lane string) string { return "(" + lane + " cannot serve this model)" }
+
+func retiredPinLine(lane string) string {
+	return lane + " cannot serve this model; routing on auto for this model until you pin again"
+}
+
+// retirePinnedLane is what a TERMINAL refusal does to a person's own pin, and
+// it answers whether this call is the one that retired the pairing.
+//
+// IT IS CALLED FROM THE FORK EVERY ROUTING REFUSAL PASSES THROUGH
+// (client.go's [Client.sendRecovered]), beside the strike and before either
+// recovery runs: the walk takes one road out of that line and the ladder the
+// other, and a policy written on one of the two roads would be a policy half
+// the refusals never met. It asks the one classifier through the entrance for a
+// caller that holds a request (refusalobject.go), so nothing about what this
+// refusal MEANS is decided twice.
+//
+// AND THE PERSON IS TOLD ONCE. Two sentences leave here for one fact, and they
+// are two GRAINS of it rather than two claims: the rider is what the status
+// line shows while the answer is still coming, and the parked line is the one
+// that stays in the conversation afterwards — which is the one that was
+// missing. [retirePin] both answers whether this call is the one that retired
+// the pairing AND queues the sentence, in the one critical section, so a run
+// that collects the same refusal twice says nothing the second time and a pin
+// that moves underneath this cannot leave a stale sentence behind it.
+func retirePinnedLane(ctx context.Context, model string, refusal laneRefusal) bool {
+	if !refusal.Terminal || !retirePin(refusal.Lane, model) {
+		return false
+	}
+	HedgeReportFrom(ctx).tell(RescueNews{Alt: refusal.Lane, Reason: RescueRetired, Failed: true})
+	tellRetiredPins(ctx)
+	return true
+}
+
+// tellRetiredPins hands whatever is parked to a call somebody is reading, and
+// does nothing at all on one they are not.
+//
+// TWO CONDITIONS, AND BOTH ARE ABOUT THE READER RATHER THAN THE CALL. There has
+// to be a stream to say it on ([Emit] is silent without one), and the errand
+// this call belongs to has to be one a person is watching — a naming errand and
+// a memory reflex both answer during an ordinary talk turn, and a line about
+// somebody's own row delivered into a stream nobody reads is a line that was
+// never said. So the sentence waits, and the very next request of the
+// conversation carries it (client.go's [Client.sendShaped]).
+func tellRetiredPins(ctx context.Context) {
+	if ctx == nil || streamObserverFrom(ctx) == nil || !readByAPerson(RoleFrom(ctx)) {
+		return
+	}
+	for _, line := range takeRetiredPins() {
+		Emit(ctx, StreamRowNews, line)
+	}
+}
+
+// takeRetiredPins hands over whatever is parked in one locked step: the queue
+// is emptied by the same critical section that reads it, so two calls somebody
+// is reading can never each say the same line.
+func takeRetiredPins() []string {
+	lanePinMu.Lock()
+	defer lanePinMu.Unlock()
+	owed := retiredPinLines
+	retiredPinLines = nil
+	return owed
+}

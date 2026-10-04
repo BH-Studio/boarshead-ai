@@ -1,0 +1,333 @@
+package provider
+
+import (
+	"context"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	lanes "github.com/Agent-Field/codeaf/internal/lane"
+	"github.com/Agent-Field/codeaf/internal/lane/lanestub"
+)
+
+// ── ONE REQUEST, ONE STORY ──────────────────────────────────────────────────
+//
+// The phase clock's whole claim is that a person watching a slow answer is
+// never told two things at once and never told nothing at all. These tests are
+// the claim, scenario by scenario, against the fake router: a healthy stream
+// walks connecting → first word → thinking → writing and stops; a stream that
+// stalls inside its thinking shows the countdown and then the switch, on ONE
+// request's worth of extra spending; and a stream with nowhere to go shows the
+// phase and the clock and promises nothing.
+
+// heard collects the phase story in the order it was told.
+type heard struct {
+	mu   sync.Mutex
+	news []PhaseNews
+}
+
+func (h *heard) take(news PhaseNews) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.news = append(h.news, news)
+}
+
+func (h *heard) all() []PhaseNews {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]PhaseNews(nil), h.news...)
+}
+
+// story is the phases in order with the repeats collapsed, which is what a
+// person actually watched: a phase that says itself again every second to
+// carry a rate is one phase and not sixty.
+func (h *heard) story() []Phase {
+	var out []Phase
+	for _, news := range h.all() {
+		if len(out) > 0 && out[len(out)-1] == news.Phase {
+			continue
+		}
+		out = append(out, news.Phase)
+	}
+	return out
+}
+
+// settled is the LAST phase a person was left reading, empty when nothing was
+// said at all.
+//
+// IT IS A DIFFERENT QUESTION FROM [heard.find], and the difference is the whole
+// point of having both. `find` answers "was this ever said", which a phase set
+// and then overwritten a microsecond later satisfies perfectly — that is exactly
+// how `answering slowly` passed a test while every person saw `all lanes slow`
+// (the 2026-09-11 review of #924). A claim about what somebody READ has to be a
+// claim about the last word.
+// The empty phase [phaseClock.done] ends every story with is not a sentence
+// anybody reads — it is the clock stopping — so the last WORD is the last
+// non-empty one.
+func (h *heard) settled() Phase {
+	story := h.story()
+	for i := len(story) - 1; i >= 0; i-- {
+		if story[i] != "" {
+			return story[i]
+		}
+	}
+	return ""
+}
+
+// find is the first news in a phase, and whether there was one.
+func (h *heard) find(phase Phase) (PhaseNews, bool) {
+	for _, news := range h.all() {
+		if news.Phase == phase {
+			return news, true
+		}
+	}
+	return PhaseNews{}, false
+}
+
+// listen registers a reader for the length of the test.
+func listen(t *testing.T) *heard {
+	t.Helper()
+	told := &heard{}
+	previous := OnPhase(told.take)
+	t.Cleanup(func() { OnPhase(previous) })
+	return told
+}
+
+func TestAHealthyAnswerTellsItsPhasesInOrderAndThenStops(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/healthy",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{
+			TTFT: 5 * time.Millisecond, Rate: 2000, Reasoning: 8, Tokens: 24,
+		}},
+		lanestub.Lane{Name: "B", Profile: lanestub.Profile{TTFT: 5 * time.Millisecond, Rate: 2000, Tokens: 24}},
+	)
+	rig.believes("A", 5, 200)
+
+	ctx := WithLaneChoice(talking(), choiceFor(rig.model, 500*time.Millisecond))
+	if _, err := rig.client.CompleteWithMessages(ctx, userMessages("hello")); err != nil {
+		t.Fatal(err)
+	}
+	want := []Phase{PhaseConnecting, PhaseFirstWord, PhaseThinking, PhaseWriting, ""}
+	got := told.story()
+	if len(got) != len(want) {
+		t.Fatalf("story = %v, want %v; events=%+v", got, want, told.all())
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("story = %v, want %v; events=%+v", got, want, told.all())
+		}
+	}
+	// THE LANE IS NAMED ON THE PHASES THAT KNOW IT, and never before the
+	// stream said who was answering.
+	writing, _ := told.find(PhaseWriting)
+	if writing.Lane != "A" {
+		t.Fatalf("the writing phase named lane %q, want A", writing.Lane)
+	}
+	if connecting, _ := told.find(PhaseConnecting); connecting.Lane != "" {
+		t.Fatalf("named a lane %q before the stream had said one", connecting.Lane)
+	}
+}
+
+func TestAStallInsideTheThinkingShowsTheCountdownAndThenTheSwitch(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/stall",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{
+			TTFT: 2 * time.Millisecond, Rate: 1000,
+			Reasoning: 100, Tokens: 40,
+			StallAfter: 100, StallFor: 600 * time.Millisecond,
+		}},
+		lanestub.Lane{Name: "B", Profile: lanestub.Profile{TTFT: 5 * time.Millisecond, Rate: 2000, Tokens: 24}},
+	)
+	rig.believes("A", 2, 250)
+
+	report := &HedgeReport{}
+	ctx := WithHedgeReport(talking(), report)
+	ctx = WithLaneChoice(ctx, choiceFor(rig.model, 12*time.Millisecond))
+	response, err := rig.client.CompleteWithMessages(ctx, userMessages("hello"))
+	if err != nil {
+		// A HEDGE THAT LANDS IS NOT A CUT. The whole point of the rescue is
+		// that the person never sees the transport's own last resort.
+		t.Fatalf("the caller was handed an error for a rescued answer: %v", err)
+	}
+	if answerTokens(response) != 24 {
+		t.Fatalf("the answer is %d tokens, want the rescuer's 24", answerTokens(response))
+	}
+	// EXACTLY ONE EXTRA REQUEST. Two mechanisms used to be able to answer one
+	// silence — the transport's cut and re-ask, and the lane watch's hedge —
+	// and a person paid for the prompt twice to be told about it once.
+	if got := rig.server.Requests("A") + rig.server.Requests("B"); got != 2 {
+		t.Fatalf("requests on the wire = %d, want the original and one rescue", got)
+	}
+	// The countdown was real: a moment, and a lane to go to at it.
+	first, ok := told.find(PhaseFirstWord)
+	if !ok {
+		t.Fatalf("nothing was said about the wait for the first word: %v", told.story())
+	}
+	if first.Deadline.IsZero() || first.Then == "" {
+		t.Fatalf("first word carried deadline %v then %q; want both, because there was a lane to go to", first.Deadline, first.Then)
+	}
+	// And the switch named where it was going.
+	switching, ok := told.find(PhaseSwitching)
+	if !ok {
+		t.Fatalf("the rescue was never said out loud: %v", told.story())
+	}
+	if !strings.EqualFold(switching.Then, "B") {
+		t.Fatalf("switching to %q, want B", switching.Then)
+	}
+	// ONE STORY AND NOT TWO. The arm nobody is hearing must not narrate.
+	for _, news := range told.all() {
+		if news.Phase == PhaseFirstWord && news.Lane == "B" {
+			t.Fatalf("the rescuing arm told its own story while it was still silent")
+		}
+	}
+}
+
+// alone strips a choice down to the one lane it leads with: no ranking behind
+// it and no candidate set beside it, which is what `routing off`, a ledger that
+// has heard of one machine and an endpoint that is not a router all look like
+// from here. There is then nothing for a rescue to go to, and the clock may
+// promise nothing.
+func alone(choice lanes.Choice) lanes.Choice {
+	if len(choice.Order) > 1 {
+		choice.Order = choice.Order[:1]
+	}
+	if len(choice.Frontier) > 1 {
+		choice.Frontier = choice.Frontier[:1]
+	}
+	return choice
+}
+
+func TestWithNowhereToGoTheClockPromisesNothing(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/alone",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{TTFT: 20 * time.Millisecond, Rate: 2000, Tokens: 24}},
+	)
+	rig.believes("A", 20, 2000)
+
+	// A choice with no alternative is what `routing off`, a strict pin and a
+	// ledger that has heard of one lane all look like from here.
+	choice := alone(choiceFor(rig.model, 12*time.Millisecond))
+	ctx := WithLaneChoice(talking(), choice)
+	if _, err := rig.client.CompleteWithMessages(ctx, userMessages("hello")); err != nil {
+		t.Fatal(err)
+	}
+	if len(told.story()) == 0 {
+		t.Fatalf("a request with no alternative told the person nothing at all")
+	}
+	for _, news := range told.all() {
+		if !news.Deadline.IsZero() || news.Then != "" {
+			t.Fatalf("promised %q at %v with no lane to go to: a countdown that expires and does nothing is the surface lying", news.Then, news.Deadline)
+		}
+	}
+}
+
+func TestTheGuardStillProtectsWhenNoRescueIsPossible(t *testing.T) {
+	defer shortenStallBoundsCapped(t, 40*time.Millisecond, 40*time.Millisecond, 60*time.Millisecond)()
+	rig := newLaneRig(t, "phase/lastresort",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{
+			TTFT: 2 * time.Millisecond, Rate: 2000, Tokens: 40,
+			StallAfter: 4, StallFor: 5 * time.Second,
+		}},
+	)
+	rig.believes("A", 2, 2000)
+
+	choice := alone(choiceFor(rig.model, 12*time.Millisecond))
+	ctx := WithLaneChoice(talking(), choice)
+	_, err := rig.client.CompleteWithMessages(ctx, userMessages("hello"))
+	if _, cut := CutFrom(err); !cut {
+		t.Fatalf("err = %v, want the stall guard's cut: with no rescue possible it is the last thing standing between a person and forever", err)
+	}
+}
+
+// TestAWaitNothingCanEndIsSaidOutLoud is the visible half of [control.Report],
+// proved through the wire rather than through the phase clock alone.
+//
+// SILENCE WAS THE OLD BEHAVIOUR AND IT IS THE ONE THING THAT IS NEVER RIGHT. A
+// request with nowhere better to go still reaches its ceiling, and what it does
+// there is say so: the phase moves to [PhaseAllSlow] and the surface draws `all
+// lanes slow · still waiting`. The clock does not restart, because nothing about
+// the wait did — what changed is that this build has now weighed the
+// alternatives and found none.
+func TestAWaitNothingCanEndIsSaidOutLoud(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/allslow",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{
+			TTFT: 2 * time.Millisecond, Rate: 2000, Tokens: 40,
+			StallAfter: 4, StallFor: 400 * time.Millisecond,
+		}},
+	)
+	rig.believes("A", 2, 2000)
+	rig.patience(t, 100*time.Millisecond)
+
+	ctx := WithLaneChoice(talking(), alone(choiceFor(rig.model, 12*time.Millisecond)))
+	if _, err := rig.client.CompleteWithMessages(ctx, userMessages("hello")); err != nil {
+		t.Fatal(err)
+	}
+	said, reported := told.find(PhaseAllSlow)
+	if !reported {
+		t.Fatalf("a wait with nowhere to go told the person %v", told.story())
+	}
+	// AND THE COUNT-UP IS THE WAIT'S OWN. A report that restarted the clock
+	// would draw a fresh nought under a stall that had already run.
+	if writing, ok := told.find(PhaseWriting); ok && said.Since.After(writing.Since) {
+		t.Fatalf("the report restarted the clock at %v, past the wait it is about (%v)", said.Since, writing.Since)
+	}
+	if said.Then != "" || !said.Deadline.IsZero() {
+		t.Fatalf("a wait nothing can end promised %q at %v", said.Then, said.Deadline)
+	}
+}
+
+func TestAHiddenErrandNamesItselfSoTheSurfaceCanIgnoreIt(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/hidden",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{TTFT: 2 * time.Millisecond, Rate: 2000, Tokens: 8}},
+	)
+	rig.believes("A", 2, 2000)
+
+	ctx := WithRole(context.Background(), lanes.RoleAuxiliary)
+	ctx = WithLaneChoice(ctx, choiceFor(rig.model, 500*time.Millisecond))
+	if _, err := rig.client.CompleteWithMessages(ctx, userMessages("name this")); err != nil {
+		t.Fatal(err)
+	}
+	news := told.all()
+	if len(news) == 0 {
+		t.Fatalf("a side errand said nothing at all")
+	}
+	for _, one := range news {
+		if one.Role != lanes.RoleAuxiliary {
+			t.Fatalf("phase %q carried role %q, want the errand to name itself so a status line can decline to draw it", one.Phase, one.Role)
+		}
+		if one.Role.Visible() {
+			t.Fatalf("a naming errand claimed the person was reading it")
+		}
+	}
+}
+
+// TestNoCountdownIsDrawnOverARescueNobodyCanAfford is the other half of "a
+// deadline is never invented": there IS an alternative lane and there IS a
+// moment, and the budget was always going to refuse the second request. A
+// countdown drawn over that is a promise the machinery cannot keep.
+func TestNoCountdownIsDrawnOverARescueNobodyCanAfford(t *testing.T) {
+	told := listen(t)
+	rig := newLaneRig(t, "phase/unaffordable",
+		lanestub.Lane{Name: "A", Profile: lanestub.Profile{TTFT: 20 * time.Millisecond, Rate: 2000, Tokens: 24}},
+		lanestub.Lane{Name: "B", Profile: lanestub.Profile{TTFT: 5 * time.Millisecond, Rate: 2000, Tokens: 24}},
+	)
+	rig.believes("A", 20, 2000)
+	// A budget with no bucket is how the speed guard is switched off.
+	noRescues(t)
+
+	ctx := WithLaneChoice(talking(), choiceFor(rig.model, 12*time.Millisecond))
+	if _, err := rig.client.CompleteWithMessages(ctx, userMessages("hello")); err != nil {
+		t.Fatal(err)
+	}
+	if len(told.story()) == 0 {
+		t.Fatalf("a request with the guard off told the person nothing at all")
+	}
+	for _, news := range told.all() {
+		if !news.Deadline.IsZero() || news.Then != "" {
+			t.Fatalf("promised %q at %v on a budget that refuses every rescue", news.Then, news.Deadline)
+		}
+	}
+}

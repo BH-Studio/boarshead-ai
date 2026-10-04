@@ -1,0 +1,61 @@
+package tui3
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestCommandCatalogueIncludesTheCompleteArgumentForms(t *testing.T) {
+	wants := []string{"/crew cap task <dollars>", "/land now", "/cache clean now"}
+	for _, want := range wants {
+		found := false
+		for _, command := range commands {
+			if strings.TrimSpace(command.typed()) == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("command catalogue does not offer %s", want)
+		}
+	}
+}
+
+// THE WORDS FORM LEADS THE PAIR, AND THE FINISHED WORD STILL GETS ITS PAGE.
+// /standing has two rows on purpose: the one that makes an order (the act the
+// command exists for — the owner's own ruling) and the one that opens the page
+// of what already stands. A person still typing is offered the act first; a
+// person who has typed the whole word, or an alias for it, is about to run
+// that word, and enter must answer with the bare form rather than swallowing a
+// deliberately typed command into a draft still waiting for words.
+func TestStandingOffersTheWordsFormFirstWhileTyping(t *testing.T) {
+	var m menu
+	m.open = true
+	m.rank("stand")
+	got, ok := m.choice()
+	if !ok {
+		t.Fatal("a partial word matched nothing")
+	}
+	if got.name != "standing" || got.args == "" {
+		t.Fatalf("the leading row for a partial word is /%s %q — want the words form of /standing", got.name, got.args)
+	}
+}
+
+func TestAFinishedCommandWordChoosesItsBareForm(t *testing.T) {
+	for _, word := range []string{"standing", "orders", "task", "redo", "workspace"} {
+		var m menu
+		m.open = true
+		m.rank(word)
+		got, ok := m.choice()
+		if !ok {
+			t.Fatalf("%q matched nothing", word)
+		}
+		want := word
+		if word == "orders" {
+			want = "standing"
+		}
+		if got.name != want || got.args != "" {
+			t.Fatalf("enter on the finished word %q would take /%s %q — want the bare form", word, got.name, got.args)
+		}
+	}
+}

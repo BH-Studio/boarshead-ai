@@ -1,0 +1,80 @@
+package plan
+
+import "testing"
+
+// The one-sitting collapse: a chain of atomic nodes, one per stage, each
+// needing only the one before it, is folded into a single leaf whose brief is
+// the goal. Anything richer — width, an unmeasured node, a fidget of five — is
+// left exactly as drawn.
+func TestCollapseAtomicChain(t *testing.T) {
+	chainOf := func(n int) *Graph {
+		graph := &Graph{Goal: "the goal", Stages: make([]Stage, n)}
+		previous := 0
+		for i := 1; i <= n; i++ {
+			node := Node{Kind: KindWork, Stage: i, Size: SizeAtomic, Subharness: LinearSubharness, Title: "link"}
+			if previous != 0 {
+				node.Needs = []int{previous}
+			}
+			previous = graph.Add(node)
+		}
+		return graph
+	}
+
+	graph := chainOf(3)
+	if folded := collapseAtomicChain(graph, Measurement{}); folded != 3 {
+		t.Fatalf("collapseAtomicChain = %d, want 3", folded)
+	}
+	if len(graph.Nodes) != 1 {
+		t.Fatalf("collapsed graph has %d nodes, want 1", len(graph.Nodes))
+	}
+	single := graph.Nodes[0]
+	if single.Brief != "the goal" || single.Kind != KindWork || single.Stage != 1 || len(single.Needs) != 0 {
+		t.Fatalf("collapsed node = %+v, want one stage-1 work node carrying the goal", single)
+	}
+	if single.Undivided == "" {
+		t.Fatal("collapsed node records no diagnosis of why it was left whole")
+	}
+
+	// A one-node graph is nothing to fold.
+	if folded := collapseAtomicChain(chainOf(1), Measurement{}); folded != 0 {
+		t.Fatalf("single node folded = %d, want 0", folded)
+	}
+	// Five links is past one sitting.
+	if folded := collapseAtomicChain(chainOf(5), Measurement{}); folded != 0 {
+		t.Fatalf("five-link chain folded = %d, want 0", folded)
+	}
+	// Width is not a chain: two nodes in stage 1 stand.
+	wide := chainOf(2)
+	wide.Nodes[0].Stage = 1
+	wide.Nodes[1].Stage = 1
+	wide.Nodes[1].Needs = nil
+	if folded := collapseAtomicChain(wide, Measurement{}); folded != 0 {
+		t.Fatalf("wide graph folded = %d, want 0", folded)
+	}
+	// A node the ruler has not finished with is not collapsible.
+	unmeasured := chainOf(2)
+	unmeasured.Nodes[1].Size = SizeBorderline
+	if folded := collapseAtomicChain(unmeasured, Measurement{}); folded != 0 {
+		t.Fatalf("borderline chain folded = %d, want 0", folded)
+	}
+	// A fan-in is not a chain.
+	fanIn := chainOf(2)
+	fanIn.Nodes[1].Needs = []int{fanIn.Nodes[0].ID, 99}
+	if folded := collapseAtomicChain(fanIn, Measurement{}); folded != 0 {
+		t.Fatalf("fan-in graph folded = %d, want 0", folded)
+	}
+	// A chain that is one node's inside is not the graph's own shape. This is
+	// what keeps the collapse from undoing the division of a sequence: the links
+	// sit at depth 1 under the node they were drawn for, and folding them would
+	// hand back the very node the ruler put past one worker's reach.
+	spliced := chainOf(2)
+	for index := range spliced.Nodes {
+		spliced.Nodes[index].Depth = 1
+		spliced.Nodes[index].Parent = 99
+	}
+	spliced.Add(Node{Kind: KindSynthesis, Stage: 1, Title: "Work",
+		Needs: []int{spliced.Nodes[1].ID}})
+	if folded := collapseAtomicChain(spliced, Measurement{}); folded != 0 {
+		t.Fatalf("a spliced chain folded = %d, want 0 — the division was undone", folded)
+	}
+}

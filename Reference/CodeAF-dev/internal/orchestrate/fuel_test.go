@@ -1,0 +1,419 @@
+package orchestrate
+
+import (
+	"context"
+	"math"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestMeter(t *testing.T) {
+	if got, want := MeterCall(1_000_000, 0, "google/gemini-2.5-flash"), 0.30; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("input tokens: got %v want %v", got, want)
+	}
+	if got, want := MeterCall(0, 1_000_000, "anthropic/claude-fable-5.1"), 50.0; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("output tokens: got %v want %v", got, want)
+	}
+	// Meter has one number and charges it at the dear rate on purpose.
+	if Meter(1_000, "z-ai/glm-5.3") != MeterCall(0, 1_000, "z-ai/glm-5.3") {
+		t.Fatalf("Meter is the output rate")
+	}
+	if _, known := PriceOf("z-ai/glm-5.3:free"); !known {
+		t.Fatalf("an endpoint suffix is not a different model")
+	}
+	if _, known := PriceOf("kimi-k3"); known {
+		t.Fatalf("a bare model name is not its vendor's row")
+	}
+	price, known := PriceOf("somebody/new-model")
+	if known {
+		t.Fatalf("that model is not in the table")
+	}
+	if price.Out <= 0 {
+		t.Fatalf("an unpriced model is not a free model")
+	}
+}
+
+func TestABareNameIsNotAVendorsRow(t *testing.T) {
+	for id, want := range prices {
+		bare := id[strings.LastIndex(id, "/")+1:]
+		for _, suffix := range []string{"", ":free", "@2026-01"} {
+			t.Run("bare "+bare+suffix, func(t *testing.T) {
+				got, known := PriceOf(bare + suffix)
+				if known || got != unpriced {
+					t.Fatalf("PriceOf(%q) = %+v, %v; want %+v, false", bare+suffix, got, known, unpriced)
+				}
+			})
+
+			t.Run("qualified "+id+suffix, func(t *testing.T) {
+				got, known := PriceOf(id + suffix)
+				if !known || got != want {
+					t.Fatalf("PriceOf(%q) = %+v, %v; want %+v, true", id+suffix, got, known, want)
+				}
+			})
+		}
+	}
+
+	for _, id := range []string{"somebody/new-model", "", "   "} {
+		t.Run("unpriced "+id, func(t *testing.T) {
+			got, known := PriceOf(id)
+			if known || got != unpriced {
+				t.Fatalf("PriceOf(%q) = %+v, %v; want %+v, false", id, got, known, unpriced)
+			}
+			if id == "somebody/new-model" && got.Out <= 0 {
+				t.Fatalf("an unpriced model is not a free model: %+v", got)
+			}
+		})
+	}
+}
+
+func TestGauge(t *testing.T) {
+	if got := (Fuel{Cap: 2, Spent: 1.6}).Gauge(); got != "$1.60 of $2.00" {
+		t.Fatalf("got %q", got)
+	}
+	if got := (Fuel{Spent: 0.5}).Gauge(); got != "$0.50" {
+		t.Fatalf("an uncapped run shows what it spent: %q", got)
+	}
+	if !(Fuel{Cap: 2, Spent: 1.6}).Low() || (Fuel{Cap: 2, Spent: 1.0}).Low() {
+		t.Fatalf("the warning mark is %v", WarnMark)
+	}
+}
+
+// gated is the run every test below drives: one node at a time, each one
+// costing what the test says, and the planner adding the next one until it is
+// told to stop.
+type gated struct {
+	mu    sync.Mutex
+	added int
+	limit int
+	cost  float64
+	ran   []string
+}
+
+func (g *gated) Plan(_ context.Context, v View) (Amendment, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.added >= g.limit {
+		return done("wrap up"), nil
+	}
+	g.added++
+	return Amendment{Add: []Node{{ID: nodeName(g.added), Goal: "work"}}}, nil
+}
+
+// Exec records the NODES it ran; the synthesis is a call the run makes about
+// itself, and counting it as work would make "nothing ran after the gate"
+// impossible to state.
+func (g *gated) Exec(_ context.Context, n Node, _ []NodeStatus) (string, float64, error) {
+	g.mu.Lock()
+	if n.ID != SynthesisID {
+		g.ran = append(g.ran, n.ID)
+	}
+	g.mu.Unlock()
+	return n.ID + " did the thing", g.cost, nil
+}
+
+func (g *gated) done() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]string(nil), g.ran...)
+}
+
+func nodeName(at int) string { return "n" + string(rune('0'+at)) }
+
+// atTheGate starts a run that will pause on its second node, and hands back
+// the run, the work it is doing, and the snapshot it paused with.
+func atTheGate(t *testing.T) (*Orchestrator, *gated, chan Snapshot) {
+	t.Helper()
+	work := &gated{limit: 4, cost: 0.6}
+	var (
+		warned = make(chan Fuel, 4)
+		paused = make(chan Fuel, 4)
+		ended  = make(chan Snapshot, 1)
+	)
+	run := New("the goal", work, work, Options{
+		Cap:     1.00,
+		Lanes:   1,
+		OnFuel:  func(f Fuel) { warned <- f },
+		OnPause: func(f Fuel) { paused <- f },
+	})
+	go func() {
+		snap, _ := run.Run(testContext(t))
+		ended <- snap
+	}()
+
+	select {
+	case <-warned:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("the tank crossed %v%% and said nothing", WarnMark*100)
+	}
+	select {
+	case gauge := <-paused:
+		if gauge.Spent < gauge.Cap {
+			t.Fatalf("paused at %v of %v", gauge.Spent, gauge.Cap)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("the tank emptied and the run did not stop")
+	}
+	// The pause is a state, not a race: it is on the snapshot before anybody
+	// answers it, and it stays there until somebody does.
+	deadline := time.After(2 * time.Second)
+	for !run.Snapshot().Paused {
+		select {
+		case <-deadline:
+			t.Fatalf("the run is not marked paused")
+		case <-time.After(2 * time.Millisecond):
+		}
+	}
+	return run, work, ended
+}
+
+// TestFuelPausesAndResumesOnTopup.
+func TestFuelPausesAndResumesOnTopup(t *testing.T) {
+	run, work, ended := atTheGate(t)
+	before := len(work.done())
+
+	// Nothing new launches while the gate is up.
+	time.Sleep(50 * time.Millisecond)
+	if got := len(work.done()); got != before {
+		t.Fatalf("%d nodes launched while the run was paused", got-before)
+	}
+	if err := run.Resolve("nonsense"); err == nil {
+		t.Fatalf("the gate takes three answers and that is not one")
+	}
+	if err := run.Resolve("topup:2.00"); err != nil {
+		t.Fatal(err)
+	}
+
+	snap := waitForEnd(t, ended)
+	if !snap.Done || snap.Answer == "" {
+		t.Fatalf("a topped-up run runs to its synthesis: %+v", snap)
+	}
+	if snap.Paused {
+		t.Fatalf("an answered gate is not still up")
+	}
+	if snap.Fuel.Cap != 3.00 {
+		t.Fatalf("the top-up raises the tank to %v, want 3.00", snap.Fuel.Cap)
+	}
+	if len(work.done()) <= before {
+		t.Fatalf("the run did not carry on past the gate")
+	}
+	if !strings.Contains(strings.Join(snap.Notes, " | "), "topped up") {
+		t.Fatalf("the top-up said nothing: %+v", snap.Notes)
+	}
+}
+
+// TestFuelFinishSynthesizesOverPartialWork.
+func TestFuelFinishSynthesizesOverPartialWork(t *testing.T) {
+	run, work, ended := atTheGate(t)
+	before := len(work.done())
+	if err := run.Resolve(GateFinish); err != nil {
+		t.Fatal(err)
+	}
+	snap := waitForEnd(t, ended)
+	if !snap.Done {
+		t.Fatalf("finish ends the run: %+v", snap)
+	}
+	if snap.Answer == "" {
+		t.Fatalf("finish is a synthesis over what is there, not a silence")
+	}
+	// The synthesis is a call, and the only new work there was.
+	if got := len(work.done()); got != before {
+		t.Fatalf("%d nodes ran after finish", got-before)
+	}
+}
+
+// TestFuelStopSettlesWithoutSynthesis.
+func TestFuelStopSettlesWithoutSynthesis(t *testing.T) {
+	run, _, ended := atTheGate(t)
+	if err := run.Resolve(GateStop); err != nil {
+		t.Fatal(err)
+	}
+	snap := waitForEnd(t, ended)
+	if !snap.Done {
+		t.Fatalf("stop settles the run: %+v", snap)
+	}
+	if snap.Answer != "" {
+		t.Fatalf("stop is somebody declining to pay for one more call, got %q", snap.Answer)
+	}
+	var landed int
+	for _, node := range snap.Nodes {
+		if node.State == Done {
+			landed++
+		}
+	}
+	if landed == 0 {
+		t.Fatalf("a stopped run keeps what it finished")
+	}
+}
+
+// TestGateRefusesWhatNobodyAsked.
+func TestGateRefusesWhatNobodyAsked(t *testing.T) {
+	run := bare()
+	if err := run.Resolve(GateStop); err == nil {
+		t.Fatalf("a run that is not at the gate has no gate to answer")
+	}
+	if err := run.Resolve("topup:not-money"); err == nil {
+		t.Fatalf("that is not an amount")
+	}
+}
+
+// TestUncappedRunNeverPauses: zero is a person who did not set a tank, and it
+// is not a tank of zero dollars.
+func TestUncappedRunNeverPauses(t *testing.T) {
+	work := &gated{limit: 2, cost: 5}
+	run := New("goal", work, work, Options{Lanes: 1})
+	snap, err := run.Run(testContext(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Paused || !snap.Done {
+		t.Fatalf("an uncapped run runs: %+v", snap)
+	}
+	if snap.Fuel.Spent < 10 {
+		t.Fatalf("an uncapped run still meters: %v", snap.Fuel.Spent)
+	}
+}
+
+func waitForEnd(t *testing.T, ended chan Snapshot) Snapshot {
+	t.Helper()
+	select {
+	case snap := <-ended:
+		return snap
+	case <-time.After(10 * time.Second):
+		t.Fatalf("the run never ended")
+		return Snapshot{}
+	}
+}
+
+// TestInstalledSourceAnswersBeforeTheTable: the source is asked first, with
+// the name this package normalised, and a source that knows the model is the
+// answer even where the table holds a row of its own.
+func TestInstalledSourceAnswersBeforeTheTable(t *testing.T) {
+	var asked []string
+	UsePrices(func(model string) (Price, bool) {
+		asked = append(asked, model)
+		if model == "z-ai/glm-5.3" {
+			return Price{In: 3, Out: 9}, true
+		}
+		return Price{}, false
+	})
+	defer UsePrices(nil)
+
+	price, known := PriceOf(" Z-Ai/GLM-5.3:free ")
+	if !known || price != (Price{In: 3, Out: 9}) {
+		t.Fatalf("the installed source is the answer: %+v, %v", price, known)
+	}
+	// THE SOURCE SEES THE NORMALISED NAME, not the raw one the caller passed:
+	// a source would otherwise have to repeat this package's trimming and
+	// suffix-cutting to agree with the table it sits above.
+	if len(asked) != 1 || asked[0] != "z-ai/glm-5.3" {
+		t.Fatalf("the source was asked %q", asked)
+	}
+}
+
+// TestASourceThatDoesNotKnowFallsThroughToTheTable: false from the source is
+// "ask somebody else", and the table's row for that model is what meters.
+func TestASourceThatDoesNotKnowFallsThroughToTheTable(t *testing.T) {
+	UsePrices(func(string) (Price, bool) { return Price{}, false })
+	defer UsePrices(nil)
+
+	price, known := PriceOf("z-ai/glm-5.3")
+	if !known || price != (Price{In: 1.40, Out: 4.40}) {
+		t.Fatalf("a refusing source leaves the table in charge: %+v, %v", price, known)
+	}
+	if _, known := PriceOf("somebody/new-model"); known {
+		t.Fatalf("a refusing source does not invent a row")
+	}
+}
+
+// TestUsePricesNilLeavesTheTableAlone: removing the source is the state the
+// package started in.
+func TestUsePricesNilLeavesTheTableAlone(t *testing.T) {
+	UsePrices(func(string) (Price, bool) { return Price{In: 99, Out: 99}, true })
+	UsePrices(nil)
+	if price, known := PriceOf("moonshotai/kimi-k3"); !known || price != (Price{In: 3.00, Out: 15.00}) {
+		t.Fatalf("a removed source unmasks the table: %+v, %v", price, known)
+	}
+}
+
+// TestCatalogPricesConvertsPerTokenToPerMillion: the catalog publishes per
+// token, this package meters per million, and the doubling of that conversion
+// stops here.
+func TestCatalogPricesConvertsPerTokenToPerMillion(t *testing.T) {
+	if CatalogPrices(nil) != nil {
+		t.Fatalf("no reader is no source, not a source that never answers")
+	}
+	src := CatalogPrices(func(model string) (float64, float64, bool) {
+		if model == "vendored/big-model" {
+			return 0.0000035, 0.0000150, true
+		}
+		if model == "vendored/free-model" {
+			return 0, 0, true
+		}
+		return 0, 0, false
+	})
+	price, known := src("vendored/big-model")
+	if !known || price != (Price{In: 3.5, Out: 15.0}) {
+		t.Fatalf("per-token became per-million: %+v, %v", price, known)
+	}
+	if price, known := src("vendored/free-model"); !known || (price != Price{}) {
+		t.Fatalf("a published zero is a published price: %+v, %v", price, known)
+	}
+	if _, known := src("vendored/unpublished"); known {
+		t.Fatalf("an unpublished model is not a free model")
+	}
+}
+
+// TestTheMeterRidesTheInstalledSource: MeterCall prices through whatever is
+// installed, so the whole tank — not just PriceOf — follows the tariff.
+func TestTheMeterRidesTheInstalledSource(t *testing.T) {
+	UsePrices(CatalogPrices(func(model string) (float64, float64, bool) {
+		return 0.0000010, 0.0000030, true
+	}))
+	defer UsePrices(nil)
+
+	if got, want := MeterCall(1_000_000, 1_000_000, "any/model"), 4.0; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("the meter followed the source: got %v want %v", got, want)
+	}
+}
+
+// TestRetiredIdsAreStrangers: an id the table no longer holds meters at the
+// unpriced rate, exactly as one it never had.
+func TestRetiredIdsAreStrangers(t *testing.T) {
+	for _, id := range []string{
+		"z-ai/glm-5.2", "deepseek/deepseek-v4-flash",
+		"anthropic/claude-opus", "openai/gpt-5",
+	} {
+		price, known := PriceOf(id)
+		if known || price != unpriced {
+			t.Fatalf("PriceOf(%q) = %+v, %v; want %+v, false", id, price, known, unpriced)
+		}
+	}
+}
+
+// TestMeteringSurvivesASwap: sources are swapped while runs meter, and every
+// call sees one whole source.
+func TestMeteringSurvivesASwap(t *testing.T) {
+	odd := func(string) (Price, bool) { return Price{In: 1, Out: 2}, true }
+	even := func(string) (Price, bool) { return Price{In: 2, Out: 4}, true }
+	UsePrices(odd)
+	defer UsePrices(nil)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 1000; i++ {
+			if i%2 == 0 {
+				UsePrices(odd)
+			} else {
+				UsePrices(even)
+			}
+		}
+	}()
+	for i := 0; i < 1000; i++ {
+		if _, known := PriceOf("any/model"); !known {
+			t.Fatalf("a swap lost the source mid-flight")
+		}
+	}
+	<-done
+}

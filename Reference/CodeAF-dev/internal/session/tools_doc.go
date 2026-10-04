@@ -1,0 +1,779 @@
+package session
+
+// read_document: the ladder's OCR rung, as a hand the model actually has.
+//
+// The local rung (tools_pdf.go) already says the true thing about a scan — "no
+// text layer, images only" — and then named a LADDER. A ladder is not a tool. A
+// model that is told the OCR rungs exist and given no way to call them does the
+// one thing left: `bash: pip install easyocr`, on a machine where that is a
+// four-minute download, a CUDA warning, and a wrong answer. That is not the
+// model being stupid; it is the same fault tools_pdf.go opens with, one rung
+// higher. read said it reads files and did not read this file; then the
+// refusal said a rung could and there was no rung to call.
+//
+// So the rung becomes a hand. internal/provider already carries the whole
+// engine — ParseDocument, three verified plugins, the annotation harvest — and
+// internal/exec already drives it for the workforce (internal/exec/document.go).
+// Neither of those is reachable from a conversation. This file is the seam.
+//
+// FOUR THINGS ARE DELIBERATE.
+//
+// It is a SECOND TOOL and not a second sense inside read, which is the exact
+// opposite of tools_pdf.go's choice, and the difference is who pays. Growing
+// read was right when the answer was local, free and instant: one hand, one
+// habit, no decision. This answer costs money and seconds, and a model that
+// cannot tell "read a file" from "spend two cents OCRing forty pages" will
+// spend it on every source file it opens. The split is where the bill is.
+//
+// It is ALWAYS ON THE BELT, which inverts the conditional law tools_search.go
+// states and tools_image.go follows. Those two are optional back ends the
+// surface may never have wired, so a tool with nothing behind it is left off
+// rather than added and made to refuse. This one rides THE SESSION'S OWN
+// CREDENTIALS — the same key and base URL every turn already goes out on — so
+// there is nothing to be conditional about: a session that can talk to its
+// model can reach the rungs. And read's refusal now names this tool by name; a
+// named way out that resolves to nothing is worse than either honest state.
+//
+// EVERY REFUSAL NAMES A RUNG. "Document parsing failed" tells a model to try
+// again; "the mistral-ocr rung failed: 402 insufficient credits" tells it to
+// stop, and tells the person reading the transcript which line of settings to
+// change.
+//
+// AND THE ANSWER OBEYS PI'S TRUNCATION LAW, through the same piReadLaw the PDF
+// wrapper uses — same 2000 lines, same 50KB, same footer sentences, same
+// offset to continue. The offset has to work, and paying for a forty-page OCR
+// again to show page two would be the one place this ladder is allowed to rob
+// somebody, so the extraction is MEMOIZED per session by content digest: the
+// rung runs once, and paging through what it returned is free.
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/config"
+	"github.com/Agent-Field/codeaf/internal/exec/bare"
+	"github.com/Agent-Field/codeaf/internal/pdfx"
+	"github.com/Agent-Field/codeaf/internal/provider"
+)
+
+// DocumentParser is the one call read_document makes: a file in, its text out.
+//
+// It is [provider.Client.ParseDocument]'s signature VERBATIM rather than a
+// simplified one of this package's own, for the reason [MediaGenerator] states
+// at its own declaration: the seam carries the wire's shape, so nothing between
+// here and the provider can drift, and no adapter exists to drift in. It is an
+// interface rather than the concrete client so a test drives a scripted parser
+// and never opens a socket.
+type DocumentParser interface {
+	ParseDocument(context.Context, provider.DocumentRequest) (*provider.DocumentResponse, error)
+}
+
+// newDocClient builds the parser this session reads documents through.
+//
+// It is a package-level var so a test can substitute the whole construction —
+// the tool holds an interface, but the DEFAULT has to build something real, and
+// a test that could not replace the builder would need a live key to reach one
+// line of tool logic. It is the same provider.Config New builds the session's
+// own client from (agent.go), field for field, because it is the same account
+// paying: a document rung is not a second vendor, it is a second endpoint on
+// the one this conversation already rides.
+//
+// A missing key is an ERROR HERE and not a nil client, so the tool's refusal
+// can say which thing is missing instead of "not configured".
+var newDocClient = func(config Config) (DocumentParser, error) {
+	settings := config.documentConfig(providerTimeout)
+	service := config.serviceFor(config.Model)
+	wantsKey := service.Source.KeyShape == nil || !service.Source.KeyShape("")
+	if wantsKey && strings.TrimSpace(settings.APIKey) == "" {
+		return nil, errors.New("this session has no API key")
+	}
+	client, err := provider.NewClient(settings)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+// NewDocumentParser builds the parser the doc road bills through, for a caller
+// with no session: the command line's doc door hands over a Config carrying
+// the account it read off the profile, and gets back the same client the
+// belt's read_document builds on first use — same key resolution, same
+// seat-pin drop, same timeout. A missing key is an error that says so, exactly
+// as it does on the belt.
+func NewDocumentParser(config Config) (DocumentParser, error) { return newDocClient(config) }
+
+// NewDocumentParserFromProfile is [NewDocumentParser] for a door that holds
+// the profile rather than a session: it lifts the account off the loaded
+// settings here, so no command-line file has to spell a session Config of its
+// own — the audit law over cmd/codeaf reads every such literal as a run being
+// built without governance, and a parser is not a run.
+func NewDocumentParserFromProfile(settings config.Config) (DocumentParser, error) {
+	return newDocClient(Config{
+		Model:   settings.Model,
+		APIKey:  settings.APIKey,
+		BaseURL: settings.BaseURL,
+		Sources: settings.Sources,
+	})
+}
+
+// documentRung is the tool's whole state: the client, built once, and what the
+// rungs have already returned this session.
+//
+// It is built ON FIRST USE rather than at construction, by [Agent.state]'s
+// precedent (session.go): the belt closes over the agent, so a tool can reach a
+// thing construction never made, and the once is what keeps a session that
+// never reads a document from building a client it will never call.
+type documentRung struct {
+	once   sync.Once
+	parser DocumentParser
+	err    error
+
+	// mu guards memo, whose writers are tool calls running in parallel inside
+	// one batch (loop.go) — two calls for two pages of the same scan race here
+	// by design, and the loser simply re-stores what the winner stored.
+	mu   sync.Mutex
+	memo map[string]documentExtraction
+}
+
+// documentExtraction is one document, read once: the text and the rung that
+// produced it, so page two says the same thing about its provenance as page one.
+type documentExtraction struct {
+	rung string
+	text string
+}
+
+// documentMemoLimit bounds what one session holds in memory. Extracted
+// documents are large — a forty-page scan is a megabyte of text — and the memo
+// exists to make PAGING free, not to be a cache. Four is enough for a
+// conversation working through a couple of documents at once; the fifth clears
+// the map rather than evicting cleverly, because the cost of being wrong is one
+// re-extraction and the cost of a heap policy is a heap policy.
+const documentMemoLimit = 4
+
+// documentMaxBytes is the input ceiling, pinned to internal/exec/document.go's
+// maxDocumentInputBytes so the same file is accepted or refused the same way
+// whichever door it arrives at. It is enforced against the stat BEFORE the read
+// for the reason image.go's is: a limit checked after the read already pulled
+// the file into memory to discover it was too big.
+const documentMaxBytes = 25 << 20
+
+// documentMinimumRunes is how little text makes an answer THIN — a page number,
+// a scanner watermark, a stray glyph where a document should be. It mirrors
+// internal/exec/document.go's minimumDocumentTextRunesPerPage, flattened from
+// per-page to per-document because this seam has no page count to multiply by
+// (exec runs pdfinfo; a conversation should not shell out to decide whether to
+// try the next rung).
+//
+// IT DECIDES WHETHER TO CLIMB, NOT WHETHER TO ANSWER. A thin answer from a rung
+// with another rung beneath it is a reason to try the next one; the same thin
+// answer from the LAST rung is the answer, because a photographed receipt
+// really does extract to four words and "could not read it" would be a refusal
+// invented by a threshold. Emptiness is the only thing refused outright, and
+// the provider refuses most of that itself (provider/document.go returns an
+// error for a parser that harvested no annotations at all).
+const documentMinimumRunes = 32
+
+// The settings vocabulary (config.DocumentEngines: auto, local, free, ocr) and
+// the wire vocabulary (provider's native, cloudflare-ai, mistral-ocr) are two
+// different words for overlapping things, and both reach this file — the first
+// off the settings sheet, the second from anybody who read the provider. Both
+// are accepted and normalized here, once, so the rung plan below is written in
+// one language.
+const (
+	docEngineAuto   = "auto"
+	docEngineLocal  = "local"
+	docEngineFree   = "free"
+	docEngineOCR    = "ocr"
+	docEngineNative = "native"
+)
+
+// documentKind is what sort of file this is, which is what decides which rungs
+// could possibly read it. The paid parsers are FILE parsers — OpenRouter's
+// plugin is keyed on the PDF pipeline — so a photograph has exactly one rung
+// (the model's own eyes) and an unreachable one is refused by name rather than
+// sent and answered with a provider error about a content part.
+type documentKind int
+
+const (
+	documentPDF documentKind = iota
+	documentOffice
+	documentImage
+)
+
+// documentMediaTypes is the accepted set, by extension. The office three are
+// internal/exec/document.go's plus xlsx; the image five are image.go's, because
+// a page photographed with a phone is the commonest scan there is and refusing
+// it here would send the person back to the ladder they could not climb.
+var documentMediaTypes = map[string]struct {
+	mediaType string
+	kind      documentKind
+}{
+	".pdf":  {"application/pdf", documentPDF},
+	".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", documentOffice},
+	".xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", documentOffice},
+	".pptx": {"application/vnd.openxmlformats-officedocument.presentationml.presentation", documentOffice},
+	".png":  {"image/png", documentImage},
+	".jpg":  {"image/jpeg", documentImage},
+	".jpeg": {"image/jpeg", documentImage},
+	".webp": {"image/webp", documentImage},
+	".gif":  {"image/gif", documentImage},
+}
+
+// readDocumentDescription is prompt text billed on EVERY request of every turn —
+// the whole tool-schema block rides in front of each one — so it is written for
+// density: one imperative clause per rule, and each rule said once. What it must
+// still teach is three things: which files this hand is for, that it COSTS MONEY
+// where read does not, and pi's truncation law.
+//
+// THE TRUNCATION FIGURES ARE INTERPOLATED, not typed. They are the belt's own
+// [bare.Caps] — the same pair piReadLaw actually applies below, and the same
+// pair read quotes — because a description promising one budget while the body
+// enforces another is the exact drift one-source-of-truth exists to stop (they
+// were bare digits here until this pass). That is what makes this a function
+// rather than a const: the caps follow the model's window.
+// AND THE RUNG-BELOW SENTENCE LEFT (2026-09-10, the prompt diet). "use read for
+// plain text, source and PDFs that have a text layer" is a WHICH-TOOL rule, and
+// it is already stated from the other side by `read`'s own description (the
+// scanned-PDF clause names this tool) and by the page's routing table. The cost
+// clause stays: it is a LIMIT rather than a routing rule, and it is the whole
+// reason a model should hesitate before reaching here.
+func readDocumentDescription(caps bare.Caps) string {
+	return fmt.Sprintf("Read what plain read cannot turn into text: a scanned PDF with no text layer, a photograph of a page, an office document (docx, xlsx, pptx). IT COSTS MONEY (parsers billed per page). Truncates to %d lines or %dKB; offset continues.", caps.MaxLines, caps.MaxBytes/1024)
+}
+
+const readDocumentSchemaJSON = `{"type":"object","properties":{"path":{"type":"string","description":"The file, workspace-relative or absolute"},"question":{"type":"string","description":"What you need from it; default all of it. Shapes the native rung only"},"offset":{"type":"integer","description":"Line to start from (1-based). Paging is free"},"limit":{"type":"integer","description":"How many lines to return"}},"required":["path"],"additionalProperties":false}`
+
+// documentTool is the OCR rung on the belt. See this file's opening for why it
+// is unconditional where tools_search.go and tools_image.go are not.
+func (a *Agent) documentTool() bare.Tool {
+	return bare.Tool{
+		Name:        "read_document",
+		Description: readDocumentDescription(a.resultCaps()),
+		Schema:      json.RawMessage(readDocumentSchemaJSON),
+		Execute: func(ctx context.Context, args json.RawMessage) (string, bool, error) {
+			var parsed struct {
+				Path     string `json:"path"`
+				Question string `json:"question"`
+				Offset   *int   `json:"offset"`
+				Limit    *int   `json:"limit"`
+			}
+			if err := decodeToolArguments(args, &parsed); err != nil {
+				return "Invalid arguments: " + err.Error(), true, nil
+			}
+			path := strings.TrimSpace(parsed.Path)
+			if path == "" {
+				return "Invalid arguments: path is required", true, nil
+			}
+			return a.readDocument(ctx, path, strings.TrimSpace(parsed.Question), parsed.Offset, parsed.Limit)
+		},
+	}
+}
+
+// readDocument is the tool's body, split out so every early answer is a return
+// of the same three values the belt expects and none of them is a Go error: a
+// missing file, an unreadable format, a rung that failed and a rung that is
+// switched off are all things the MODEL can act on — read the file another way,
+// ask the person to change a setting, give up out loud — and none of them is a
+// reason to end the turn (tools_search.go's rule).
+//
+// THE ROAD ITSELF IS [ReadDocument], one plain function below, shared with the
+// command line's doc door: the tool adds the belt's truncation law and its
+// memo, and nothing else. One road, two doors, no drift.
+func (a *Agent) readDocument(ctx context.Context, path, question string, offset, limit *int) (string, bool, error) {
+	answer, err := ReadDocument(ctx, DocumentRead{
+		Path:      path,
+		Question:  question,
+		Engine:    a.config.DocumentEngine,
+		Workspace: a.config.Workspace,
+		Parser:    a.documentParser,
+		ModelOf:   a.documentModelFor,
+		Account:   a.accountDocumentRung,
+		Recall:    a.recallDocumentMemo,
+		Keep:      a.keepDocumentMemo,
+	})
+	if err != nil {
+		// The two refusals a caller answers differently from a failure arrive
+		// typed, so this wrapper can voice them for a model: a command line
+		// prints a plain file as-is and refuses the rest in its own words.
+		switch {
+		case errors.Is(err, ErrPlainDocument):
+			return fmt.Sprintf("the plain read handles this: %s is plain text — call read, which opens it locally and free", shownPath(path)), true, nil
+		case errors.Is(err, ErrUnsupportedDocument):
+			return fmt.Sprintf("read_document reads PDFs, images (png, jpeg, webp, gif) and office documents (docx, xlsx, pptx); %s is none of those", shownPath(path)), true, nil
+		}
+		return err.Error(), true, nil
+	}
+	return documentNote(answer.Rung, question, answer.Rung != docEngineNative && answer.Rung != "local") +
+		piReadLaw(a.resultCaps(), answer.Text, offset, limit), false, nil
+}
+
+// shownPath is the path as the caller wrote it, not as the workspace resolved
+// it — the same figure every refusal in this file names.
+func shownPath(path string) string {
+	return filepath.ToSlash(strings.TrimSpace(path))
+}
+
+// documentModelFor is [Agent.documentModel] behind the one signature the shared
+// road takes: the model is chosen per KIND of file, because a picture rides the
+// looking slot when the chat model cannot see.
+func (a *Agent) documentModelFor(kind string) string {
+	return a.documentModel(documentKindOf(kind))
+}
+
+// documentKindOf folds the road's kind vocabulary ("pdf", "office", "image")
+// back onto this file's own. The road spells kinds in words so a caller outside
+// the package can answer them; this is the one place the two vocabularies meet.
+func documentKindOf(kind string) documentKind {
+	switch kind {
+	case "office":
+		return documentOffice
+	case "image":
+		return documentImage
+	}
+	return documentPDF
+}
+
+// accountDocumentRung is the road's bill door: every rung's usage goes to the
+// session the moment it answers, judged answer or not — the same treatment the
+// title call and a generated picture get ([Agent.addAuxiliaryUsage]).
+func (a *Agent) accountDocumentRung(model string, usage *ai.Usage) {
+	a.addAuxiliaryUsage(&ai.Response{Usage: usage}, model, 1)
+}
+
+// recallDocumentMemo and keepDocumentMemo are the paging memo behind the road's
+// two hooks, so the tool's memo is the road's memo and not a second cache.
+func (a *Agent) recallDocumentMemo(key string) (string, string, bool) {
+	entry, ok := a.documentMemo(key)
+	return entry.rung, entry.text, ok
+}
+
+func (a *Agent) keepDocumentMemo(key, rung, text string) {
+	a.storeDocumentMemo(key, documentExtraction{rung: rung, text: text})
+}
+
+// ErrPlainDocument and ErrUnsupportedDocument are the two refusals a caller
+// answers differently from a failure: a command line prints a plain file as-is
+// (no billed call) and refuses the rest in its own words, while the belt points
+// the model at read. Both carry the tool's own sentence as their text, which the
+// belt prints verbatim and the command line never surfaces.
+var (
+	ErrPlainDocument       = errors.New("plain text")
+	ErrUnsupportedDocument = errors.New("unsupported document")
+)
+
+// DocumentAnswer is one document read once: the rung that produced the text and
+// the text itself.
+type DocumentAnswer struct {
+	Rung string
+	Text string
+}
+
+// DocumentRead is everything one billed document read needs, named so a caller
+// with no session — the command line's doc door — can walk the exact road the
+// belt's read_document tool walks: the same guards, the same local rung, the
+// same rung plan, the same refusals, the same accounting.
+//
+// Parser, ModelOf and Account are the session-shaped half: who parses, which
+// model a parse is billed to, and where the bill goes. Recall and Keep are the
+// paging memo, both optional — a one-shot caller passes neither, because
+// nothing will ever ask it for page two.
+type DocumentRead struct {
+	// Path is the file, workspace-relative or absolute, and Workspace resolves
+	// it exactly as the belt's read resolves paths (resolveInWorkspace).
+	Path      string
+	Question  string
+	Engine    string
+	Workspace string
+
+	// PagesFrom and PagesTo name the page range the LOCAL rung renders,
+	// one-based and inclusive, and are both zero for the whole document. They
+	// stay empty on the belt, where paging is the read law's offset/limit over
+	// the whole extraction; the command line uses them to read two pages of a
+	// document with a text layer without printing four hundred. A billed parse
+	// returns no page boundaries, so a range on a file the local rung cannot
+	// read is refused rather than silently ignored.
+	PagesFrom, PagesTo int
+
+	Parser  func() (DocumentParser, error)
+	ModelOf func(kind string) string
+	Account func(model string, usage *ai.Usage)
+	Recall  func(key string) (rung, text string, ok bool)
+	Keep    func(key, rung, text string)
+}
+
+// ReadDocument is the whole billed road behind read_document, as a plain
+// function: classify the file, walk the rung plan, bill each rung as it
+// answers, and hand back the extraction. It exists so the belt's tool and the
+// command line's doc door cannot drift — both call this, and neither re-walks
+// the road beside it.
+func ReadDocument(ctx context.Context, read DocumentRead) (DocumentAnswer, error) {
+	absolute := resolveInWorkspace(read.Path, read.Workspace)
+	shown := shownPath(read.Path)
+
+	info, err := os.Stat(absolute)
+	if err != nil || info.IsDir() {
+		return DocumentAnswer{}, fmt.Errorf("could not read %s", shown)
+	}
+	if info.Size() > documentMaxBytes {
+		return DocumentAnswer{}, fmt.Errorf("%s is over the %dMB document limit", shown, documentMaxBytes>>20)
+	}
+
+	entry, supported := documentMediaTypes[strings.ToLower(filepath.Ext(absolute))]
+	if !supported {
+		// The guard against being charged for what read does free. A .txt, a
+		// .go, a .md — the plain read opens all of them, locally, in a
+		// millisecond, and a model that sent one here has misread which hand
+		// this is rather than found a limit.
+		if looksLikePlainText(absolute) {
+			return DocumentAnswer{}, fmt.Errorf("%w: the plain read handles %s", ErrPlainDocument, shown)
+		}
+		return DocumentAnswer{}, fmt.Errorf("%w: read_document reads PDFs, images (png, jpeg, webp, gif) and office documents (docx, xlsx, pptx); %s is none of those", ErrUnsupportedDocument, shown)
+	}
+
+	setting := normalizeDocumentEngine(read.Engine)
+	rungs, refusal := documentRungs(setting, entry.kind)
+	if refusal != "" {
+		return DocumentAnswer{}, errors.New(refusal)
+	}
+
+	// The local rung, tried first and only when nobody pinned an engine. This
+	// tool exists for what read could not do, but the model is guessing when it
+	// comes here — a PDF that turns out to HAVE a text layer must not be sent to
+	// a parser that bills per page for text the binary can extract itself. Same
+	// law as the plain-text guard above, one file type along.
+	if entry.kind == documentPDF && setting == docEngineAuto {
+		var text string
+		var localErr error
+		if read.PagesFrom > 0 {
+			text, localErr = pdfx.ExtractPages(absolute, read.PagesFrom, read.PagesTo)
+		} else {
+			text, localErr = pdfx.Extract(absolute)
+		}
+		if localErr == nil && !documentThin(text) {
+			return DocumentAnswer{Rung: "local", Text: strings.TrimSpace(text)}, nil
+		}
+		// A page range the local rung cannot answer is a refusal, not a fall
+		// through: a billed parse returns no page boundaries, so the honest
+		// answer to "pages 3-5 of a scan" is that there are no pages to name,
+		// not the whole document.
+		if read.PagesFrom > 0 {
+			return DocumentAnswer{}, fmt.Errorf("--pages works only on the local rung, and %s needs a billed parse to read — billed text arrives with no page boundaries; run it without --pages for the whole document", shown)
+		}
+	}
+
+	data, err := os.ReadFile(absolute)
+	if err != nil {
+		return DocumentAnswer{}, fmt.Errorf("could not read %s", shown)
+	}
+	// Checked again: the file could have grown between the stat and the read.
+	if len(data) > documentMaxBytes {
+		return DocumentAnswer{}, fmt.Errorf("%s is over the %dMB document limit", shown, documentMaxBytes>>20)
+	}
+
+	digest := sha256.Sum256(data)
+	key := hex.EncodeToString(digest[:]) + "|" + setting + "|" + read.Question
+	if read.Recall != nil {
+		if rung, text, ok := read.Recall(key); ok {
+			return DocumentAnswer{Rung: rung, Text: text}, nil
+		}
+	}
+
+	if read.Parser == nil {
+		return DocumentAnswer{}, errors.New("no document client")
+	}
+	client, err := read.Parser()
+	if err != nil {
+		return DocumentAnswer{}, fmt.Errorf("the document rungs are out of reach: %v — read_document rides this session's own API key and base URL", err)
+	}
+
+	model := read.ModelOf(docKindName(entry.kind))
+	filename := filepath.Base(absolute)
+	var failures []string
+	for index, rung := range rungs {
+		last := index == len(rungs)-1
+		// The question rides the NATIVE rung alone, by internal/exec's law: the
+		// parser rungs harvest annotations without a model turn, so a question
+		// handed to one is a question silently dropped, and a caller who
+		// believes it shaped the result is worse off than one told it did not.
+		asked := ""
+		if rung == provider.DocumentParseNative {
+			asked = read.Question
+		}
+		// THE PURPOSE, because this road builds its own client and never passes
+		// the door (clientdoor.go's [withPurpose]). A rung of the document reader
+		// is the model's own eyes on a file, billed to the session and asked for
+		// by a tool call rather than by a turn, and it reached the call log with
+		// no tag at all until it said so.
+		response, err := client.ParseDocument(withPurpose(ctx, purposeDocument), provider.DocumentRequest{
+			Model:     model,
+			Filename:  filename,
+			MediaType: entry.mediaType,
+			Data:      data,
+			Engine:    rung,
+			Question:  asked,
+		})
+		// Accounted BEFORE the answer is judged: a rung that billed for an
+		// unusable answer still billed, and no turn of the person's ran on that
+		// endpoint (the same treatment the title and a generated picture get).
+		if response != nil && read.Account != nil {
+			read.Account(model, response.Usage)
+		}
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %s", rung, oneLineReason(err.Error())))
+			continue
+		}
+		text := strings.TrimSpace(response.Text)
+		if text == "" {
+			failures = append(failures, fmt.Sprintf("%s: no readable text", rung))
+			continue
+		}
+		// Thin, with somewhere left to climb: a page number is not the page.
+		// See [documentMinimumRunes] for why the last rung is exempt.
+		if documentThin(text) && !last {
+			failures = append(failures, fmt.Sprintf("%s: only %s", rung, oneLineReason(text)))
+			continue
+		}
+		if read.Keep != nil {
+			read.Keep(key, string(rung), text)
+		}
+		return DocumentAnswer{Rung: string(rung), Text: text}, nil
+	}
+
+	// Every rung named, in the order they were tried, because "which one broke"
+	// is the whole difference between a model that retries forever and a person
+	// who knows whether to add credit, change document_engine, or scan again.
+	return DocumentAnswer{}, fmt.Errorf("could not read %s — %s", shown, strings.Join(failures, "; "))
+}
+
+// docKindName spells a document kind the way the road's ModelOf hook takes it.
+func docKindName(kind documentKind) string {
+	switch kind {
+	case documentOffice:
+		return "office"
+	case documentImage:
+		return "image"
+	}
+	return "pdf"
+}
+
+// documentModel is which model the rungs send the file to, and for a PICTURE it
+// is not always this session's own.
+//
+// The native rung IS the model's eyes — [documentRungs] says so where it gives a
+// photographed page exactly one rung — so on a chat model that cannot see, that
+// rung is a request to read an image_url to a model that will answer with a 400
+// or, worse, with a confident description of nothing. The image five are also
+// the only kind with no parser beneath them, so a failure there is the whole
+// tool failing.
+//
+// The looking slot answers instead ([Agent.visionSeer]), which is the same model
+// the vision fallback and view_image use: one answer to "can I see", wherever it
+// is asked (docs/MULTIMODAL.md, Decision 8). Everything else is unchanged — a
+// PDF, a docx and a spreadsheet are files the parser rungs read without eyes,
+// and sending them to a vision model would be routing on a capability nobody
+// needed.
+//
+// A session with no seer keeps its own model, and the rung fails the way it
+// always did: naming itself, in the words the person can act on.
+func (a *Agent) documentModel(kind documentKind) string {
+	model := a.Model()
+	if kind != documentImage {
+		return model
+	}
+	if a.config.SupportsImages != nil && a.config.SupportsImages(model) {
+		return model
+	}
+	if seer := a.visionSeer(); seer != "" {
+		return seer
+	}
+	return model
+}
+
+// documentParser builds the client once, on first use, and hands back the same
+// error every time it could not be built.
+func (a *Agent) documentParser() (DocumentParser, error) {
+	a.docs.once.Do(func() { a.docs.parser, a.docs.err = newDocClient(a.config) })
+	if a.docs.err != nil {
+		return nil, a.docs.err
+	}
+	if a.docs.parser == nil {
+		return nil, errors.New("no document client")
+	}
+	return a.docs.parser, nil
+}
+
+func (a *Agent) documentMemo(key string) (documentExtraction, bool) {
+	a.docs.mu.Lock()
+	defer a.docs.mu.Unlock()
+	entry, ok := a.docs.memo[key]
+	return entry, ok
+}
+
+func (a *Agent) storeDocumentMemo(key string, entry documentExtraction) {
+	a.docs.mu.Lock()
+	defer a.docs.mu.Unlock()
+	if a.docs.memo == nil {
+		a.docs.memo = make(map[string]documentExtraction, documentMemoLimit)
+	}
+	if len(a.docs.memo) >= documentMemoLimit {
+		a.docs.memo = make(map[string]documentExtraction, documentMemoLimit)
+	}
+	a.docs.memo[key] = entry
+}
+
+// documentNote is the one line above the text: which rung read this, and — when
+// a question was asked of a rung that cannot hear one — that the question did
+// not shape it.
+//
+// It sits OUTSIDE the paged body on purpose. The footer's line numbers are the
+// DOCUMENT's, so "use offset=451 to continue" means line 451 of the extraction
+// and keeps meaning that whether or not this line is above it.
+func documentNote(rung, question string, questionDropped bool) string {
+	note := "[read_document — " + rung + " rung]"
+	if question != "" && questionDropped {
+		note += " the question shapes only the native rung; this is the full extracted text"
+	}
+	return note + "\n"
+}
+
+// documentRungs is the plan: which engines, in which order, for this setting and
+// this kind of file. A second return that is non-empty is a REFUSAL — a
+// combination with no rung behind it — worded so the person knows which row of
+// settings says no.
+func documentRungs(setting string, kind documentKind) ([]provider.DocumentParseEngine, string) {
+	switch setting {
+	case docEngineLocal:
+		// Not a rung this tool has: "local" IS the read tool (in-binary PDF
+		// extraction, tools_pdf.go), which is the thing that already failed if
+		// the model is standing here.
+		return nil, "document_engine is set to local, and the local rung is the read tool itself — in-binary PDF text extraction, which does not read scans. Set document_engine to auto, free or ocr to reach a rung that can."
+
+	case docEngineNative:
+		return []provider.DocumentParseEngine{provider.DocumentParseNative}, ""
+
+	case docEngineFree:
+		if kind == documentImage {
+			return nil, "document_engine is set to free, and the free parser reads PDFs and office documents rather than images. Set document_engine to auto or native to read a picture of a page."
+		}
+		return []provider.DocumentParseEngine{provider.DocumentParseCloudflare}, ""
+
+	case docEngineOCR:
+		if kind != documentPDF {
+			return nil, "document_engine is set to ocr, and the OCR parser reads PDFs. Set document_engine to auto or native for images and office documents."
+		}
+		return []provider.DocumentParseEngine{provider.DocumentParseMistralOCR}, ""
+
+	case docEngineAuto:
+		// Auto walks native first — the chat model's own file handling, paid for
+		// as ordinary tokens rather than per page — and only falls to the
+		// parsers when it comes back with nothing. An image stops there: the
+		// parser rungs are file parsers, and there is no cheaper rung below a
+		// model that can already see.
+		switch kind {
+		case documentImage:
+			return []provider.DocumentParseEngine{provider.DocumentParseNative}, ""
+		case documentOffice:
+			return []provider.DocumentParseEngine{provider.DocumentParseNative, provider.DocumentParseCloudflare}, ""
+		default:
+			return []provider.DocumentParseEngine{
+				provider.DocumentParseNative,
+				provider.DocumentParseCloudflare,
+				provider.DocumentParseMistralOCR,
+			}, ""
+		}
+	}
+	return nil, fmt.Sprintf("document_engine is set to %q, which is not a rung (auto, local, free, ocr)", setting)
+}
+
+// normalizeDocumentEngine folds the settings sheet's words and the provider's
+// into one vocabulary. Empty is auto, which is config.DefaultDocumentEngine and
+// also what an unwired surface hands over.
+func normalizeDocumentEngine(setting string) string {
+	value := strings.ToLower(strings.TrimSpace(setting))
+	switch value {
+	case "":
+		return docEngineAuto
+	case string(provider.DocumentParseCloudflare):
+		return docEngineFree
+	case string(provider.DocumentParseMistralOCR):
+		return docEngineOCR
+	}
+	return value
+}
+
+// documentThin answers whether what came back is too little to be the document,
+// which is a reason to climb rather than a reason to refuse. See
+// [documentMinimumRunes].
+func documentThin(text string) bool {
+	runes := 0
+	for _, character := range text {
+		if !unicode.IsSpace(character) {
+			runes++
+			if runes >= documentMinimumRunes {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// looksLikePlainText decides whether the file the model sent here is one read
+// would have opened: valid UTF-8 with no NUL bytes in its first few KB.
+//
+// The prefix is enough and the whole file is not read, because the question is
+// "did the model pick the wrong hand", not "is every byte of this text": a file
+// that opens with 8KB of clean UTF-8 and turns binary on page nine is one read
+// will still show, truncated, which is the outcome this sentence points at.
+func looksLikePlainText(absolute string) bool {
+	file, err := os.Open(absolute)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	prefix := make([]byte, 8<<10)
+	read, err := file.Read(prefix)
+	if read <= 0 {
+		// An empty file is read's to describe, not this tool's.
+		return err == nil || errors.Is(err, os.ErrClosed)
+	}
+	prefix = prefix[:read]
+	// A NUL byte is the oldest and most reliable "this is not text" signal there
+	// is, and it is what every scanned document, image and office archive here
+	// carries within its first bytes.
+	if bytes.IndexByte(prefix, 0) >= 0 {
+		return false
+	}
+	// A cut through a multi-byte rune at the 8KB boundary is not a binary file,
+	// so the last partial rune is dropped before the check rather than counted
+	// against it.
+	for len(prefix) > 0 && !utf8.Valid(prefix) && (prefix[len(prefix)-1]&0xc0) == 0x80 {
+		prefix = prefix[:len(prefix)-1]
+	}
+	if len(prefix) > 0 && !utf8.Valid(prefix) {
+		return false
+	}
+	return true
+}
+
+// oneLineReason flattens a provider error onto one line and bounds it, mirroring
+// internal/exec/document.go's oneLine: an API error can carry a whole HTML page,
+// and a tool result that is mostly somebody's error template teaches nothing.
+func oneLineReason(message string) string {
+	message = strings.Join(strings.Fields(message), " ")
+	if len(message) > 180 {
+		message = truncateToBytes(message, 177) + "…"
+	}
+	return message
+}

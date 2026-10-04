@@ -1,0 +1,161 @@
+package session
+
+// An owned conversation starts in codeaf's scratch directory, not in a project.
+// This file is the one door that turns it into a conversation about a project:
+// both the model's `workspace` tool and the surface's `/workspace` command call
+// [Agent.AnchorWorkspace], so persistence, prompt replacement and belt rebuilding
+// cannot drift into two implementations.
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/exec/bare"
+)
+
+const anchorWorkspaceDescription = "Anchor this project-less conversation to the named repository or folder."
+
+var anchorWorkspaceSchema = json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"Named path"}},"required":["path"]}`)
+
+func (a *Agent) anchorWorkspaceTools() []bare.Tool {
+	if a.config.InTask || !a.config.Place.Owned {
+		return nil
+	}
+	return []bare.Tool{{
+		Name:        "workspace",
+		Description: anchorWorkspaceDescription,
+		Schema:      anchorWorkspaceSchema,
+		Execute: func(_ context.Context, args json.RawMessage) (string, bool, error) {
+			var parsed struct {
+				Path string `json:"path"`
+			}
+			if err := decodeToolArguments(args, &parsed); err != nil {
+				return "Invalid arguments: " + err.Error(), true, nil
+			}
+			path, err := a.AnchorWorkspace(parsed.Path)
+			if err != nil {
+				return "Could not set the workspace: " + err.Error(), true, nil
+			}
+			return "Workspace set to " + path, false, nil
+		},
+	}}
+}
+
+// AnchorWorkspace changes an owned conversation into a borrowed one rooted at
+// path. It is deliberately unavailable after the first successful anchor: a
+// project-less conversation may acquire its subject, but an ordinary project
+// conversation does not silently become a different project midway through.
+func (a *Agent) AnchorWorkspace(path string) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !a.config.Place.Owned {
+		return "", fmt.Errorf("this conversation already has a workspace")
+	}
+	resolved, err := resolveWorkspaceAnchor(path, a.config.Workspace)
+	if err != nil {
+		return "", err
+	}
+
+	place := a.config.Place
+	place.Workspace = resolved
+	place.Owned = false
+	if strings.TrimSpace(place.Dir) != "" {
+		if err := a.anchorMetaLocked(place.Dir, resolved); err != nil {
+			return "", err
+		}
+	}
+
+	// The config is the source every future worker copies. Rebuild the hands as
+	// well as the words: bare tools close over their workspace when the belt is
+	// assembled, so changing only Config would leave their cwd behind.
+	a.config.Workspace = resolved
+	a.config.Place = place
+	tools := a.belt()
+	definitions, err := toolDefinitions(tools)
+	if err != nil {
+		return "", err
+	}
+	a.tools = tools
+	a.definitions = definitions
+	// AND THE GROUPS THIS SHAPE IS HANDED GO BACK ON. The belt above was rebuilt
+	// from scratch, so a pre-armed group is back in the partition and off the
+	// tool list; without this a lean conversation would silently lose `ask` the
+	// moment it anchored to a project (tools_capabilities.go's [Agent.armPrearmed]).
+	if err := a.armPrearmed(); err != nil {
+		return "", err
+	}
+	if a.jobs != nil {
+		a.jobs.mu.Lock()
+		a.jobs.workspace = resolved
+		a.jobs.place = place
+		a.jobs.mu.Unlock()
+	}
+	a.rerenderSystemLocked(time.Now())
+	return resolved, nil
+}
+
+// The caller holds a.mu; metadata writers never acquire it while holding the
+// folder lock, so this transaction can safely wait for a title or spend patch.
+func (a *Agent) anchorMetaLocked(dir, workspace string) error {
+	return withMetaLock(dir, func() error {
+		meta, err := LoadMeta(dir)
+		if err != nil {
+			return fmt.Errorf("read conversation place: %w", err)
+		}
+		// AN ANCHOR CAN BE THE FIRST WRITER OF THIS FILE, now that the opening
+		// message's stamp is owed behind the person's path rather than written on
+		// it (placemeta.go's [Agent.metaStamp]). [LoadMeta] answers an identity-less
+		// meta.json with a blank Meta exactly as it answers a missing one, so an
+		// anchor that saved back what it had just read would leave the anchoring in
+		// a file nothing can read — and the next transaction carrying a snapshot
+		// taken before the anchor would seed ownership and workspace out of that
+		// snapshot and undo it. A blank read is therefore filled whole here. A file
+		// that already holds an identity is left alone: this transaction owns two
+		// fields, and every other one belongs to whoever wrote it.
+		if strings.TrimSpace(meta.ID) == "" {
+			meta = a.fillMetaLocked(meta)
+		}
+		meta.Workspace, meta.Owned = workspace, false
+		if err := SaveMeta(dir, meta); err != nil {
+			return fmt.Errorf("save conversation place: %w", err)
+		}
+		return nil
+	})
+}
+
+func resolveWorkspaceAnchor(path, relativeTo string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home directory: %w", err)
+		}
+		path = filepath.Join(home, strings.TrimPrefix(strings.TrimPrefix(path, "~"), string(filepath.Separator)))
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(relativeTo, path)
+	}
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", path)
+	}
+	if root, ok := repositoryRoot(path); ok {
+		return root, nil
+	}
+	return filepath.Clean(path), nil
+}

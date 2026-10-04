@@ -1,0 +1,5087 @@
+package config
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/crewroute"
+	"github.com/Agent-Field/codeaf/internal/ctxbudget"
+	"github.com/Agent-Field/codeaf/internal/env"
+	"github.com/Agent-Field/codeaf/internal/pool/poolcfg"
+	"github.com/Agent-Field/codeaf/internal/provider"
+	"github.com/Agent-Field/codeaf/internal/roles"
+	"github.com/Agent-Field/codeaf/internal/search"
+	"github.com/Agent-Field/codeaf/internal/standing"
+	"github.com/Agent-Field/codeaf/internal/store"
+	"github.com/Agent-Field/codeaf/internal/taxonomy"
+	"github.com/Agent-Field/codeaf/internal/telemetry"
+)
+
+// The settings registry is the one place a user-tunable knob is written down.
+// Every row declares how it reads today, how it is applied, where it persists,
+// and which environment variable pins it — so a new knob is a row here rather
+// than a new lookup scattered through the tree, and the completeness test in
+// settings_test.go fails the build until it is registered.
+//
+// Resolution is the budget rail's order, generalized: environment → the
+// profile's config.json → the built-in default. The environment always wins,
+// and a pinned row renders read-only rather than letting the surface fight the
+// shell it was launched from.
+
+// SettingKind decides how a row reads, edits, and validates.
+type SettingKind int
+
+const (
+	// SettingModel opens the existing capability-filtered model picker.
+	SettingModel SettingKind = iota
+	SettingDollars
+	SettingDuration
+	SettingPercent
+	SettingCount
+	SettingBool
+	SettingChoice
+	SettingText
+)
+
+// Category names are the faint lowercase words the sheet may announce a section
+// with (15). There were seven, and five of them were labels doing structure's
+// job: `rhythm`, `documents & vision` and `sharing` each announced two rows or
+// one, which is a header naming a mechanism rather than a section a reader could
+// otherwise not place. Deleting them is 15's own test — the rows still read,
+// because position and spacing already said what the word said.
+//
+// SPENDING IS MONEY AND NOTHING ELSE, and that is why there are six words here
+// rather than four. `spending` had grown to hold twenty rows answering four
+// different questions — what may it spend, what may it run without asking, how
+// does it run tasks, and which workers exist — so a person looking for "how much
+// may it spend" read about load averages and repair rounds first. The three
+// questions are three sections now, and docs/design/spending/DESIGN.md is the
+// argument: a category is what a row is ABOUT, and a category that answers four
+// questions is a drawer rather than a section.
+const (
+	// CategoryModels is what runs the work: one row per role the router has,
+	// then the capability models beside them.
+	CategoryModels = "models"
+	// CategorySpending is every dollar the product will spend without asking,
+	// and NOTHING that is not a dollar.
+	CategorySpending = "spending"
+	// CategorySafety is what codeaf may do without asking you first: the
+	// approval gate, its exceptions, the model that stands in for you, and the
+	// two clocks that answer when nobody does.
+	CategorySafety = "safety"
+	// CategoryTasks is how work you can walk away from is run — how it starts,
+	// how it is checked, how much of it happens at once, and on whose hands.
+	CategoryTasks = "tasks"
+	// CategoryTeams is what every team inherits when it says nothing of its
+	// own: who answers a member's question, what a team may spend in a day,
+	// and how deep teams may nest (teamdefaults.go).
+	CategoryTeams = "teams"
+	// CategoryPractice is what codeaf does with its own time, and what it
+	// remembers of yours.
+	CategoryPractice = "memory & practice"
+	// CategoryInterface is how the surface draws itself, and how it signs the
+	// work that leaves the machine.
+	CategoryInterface = "interface"
+)
+
+// The old spellings, kept as aliases so a surface that still names one keeps
+// compiling while it is being ported. They are the same four words; nothing
+// resolves to a group that no longer exists.
+const (
+	CategoryMoney      = CategorySpending
+	CategoryLearning   = CategoryPractice
+	CategoryAppearance = CategoryInterface
+)
+
+// SettingCategories is the render order of the sheet. Spending leads the three
+// new sections because "what may it spend" is the question people arrive with;
+// safety and tasks follow it in the order the design's own hierarchy names.
+var SettingCategories = []string{
+	CategoryModels, CategorySpending, CategorySafety, CategoryTasks,
+	CategoryTeams, CategoryPractice, CategoryInterface,
+}
+
+// Persisted keys are also the json field names in the profile's config.json.
+// KeyDailyBudget keeps the name /budget default already writes.
+const (
+	KeyDailyBudget    = "daily_budget_usd"
+	KeyPlanConsent    = "plan_consent_usd"
+	KeyPracticeBudget = "practice_budget_usd"
+	KeyPracticeIdle   = "practice_idle"
+	KeyBriefAfter     = "brief_after"
+	KeyTenureAfter    = "tenure_after"
+	KeyDocumentEngine = "document_engine"
+	KeyVisionModel    = "vision_model"
+	// KeyModelPool is the stored word the pool's resolver takes: the same three
+	// answers the CODEAF_MODEL_POOL pin and a CI environment may give it
+	// (internal/pool/poolcfg). The resolver beside the search rows is the one
+	// place the process environment is read for the pool.
+	KeyModelPool = "model_pool"
+	// KeyModelPoolPublicKey is the trusted key a fetched pool index is checked
+	// under: base64 text beside the pool row it narrows, and empty for the
+	// key the binary carries. The environment pin CODEAF_MODEL_POOL_PUBLIC_KEY
+	// outranks it, through the same resolver.
+	KeyModelPoolPublicKey = "models.pool.public_key"
+	KeyAttributionModel   = "attribution.model"
+	KeySplitPct           = "split_pct"
+
+	// The two rows the v3 chat surface keeps on disk BESIDE the conversation:
+	// what was typed, and what was half-typed. They are one pair of questions —
+	// "may codeaf remember my own words between sessions" — and they are two
+	// rows rather than one because they answer it at different depths: history
+	// is every prompt ever submitted from this machine, the draft is the single
+	// unsent sentence in front of you right now, and a person who wants the
+	// second without the first (or the reverse) is not confused.
+	KeyHistoryEnabled = "history.enabled"
+	KeyDraftPersist   = "draft.persist"
+
+	// KeyTelemetry is the anonymous-usage switch: one row, default on, off
+	// turns the whole pipe (see internal/telemetry). It sits beside the
+	// history row because they answer the same question at different
+	// depths — "may codeaf record what happened on this machine" — and
+	// the session counters count either way: only the sending asks.
+	KeyTelemetry = "telemetry"
+
+	// The v3 session's own keys. They are DOTTED where the older ones are
+	// snake_case because they name a path into a settings tree the file writer
+	// will eventually hold — tools.approval is a map, models.roles is a map —
+	// and the flat text rows below are the readable stand-in until it lands.
+	KeyToolApprovalMode = "tools.approvalMode"
+	KeyToolApprovals    = "tools.approval"
+	// KeyBashApprovals is the ordered rule list for the one tool whose arguments
+	// are a language. The row above answers per TOOL — "never ask me about read"
+	// — and there is no useful per-tool answer for bash: a person who allowed the
+	// tool would have allowed every command it will ever be handed. This row is
+	// where the answer can name the command, which is what internal/approval's
+	// bash patterns are for and where the consent card's "always, this command"
+	// lands (approvalmemory.go).
+	KeyBashApprovals = "tools.bashPatterns"
+
+	// KeyGuardian turns on the small model that answers a tool prompt before you
+	// are asked (internal/session's guardian.go). It is named under `approval.`
+	// rather than beside the two `tools.` rows above because it is not a rule
+	// about tools at all: it is a statement about WHO ANSWERS — the person, or a
+	// model standing in for them — and grouping it with the rule rows would file
+	// it as one more exception in a list of exceptions.
+	KeyGuardian = "approval.guardian"
+	// KeyConsentTimeout is how long an approval question counts down before it
+	// PAUSES and keeps waiting. It never answers for the person — silence is
+	// not a no (F41) — and it stops the moment a key is pressed, because a
+	// person who has started reading is a person who is going to answer.
+	//
+	// Seconds, not a duration string, for the reason [KeyTaskAutoApprove] is
+	// spelled that way: the number is small and read at a glance off a line that
+	// is counting it down. 0 turns the clock off and the question waits from
+	// the start, which is what a person who reads every prompt wants.
+	KeyConsentTimeout = "approval.timeout_seconds"
+
+	// KeyPromptProfile is how much codeaf puts in front of the model before a
+	// person has typed: the whole page and the whole tool list, or the lean
+	// pair a small window can afford (internal/session's promptprofile.go).
+	//
+	// IT IS A ROW BECAUSE THE DERIVATION CAN BE WRONG. The profile is settled
+	// from the model's context window and that is right almost every time, but
+	// an endpoint that reports a window its loaded model does not really have
+	// leaves the person with no way to say so, and a derived state with no row
+	// anywhere is a state nobody can read off a screen. `auto` is the default
+	// and keeps the derivation; the other two words are the person overruling
+	// it, in the same words [EnvPromptProfile] takes.
+	KeyPromptProfile = "prompt.profile"
+
+	KeyTierLowModel  = "models.tiers.low"
+	KeyTierHighModel = "models.tiers.high"
+	// KeyTierWorkerModel is the seat that does the work — the worker of every
+	// task, the parts it hands out, the nodes of an adaptive run
+	// ([roles.TierWorker]). It reads from the PROFILE ALONE, unlike the two rows
+	// above it, for the reason the task model row does: a repository that could
+	// answer this could send a visitor's work — and their credit — to a model
+	// they never picked, by being cloned.
+	KeyTierWorkerModel = "models.tiers.worker"
+	// KeyTierReflexModel is the third tier, and the only one with a model in it
+	// out of the box. It is read TWICE A TURN by the routing and extraction
+	// calls the reflex tier exists for (internal/reflex), which is a rhythm no
+	// other auxiliary call has: a model that costs a tenth of a cent a call is
+	// free on the low tier and is real money here. So the row ships pointed at
+	// a model that costs near nothing rather than at "follows the conversation"
+	// — a person who never opens the sheet gets the cheap thing, and a person
+	// who clears the row gets the conversation's own model, deliberately.
+	KeyTierReflexModel = "models.tiers.reflex"
+	// KeyTierMastermindModel is the fourth tier and the only one whose model is
+	// chosen for THINKING rather than for a price. Two roles ride it — the
+	// planner that amends an adaptive run's plan after every node, and the
+	// designer that writes a harness page everybody afterwards runs — and both
+	// were on the careful-work tier beside the check on finished work, which made
+	// one figure answer two unrelated bills: the careful calls are many and short,
+	// these are few and decide what all the other calls do.
+	//
+	// It is the one row whose value may carry a LEVEL as well as a model
+	// (`moonshotai/kimi-k3:low`), because it is the one row where how hard the
+	// model thinks is the point. Every tier row accepts the notation —
+	// [ValidateTierValue] is the same gate on all five — but this is the one the
+	// shipped crew writes it into.
+	KeyTierMastermindModel = "models.tiers.mastermind"
+	// KeyMouse is whether the surface reports the mouse at all. ON is the
+	// default ([DefaultMouse]), because hover, click and the wheel are v3's own
+	// language and the thing they cost is bought back by a key: an alt-screen
+	// app that reports the mouse OWNS every drag, so the terminal's native text
+	// selection dies the moment reporting starts — and `ctrl+s` hands the
+	// pointer back for as long as somebody is dragging with it.
+	//
+	// THIS COMMENT SAID "OFF IS THE DEFAULT" while [DefaultMouse] said on, and a
+	// stale sentence here is the expensive kind: it is the first thing anybody
+	// reads when the answer to "does codeaf ask for the mouse at all" decides
+	// whether a pointer bug is in this program or in the terminal. One source of
+	// truth — [MouseModes] states the choice and [DefaultMouse] states the
+	// answer, and this row's doc may not contradict either.
+	KeyMouse = "ui.mouse"
+	// KeyTimestamps is how much of the clock the v3 conversation carries: a
+	// footer under every finished turn, only the coarse marks where the
+	// conversation was put down and picked up again, or nothing at all
+	// (internal/tui3's render.go). It is named beside the mouse row because it
+	// is the same kind of question — how much furniture the transcript draws —
+	// and it is a CHOICE rather than a bool because "less" and "none" are two
+	// different answers a reader gives for two different reasons.
+	KeyTimestamps = "ui.timestamps"
+
+	// KeyTaskColumn is whether the v3 chat opens with the task roster's column
+	// standing beside the conversation. It is a BOOLEAN — the column has no
+	// middle rung: its two narrower tiers are decided by the frame's own width,
+	// and the one answer a person gives it by hand is whether the column is
+	// there at all.
+	//
+	// A person who put v3's column away has said
+	// nothing whatever about v2's three rungs.
+	KeyTaskColumn = "ui.task_column"
+	// KeyQuickSwitch is whether the conversation switcher (internal/tui3's
+	// hop.go) SWITCHES ON EACH PRESS of `ctrl+tab` — that chord lands you in the
+	// previous conversation at once and pressing again keeps going — or opens as
+	// a card that waits for `enter`. It is a BOOLEAN because the two behaviours
+	// are the whole of the choice: there is no third rung between "the key is
+	// the switch" and "the key is the menu".
+	//
+	// IT IS `ctrl+tab` AND NOT THE BINDING, which this doc said for a long while
+	// and which the code has never done ([app.hopKey] reads the setting only for
+	// the alias and its reverse). The binding always browses: it is the chord
+	// everybody has, so it is the one that has to behave the same on every
+	// machine, and a card that waits for `enter` is the behaviour that needs
+	// nothing from the terminal. Neither gesture watches for a modifier being
+	// RELEASED — ordinary terminals do not report that at all (hop.go).
+	KeyQuickSwitch = "ui.quick_switch"
+	// KeyHints is whether the v3 chat shows its earned hints — the one-line tips
+	// in the slot above the message box that each retire once the key or command
+	// they name has been used (internal/tui3's notice.go) — and, with them, the
+	// one-line what's-new notes a new build may say. It is one row and not two
+	// because a person who has silenced the tips has said they know the surface,
+	// and being told about features is the same conversation.
+	KeyHints = "ui.hints"
+	// KeyWork controls whether completed turn machinery starts folded or open.
+	KeyWork = "ui.work"
+	// KeyIcons selects the step icon repertoire independently of colour.
+	KeyIcons = "ui.icons"
+	// KeyTaskAudit is whether an independent auditor verifies each task node
+	// before its work may merge (internal/session's task_audit.go). It sits
+	// beside the guardian because both spend a model on the person's behalf:
+	// the guardian to answer, the auditor to check.
+	KeyTaskAudit = "task.audit"
+	// KeyReplyGuard is whether a reply that has stopped being language is cut
+	// and asked again (internal/provider's streamguard.go). It is a row because
+	// the cut is a JUDGEMENT about somebody else's text, and a person who writes
+	// in four alphabets, or who asks for pages of repeated output outside a code
+	// fence, is entitled to say they would rather see whatever arrives.
+	//
+	// The silence watchdog beside it has no row: a request that produced nothing
+	// at all has failed by any reading.
+	KeyReplyGuard = "reply.guard"
+	// KeyTaskStart is what a bare `/task <brief>` COSTS TO SHAPE, and it is no
+	// longer a question about shape at all (internal/tui3's taskcommand.go).
+	// Every answer starts ONE WORKER. What the answers differ in is whether a
+	// small sizing call reads the brief first, because a yes from that call is
+	// what arms the worker to hand the work out mid-run once it has opened the
+	// material and found the width is real (internal/session's task_divide.go).
+	//
+	// It is a row because the question is not really about one task. Somebody who
+	// does not want the sizing call on their bill is refusing it every time, and
+	// that is a preference stated once rather than on every `/task`.
+	//
+	// THE PLANNED-GRAPH ANSWER IS GONE, and with it the last way a preference
+	// could open an adaptive run behind somebody's back. A `/task` takes one road
+	// now — one worker that divides itself from the material — and there is no
+	// second road left to prefer: no chat door reaches the planner at all, not a
+	// setting, not a hand on the belt, and not a form of words somebody types
+	// (internal/session's loop.go). A profile still holding the retired word reads
+	// as the default, silently, the way any word this build does not know reads
+	// ([TaskStartAt]).
+	KeyTaskStart = "task.start"
+	// KeyMemoryEnabled is whether this build remembers anything across
+	// conversations at all (internal/session's memory.go): the pre-turn router
+	// that decides which remembered lines a turn needs, the post-turn pass that
+	// decides whether the exchange held anything worth keeping, and the
+	// `remember` tool the model reaches for. Off is a conversation that starts
+	// knowing nothing about you, and that makes not one extra call.
+	KeyMemoryEnabled = "memory.enabled"
+
+	// KeyStandingBackground is whether this machine's own scheduler keeps
+	// standing items current when no codeaf window is open (internal/standing's
+	// watch.go). It is dotted with the other v3 keys, under `standing.` because
+	// that is the thing it is about, and it is PROFILE-ONLY — deliberately
+	// absent from [ProjectKeys]: installing a timer is a change to somebody's
+	// machine, and a checked-in file that could make one is a repository
+	// arranging to run a program on every laptop that clones it.
+	//
+	// ON IS THE DEFAULT and the row is the only place it is ever asked. What
+	// the row READS is derived from the timer itself rather than from this
+	// value, so the sheet cannot say `on` over a machine where nothing is
+	// installed; this value is the person's INTENT, which is what the launch
+	// repair reads before it puts a drifted timer back
+	// ([BackgroundChecksWantedAt]).
+	KeyStandingBackground = "standing.background"
+
+	KeyModelRoles = "models.roles"
+	// KeyModelFallbacks is the ordered list of models a conversation moves to
+	// when no endpoint serving the one it is on will accept the request at all
+	// (internal/provider's endpoints.go). Comma-separated slugs, first tried
+	// first. Empty lets the catalog pick the nearest same-class model instead.
+	KeyModelFallbacks = "models.fallbacks"
+	KeySpendRail      = "session.spendRailUSD"
+
+	// KeyRouting is how a session asks the router to choose among the endpoints
+	// serving one model (internal/provider's velocity.go). A model is not one
+	// machine: the same id is fanned over several endpoints that answer at very
+	// different speeds for the same price, and this row is which of those
+	// differences the session is willing to pay attention to.
+	KeyRouting = "routing"
+
+	// KeyLaneGuard is whether one slow answer may be rescued by asking a second
+	// lane the same question while the first is still thinking (internal/lane's
+	// watch.go). It is a separate row from [KeyRouting] because it answers a
+	// different question: routing says WHICH lane a request prefers, and this
+	// says whether a request that has already gone wrong is allowed to spend a
+	// little more to come back on time.
+	//
+	// It is on by default. The extra call is capped at one per answer and at a
+	// tenth of what the session spends, and it is off under price routing,
+	// where nobody is buying seconds at all.
+	KeyLaneGuard = "lane.guard"
+
+	// KeyTaskAutoApprove is the countdown a proposed task waits before it
+	// starts on its own (internal/session's task.go). It is named under `task.`
+	// rather than beside the approval rows for the reason the guardian row is
+	// named apart from them: this is not a rule about what may run, it is HOW
+	// LONG YOU GET to say something about work that is going to run either way.
+	//
+	// Seconds, not a duration string, because the number is small and read at a
+	// glance under a bar that is counting it down — "5" is the row, "5s" would
+	// be the row pretending to be a unit it never varies.
+	KeyTaskAutoApprove = "task.autoapprove_seconds"
+
+	// KeyTaskRepairRounds is how many times a task whose work came back
+	// INCOMPLETE is sent back to close the gaps before it lands as a failure
+	// (internal/session's task_audit.go). It is named under `task.` beside the
+	// countdown and the audit row because it answers their question in the third
+	// currency: those say how long you get to redirect work and who checks it,
+	// this says HOW MANY TIMES a piece of work that nearly landed is allowed to
+	// finish itself.
+	//
+	// A count rather than a word, and 0 turns it off: the number is the whole
+	// setting, and the person who wants the old behaviour — one pass, and a gap
+	// is a dead node — writes 0 rather than learning a vocabulary. It is small on
+	// purpose. Each round is another worker and another check on the same node's
+	// bill, and a loop that could run five times is a loop that can spend five
+	// times without anybody watching.
+	KeyTaskRepairRounds = "task.repair_rounds"
+
+	// KeyTaskParallel is how many tasks may RUN AT ONCE (internal/session's
+	// task_run.go). It is named under `task.` with the countdown and the repair
+	// count because it answers their question in the fourth currency: those say
+	// how long you get to redirect work, how many times it may finish itself,
+	// and whose hands it is in — this says HOW MUCH OF IT happens at the same
+	// time.
+	//
+	// BLANK IS NO LIMIT, and that is the default. The number of tasks was never
+	// the resource: what runs out is this machine's cores and memory — the two
+	// rows below — and the model provider's rate limit, which the adapter reads
+	// off 429s and adapts to on its own (internal/provider's limiter.go). This
+	// row exists for the person who wants a number anyway, and it is a QUEUE and
+	// not a refusal: work past the cap waits and starts when a slot frees.
+	KeyTaskParallel = "task.parallel"
+
+	// KeyTaskMaxLoad is the load average PER CORE at or above which no new task
+	// is started (internal/session's task_pressure.go). It is one of the two
+	// real ceilings the cap above stopped pretending to be.
+	//
+	// Per core, so that the number means the same thing on a laptop and on a
+	// workstation: 1.5 is "half again as many runnable threads as there are
+	// cores to run them", which is where the scheduler starts handing out slices
+	// rather than running work and one more build makes every build slower. 0
+	// turns the check off. It holds STARTS only — nothing already running is
+	// ever touched, so the pressure drains on its own.
+	KeyTaskMaxLoad = "task.max_load"
+
+	// KeyTaskMinFreeMB is the floor of available memory below which no new task
+	// is started (internal/session's task_pressure.go), in mebibytes, and the
+	// other half of the ceiling above.
+	//
+	// It reads the kernel's MemAvailable — what a new process could actually get
+	// — and not free memory, which on a working machine is near zero by design
+	// because the page cache has the rest. 0 turns the check off.
+	KeyTaskMinFreeMB = "task.min_free_mb"
+
+	// KeyTaskModel is the model a task runs on when the conversation does not
+	// name one for it (internal/session's taskmodel.go). It is named under
+	// `task.` beside the countdown rather than among the `models.` rows because
+	// it is not a rule about how a call is made: it is WHOSE HANDS the work that
+	// leaves this conversation ends up in, which is the same subject the
+	// countdown and the audit rows are about.
+	//
+	// Blank is the conversation's own model, which is what every task ran on
+	// before the row existed: a node is the same worker doing the same job
+	// somewhere quieter.
+	KeyTaskModel = "task.model"
+
+	// KeyTaskSettle is WHO DECIDES a task that finished but that nobody could
+	// check (internal/session's task_contract.go). It sits under `task.` beside
+	// the audit row because it is the other end of that row's question: the audit
+	// says whether the work is checked at all, and this says what happens when
+	// the check came back with nothing.
+	//
+	// `ask` is the default and puts the decision on the landed card, where the
+	// person answers it with one press. `auto` hands it to the chat: the landing
+	// note tells the model to read the work and settle it, and to come back only
+	// when it genuinely cannot tell. Both leave the same three answers available
+	// to both of them — this row changes who is asked first, and nothing else.
+	KeyTaskSettle = "task.settle"
+
+	// The web-search rows. They are four rather than one because they answer
+	// four separable questions: WHERE a lookup goes, and the three credentials
+	// that change what "where" can mean. A person with no key still searches —
+	// internal/search's last rung takes none — so the keys are an upgrade and
+	// never a prerequisite, and none of the three has to be answered for the
+	// session to be able to look something up.
+	KeySearchProvider = "search.provider"
+	KeyExaKey         = "search.exaKey"
+	KeyFirecrawlKey   = "search.firecrawlKey"
+	KeyJinaKey        = "search.jinaKey"
+
+	// The two rows that let a person connect their Google account
+	// (internal/connect). They are a PAIR and neither is useful alone: an
+	// application id names the application asking, and its secret proves the
+	// ask came from it, so a build holding one of them can offer exactly
+	// nothing. The session reads them together for that reason
+	// ([GoogleOAuthClientAt]), and offers the connect tools only when both are
+	// answered.
+	//
+	// Answering them REPLACES the registration this build ships with
+	// (connect_defaults.go): a person or a deployment that wants its own
+	// application asking — its own quota, its own consent screen, its own
+	// revocation — writes it here or exports it, and nothing else changes.
+	KeyGoogleOAuthClient = "google_oauth_client"
+	KeyGoogleOAuthSecret = "google_oauth_secret"
+
+	// The one row that lets a person replace the Slack application this build
+	// ships with (connect_defaults.go). It is ONE ROW AND NOT A PAIR because
+	// Slack's PKCE registration has no secret. An organisation that registers
+	// its own internal application to escape the outside-Marketplace throttle
+	// pastes that application's id here.
+	KeySlackOAuthClient = "slack_oauth_client"
+
+	// The four context-law knobs. Fill is how much of a model's window any
+	// agent may use before compaction fires — and WHETHER A PERSON SET IT is
+	// itself part of the law, because a conversation nobody has pinned folds
+	// against a line derived from its model's window instead
+	// (ctxbudget.PinnedFillPercent, internal/session's compactThresholdOf);
+	// the reserve is the room every
+	// call keeps for its answer and its reasoning; the working set caps what
+	// an agent keeps quoted in front of itself however large the window is;
+	// and reuse caps how many times over it may re-send that working set.
+	KeyContextFill       = "context_fill_pct"
+	KeyCompletionReserve = "completion_reserve"
+	KeyWorkingSet        = "working_set_tokens"
+	KeyContextReuse      = "context_reuse_pct"
+)
+
+// ToolApprovalModes are the three answers the tool gate can be set to, in the
+// order they widen: ask about everything, run everything, refuse everything.
+// They are internal/approval's own words — the registry must not invent a
+// fourth spelling for a decision that package already names.
+var ToolApprovalModes = []string{"prompt", "allow", "deny"}
+
+// The guardian row's two answers. It is a CHOICE and not a bool for the reason
+// every other two-word row here is one: "off/on" is what the sheet renders and
+// what the file holds, and a person reading their config.json back should find a
+// word they chose rather than a `true` they have to remember the question for.
+const (
+	GuardianOff = "off"
+	GuardianOn  = "on"
+)
+
+// GuardianModes lists them, off first — which is also the default, and the order
+// the row widens in.
+var GuardianModes = []string{GuardianOff, GuardianOn}
+
+const (
+	MouseOff = "off"
+	MouseOn  = "on"
+)
+
+// MouseModes lists them, on first — which is also the default: hover, click
+// and the wheel are the surface's own language. Selecting text does not die for
+// it — ctrl+s hands the pointer to the terminal for as long as somebody is
+// dragging with it, and ctrl+b copies from the keyboard — but a person who
+// wants the terminal's plain drag at all times turns the row off.
+//
+// Shift+drag is the answer this hint used to give, and it was the wrong one:
+// it is true, it is a fact about terminals rather than about this product, and
+// the terminals that have it disagree about the modifier (Option in iTerm2).
+// A key this surface owns is a key this surface can print.
+var MouseModes = []string{MouseOn, MouseOff}
+
+// DefaultMouse is on.
+const DefaultMouse = MouseOn
+
+const (
+	TaskAuditOff = "off"
+	TaskAuditOn  = "on"
+)
+
+// TaskAuditModes lists them, on first — which is also the default: a node
+// that verifies its own work is the whole point of the verified frontier,
+// and the audit's cost is the price of trusting what merges.
+var TaskAuditModes = []string{TaskAuditOn, TaskAuditOff}
+
+// DefaultTaskAudit is on.
+const DefaultTaskAudit = TaskAuditOn
+
+const (
+	ReplyGuardOff = "off"
+	ReplyGuardOn  = "on"
+)
+
+// ReplyGuardModes lists them, on first — which is also the default. A reply that
+// has come apart is worth almost nothing and costs the whole of the next
+// request, because it goes back into the conversation and the model reads its
+// own soup before writing more.
+var ReplyGuardModes = []string{ReplyGuardOn, ReplyGuardOff}
+
+// DefaultReplyGuard is on.
+const DefaultReplyGuard = ReplyGuardOn
+
+// The two answers to [KeyTaskSettle]: who settles a task that finished with
+// nobody able to say whether it holds.
+const (
+	// TaskSettleAsk puts it in front of the person, on the landed card.
+	TaskSettleAsk = "ask"
+	// TaskSettleAuto hands it to the chat, which reads the work and decides.
+	TaskSettleAuto = "auto"
+)
+
+// TaskSettleModes lists them, ask first — which is also the default. Deciding
+// on somebody's behalf is a thing they say yes to, never a thing they get by
+// saying nothing.
+var TaskSettleModes = []string{TaskSettleAsk, TaskSettleAuto}
+
+// DefaultTaskSettle is ask.
+const DefaultTaskSettle = TaskSettleAsk
+
+// The two answers to [KeyTaskStart], and they are not two settings but one
+// question asked once instead of on every `/task`: what a bare `/task` pays to
+// find out before its one worker starts.
+//
+//	sized      one worker, with the sizing call read over the brief first. A yes
+//	           from it arms that worker to hand the work out as it goes, once it
+//	           has opened the material and found the width is real — so wide work
+//	           runs wide without a planner ever being asked to guess at it.
+//	single     one worker, and the sizing call is not made at all. The work can
+//	           still divide itself, but only off what its own brief already says
+//	           (internal/splitgate), because nothing was read over it.
+//
+// THERE WERE FOUR, AND BOTH THE RETIRED ONES NAMED A CARD OR A ROAD THAT IS
+// GONE. `ask` went with the two-row chooser a yes from the sizing call used to
+// raise; `adaptive` went with the planned-graph road itself, which a chat turn
+// may no longer open at all. Neither retirement is allowed to be felt: a profile
+// still holding either word reads as the default, silently, because [TaskStartAt]
+// treats a word this build does not know as no answer at all — and being told
+// that a preference set months ago is now an error is the one thing a retirement
+// must never do.
+// NEITHER RETIRED WORD IS SPELLED HERE, and `ask` set that precedent: a constant
+// for a word nothing may write, nothing may offer and nothing may resolve to is a
+// name the next reader has to be told is not a mode. The retirement needs no
+// constant to work — it is [TaskStartModes] not containing the word, which is
+// what the sheet, [writeChoice] and [TaskStartAt] all read.
+const (
+	TaskStartSized  = "sized"
+	TaskStartSingle = "single"
+)
+
+// TaskStartModes lists what may be chosen, the default first. The retired word
+// is not in it, and that absence is the whole mechanism — the sheet's choices,
+// the writer's validation and the resolver all read this one list.
+var TaskStartModes = []string{TaskStartSized, TaskStartSingle}
+
+// DefaultTaskStart is sized: one worker that knows whether it is allowed to
+// divide, which is the shape the measured road is built around.
+const DefaultTaskStart = TaskStartSized
+
+// The timestamps row's three answers, and they are a LADDER rather than three
+// unrelated pictures: each rung draws strictly less of the clock than the one
+// above it.
+//
+//	footers      the turn footer (· 14:02 · 2m12s · 3 tools · $0.04 ·) AND the
+//	             gap and day marks, which are what a footer is read against
+//	separators   only the marks: where the conversation was put down for ten
+//	             minutes, and where a day ended
+//	off          no clock at all
+//
+// The middle rung exists because the two features answer the same question at
+// different costs: a reader who wants to know that yesterday's exchange was
+// yesterday does not necessarily want a line of figures under every turn, and a
+// footer with no day mark above it would be a time with no date.
+const (
+	TimestampsFooters    = "footers"
+	TimestampsSeparators = "separators"
+	TimestampsOff        = "off"
+)
+
+// TimestampModes lists them richest first, which is also the default order the
+// row widens in.
+var TimestampModes = []string{TimestampsFooters, TimestampsSeparators, TimestampsOff}
+
+const (
+	WorkFold = "fold"
+	WorkOpen = "open"
+)
+
+var WorkModes = []string{WorkFold, WorkOpen}
+
+// IconModes keeps the normal rich presentation and its compatibility floor
+// selectable without changing the terminal's colour or animation settings.
+const (
+	IconsAuto  = "auto"
+	IconsRich  = "rich"
+	IconsPlain = "plain"
+)
+
+var IconModes = []string{IconsAuto, IconsRich, IconsPlain}
+
+const DefaultWork = WorkFold
+
+// DefaultTimestamps is the footers. When a turn took two minutes and cost four
+// cents, those are facts about work the person paid for, and a transcript that
+// never says when anything happened cannot be read back a day later.
+const DefaultTimestamps = TimestampsFooters
+
+const (
+	MemoryOff = "off"
+	MemoryOn  = "on"
+)
+
+// MemoryModes lists them, on first — which is the default. A colleague who
+// forgot every preference you stated the moment you closed the window would be
+// one you had to brief again every morning, and the calls that carry this are
+// the cheapest the surface makes.
+var MemoryModes = []string{MemoryOn, MemoryOff}
+
+// DefaultMemory is on.
+const DefaultMemory = MemoryOn
+
+// The prompt profile's three answers, and they are three rather than two
+// because the honest default is not a size at all: it is "work it out". A row
+// offering only `lean` and `full` would force everybody to hold an opinion
+// about a figure the catalog already knows.
+const (
+	// PromptProfileAuto derives the profile from the model's context window,
+	// which is what every session did before this row existed.
+	PromptProfileAuto = "auto"
+	// PromptProfileLean is the shorter page and the shorter tool list, whatever
+	// window the model reports.
+	PromptProfileLean = "lean"
+	// PromptProfileFull is every law on the page and every ordinary verb in the
+	// tool block, whatever window the model reports.
+	PromptProfileFull = "full"
+)
+
+// PromptProfileModes lists them, auto first, which is the default.
+var PromptProfileModes = []string{PromptProfileAuto, PromptProfileLean, PromptProfileFull}
+
+// DefaultPromptProfile is auto.
+const DefaultPromptProfile = PromptProfileAuto
+
+// EnvPromptProfile pins the profile for one launch, in the same three words the
+// row takes. It is spelled here and read from here by internal/session's
+// promptprofile.go, because a pin the sheet renders read-only and a pin the
+// engine obeys must be one string or they drift.
+const EnvPromptProfile = "CODEAF_PROMPT_PROFILE"
+
+// The background-checks row's two answers.
+const (
+	BackgroundOff = "off"
+	BackgroundOn  = "on"
+)
+
+// BackgroundModes lists them, on first — which is the default. Something you
+// asked to happen every morning is something you asked to happen on the
+// mornings you do not open a terminal, and a person who wanted it only while
+// they were sitting there says so here.
+var BackgroundModes = []string{BackgroundOn, BackgroundOff}
+
+// DefaultBackground is on.
+const DefaultBackground = BackgroundOn
+
+// The routing row's four answers. They are spelled here rather than imported
+// from internal/provider for the reason [DocumentEngines] is: a settings key's
+// vocabulary is a string on disk, and it must not change because a package
+// renamed a constant.
+const (
+	// RoutingLatency asks for the currently-fastest endpoint.
+	RoutingLatency = "latency"
+	// RoutingPrice asks for the cheapest one that can serve the request.
+	RoutingPrice = "price"
+	// RoutingSimple sends no preference of ours at all: when no provider is
+	// pinned the router's own default answers, and a pinned provider is the
+	// whole request.
+	RoutingSimple = "simple"
+	// RoutingOff sends no preference at all, and stops measuring with it.
+	RoutingOff = "off"
+)
+
+// RoutingModes lists them, simple first — which is also the default, and the
+// order the row cycles in.
+var RoutingModes = []string{RoutingSimple, RoutingLatency, RoutingPrice, RoutingOff}
+
+// DefaultRouting is simple: what a person asked for is what goes on the wire,
+// and nothing else does.
+//
+// IT WAS `latency` UNTIL THIS BUILD, and the reason it moved is that the
+// choosing was not visible. Sorting by speed brings a whole apparatus with it —
+// a ranking this process keeps, a price ceiling, refusals learned from earlier
+// answers, a pin retired against a belief saved from an earlier run — and each
+// of those is a decision nobody watched being made. What the picker showed, what
+// was chosen, and what the record said were three answers to one question. Under
+// this row they are one answer: with no lane pinned the request carries no
+// preference at all and the router's own default routing answers it, and with a
+// lane pinned that pin is the whole request. `latency` and `price` are both
+// still here for somebody who wants the apparatus, one word away
+// (internal/provider's velocity.go).
+const DefaultRouting = RoutingSimple
+
+// ── WHICH MACHINE, NOT WHICH MODEL ──────────────────────────────────────────
+//
+// A model id is an address and a LANE is one of the machines behind it. The
+// same id is served by a dozen endpoints that differ by seven times on the wait
+// before the first word and by twelve times on how fast they write, at roughly
+// the same price — so the lane a request lands on is a bigger difference than
+// most model changes, and this is where a person says something about it.
+//
+// The rows are per slot (`lane.talk`, `lane.work`, …) for the reason the model
+// rows are: the conversation you are watching and a task worker nobody is
+// waiting on want different answers, and one row for both would be a setting
+// that is wrong half the time. [KeyRouting] is untouched and still means what
+// it meant: it is about the whole preference, and this is about one machine.
+
+const (
+	// LaneAuto lets the belief pick a lane per answer. It is the default and it
+	// is what an unset row reads as.
+	LaneAuto = "auto"
+	// LaneOpenRouter asks for no lane at all and lets the router balance on
+	// price, which is what this build did before it held an opinion.
+	LaneOpenRouter = "openrouter"
+)
+
+// LaneSlotTalk is the ONE slot the settings registry carries a row for: the
+// conversation. Every slot has a key — a task worker can be pinned by the same
+// grammar — but a panel with nine lane rows on it would be a panel about
+// endpoints rather than about models, and the other eight are set from the
+// picker on the model they belong to.
+const LaneSlotTalk = "talk"
+
+// LaneSettingKey is the row holding one slot's lane: `auto`, `openrouter`, or a
+// lane's own name as the wire spells it.
+func LaneSettingKey(slot string) string { return "lane." + slot }
+
+// LaneBorrowKey is the row beside it: whether a PINNED lane may still be
+// borrowed away from when it is slow. It is a second key rather than a fourth
+// word in the first because the two are independent — borrowing means nothing
+// under `auto` — and because a pin that quietly stopped being a pin the day
+// somebody turned rescuing on would be a promise this build did not keep.
+func LaneBorrowKey(slot string) string { return LaneSettingKey(slot) + ".borrow" }
+
+// LaneAt is the lane one slot is held to, default [LaneAuto]. A blank or
+// unreadable row reads as auto rather than as a pin nobody can see.
+func LaneAt(profileDir, slot string) string {
+	if value, ok := persistedString(profileDir, LaneSettingKey(slot)); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return LaneAuto
+}
+
+// LaneBorrowAt is whether a pinned slot may be borrowed away from when its lane
+// is slow. It is false unless somebody said so: a pin means the machine they
+// named, and widening it on their behalf is not this row's to do.
+func LaneBorrowAt(profileDir, slot string) bool {
+	value, ok := persistedBool(profileDir, LaneBorrowKey(slot))
+	return ok && value
+}
+
+// LanePinned is the lane named by a slot's row, and false when the row names no
+// machine — which is every reading of `auto` and of `openrouter`.
+func LanePinned(profileDir, slot string) (string, bool) {
+	value := LaneAt(profileDir, slot)
+	switch strings.ToLower(value) {
+	case LaneAuto, LaneOpenRouter, "":
+		return "", false
+	}
+	return value, true
+}
+
+// LanePinAt is one slot's lane row resolved into the answer the transport
+// takes. The three states of the row are the three states of the pin, and a row
+// nobody has written is `auto` — the belief chooses per answer.
+func LanePinAt(profileDir, slot string) provider.LanePin {
+	if name, pinned := LanePinned(profileDir, slot); pinned {
+		return provider.LanePin{Lane: name, Borrow: LaneBorrowAt(profileDir, slot)}
+	}
+	if strings.EqualFold(LaneAt(profileDir, slot), LaneOpenRouter) {
+		return provider.LanePin{OpenRouter: true}
+	}
+	return provider.LanePin{}
+}
+
+// InstallLaneRows hands this profile's routing posture to the process-wide
+// knobs the transport reads it from. It uses the RESOLVER'S entrance so loading
+// a row already in force never forgets a retirement the wire earned; only a
+// person's own act belongs at [provider.RepinLane].
+//
+// THE ROUTING ROW IS ONE OF THEM, and it is here rather than only on the
+// session's own config because of the clients nobody hands one to. The harness,
+// the subharness, `read_document`, `view_image` and a panel's members are all
+// assembled through [Config.ClientConfig], which carries no routing answer —
+// so before this line they ran on the default whatever a person had written,
+// and one of them could retire a person's own pin, process-wide, before any
+// wire was asked (internal/provider's velocity.go says what that cost). It is
+// the CHOICE and not the resolved default, so an unwritten row installs nothing
+// and every client falls to the shipped row together
+// ([provider.DefaultRouting]).
+func InstallLaneRows(profileDir string) {
+	InstallRoutingRow(profileDir)
+	provider.SetLanePin(LanePinAt(profileDir, LaneSlotTalk))
+	provider.SetLaneGuard(LaneGuardAt(profileDir))
+}
+
+// InstallRoutingRow hands the routing row ALONE to the transport, and it is the
+// half of [InstallLaneRows] the settings panel calls by itself: somebody cycles
+// `routing`, the row is written, and the very next request has to go out under
+// it. The lane rows beside it are untouched because nothing about them changed —
+// re-stating a pin here would be a resolver's write nobody asked for.
+func InstallRoutingRow(profileDir string) {
+	provider.InstallRouting(installedRoutingFor(profileDir))
+}
+
+// installedRoutingFor is the routing row as the transport's own vocabulary, and
+// the EMPTY strategy when a person has written nothing readable. The parse is
+// total, so a word this build does not know installs nothing rather than taking
+// a person's routing somewhere they did not ask for.
+func installedRoutingFor(profileDir string) provider.RoutingStrategy {
+	word := RoutingChoiceAt(profileDir)
+	if word == "" {
+		return ""
+	}
+	strategy, known := provider.ParseRoutingStrategy(word)
+	if !known {
+		return ""
+	}
+	return strategy
+}
+
+// SetLane writes one slot's lane. An empty word clears the row back to auto,
+// which is the same thing said two ways and both of them arrive here.
+func SetLane(profileDir, slot, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.EqualFold(value, LaneAuto) {
+		return writeProfileValue(profileDir, LaneSettingKey(slot), LaneAuto)
+	}
+	if strings.ContainsAny(value, " \t") {
+		return fmt.Errorf("a lane is one name, like cloudflare")
+	}
+	return writeProfileValue(profileDir, LaneSettingKey(slot), value)
+}
+
+// SetLaneBorrow writes the borrow flag beside a pin.
+func SetLaneBorrow(profileDir, slot string, borrow bool) error {
+	return writeProfileValue(profileDir, LaneBorrowKey(slot), borrow)
+}
+
+// DefaultLaneGuard is on: a slow answer is worth one extra call to rescue, and
+// the budget around it is what keeps that true rather than a hope.
+const DefaultLaneGuard = true
+
+// LaneGuardAt resolves the speed-guard row. A malformed row reads as the
+// default rather than quietly turning the rescue off — a person who never
+// touched this row has not asked to wait.
+func LaneGuardAt(profileDir string) bool {
+	if value, ok := persistedBool(profileDir, KeyLaneGuard); ok {
+		return value
+	}
+	return DefaultLaneGuard
+}
+
+// LaneRowWord is one slot's lane row as a person reads it: `auto`,
+// `openrouter`, `pinned: cloudflare`, or `pinned: cloudflare, borrow when
+// slow`. It is here rather than in a surface because the same words are what
+// [WriteLaneRow] reads back, and two spellings of one row is how a row stops
+// round-tripping.
+func LaneRowWord(profileDir, slot string) string {
+	name, pinned := LanePinned(profileDir, slot)
+	if !pinned {
+		if strings.EqualFold(LaneAt(profileDir, slot), LaneOpenRouter) {
+			return LaneOpenRouter
+		}
+		return LaneAuto
+	}
+	if LaneBorrowAt(profileDir, slot) {
+		return "pinned: " + name + ", " + laneBorrowWord
+	}
+	return "pinned: " + name
+}
+
+// laneBorrowWord is the tail that says a pin may be left when it is slow. It is
+// stated once because it is written on the row, read back off it, and said in
+// the manual.
+const laneBorrowWord = "borrow when slow"
+
+// WriteLaneRow takes what [LaneRowWord] says and puts it back: `auto`,
+// `openrouter`, a bare lane name, or either `pinned:` form.
+func WriteLaneRow(profileDir, slot, raw string) error {
+	value := strings.TrimSpace(raw)
+	borrow := false
+	if at := strings.LastIndex(strings.ToLower(value), laneBorrowWord); at >= 0 {
+		borrow = true
+		value = strings.TrimRight(strings.TrimSpace(value[:at]), ",")
+		value = strings.TrimSpace(value)
+	}
+	value = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(value), "pinned:"))
+	if err := SetLane(profileDir, slot, value); err != nil {
+		return err
+	}
+	return SetLaneBorrow(profileDir, slot, borrow)
+}
+
+// The two tier names internal/roles resolves auxiliary calls under. They are
+// spelled here rather than imported for the reason [DocumentEngines] is: the
+// registry is a settings surface, and a settings key is a string on disk that
+// must not change spelling because a package renamed a constant.
+const (
+	ModelTierLow  = "low"
+	ModelTierHigh = "high"
+	// ModelTierWorker is the seat that does the work ([roles.TierWorker]).
+	ModelTierWorker = "worker"
+	// ModelTierReflex is the per-turn tier ([roles.TierReflex]).
+	ModelTierReflex = "reflex"
+	// ModelTierMastermind is the thinking tier ([roles.TierMastermind]).
+	ModelTierMastermind = "mastermind"
+)
+
+// ModelTiers lists the five tier words in the order a settings surface renders
+// them, cheapest first. It is [roles.Tiers] spelled as the words on disk, and
+// [tierKeyFor] is total over it.
+var ModelTiers = []string{ModelTierReflex, ModelTierLow, ModelTierWorker, ModelTierHigh, ModelTierMastermind}
+
+// THE TWO ROWS THAT ARE NOT CREW SEATS arrive pointed at a model. The reflex
+// and small-work tiers carry the calls a conversation makes on its own behalf —
+// twice a turn for the reflex — so a person who never opened the sheet gets a
+// model that costs near nothing rather than the one they are talking to. The
+// three crew seats have no shipped model at all: an unpinned seat is routed per
+// task (crew.go), and a build-chosen worker, planner or checker would be the
+// implicit fallback the router exists to remove.
+//
+// Each is a bare OpenRouter id, spelled ONCE here and read by every caller
+// through [TierModelAt]. Blank is still an answer on both: a row a person
+// emptied on purpose reads empty and follows the model the person is talking
+// to, which is [roles.Resolve]'s floor. UNSET and CLEARED are different answers
+// here ([TierModelAt] says how). The low row is pinned to a DATED build on
+// purpose: the bare `deepseek/deepseek-v4-flash` id resolves to the April
+// build, and the July build costs the same.
+const (
+	DefaultReflexModel = "google/gemini-2.5-flash"
+	DefaultLowModel    = "deepseek/deepseek-v4-flash-0731"
+)
+
+// DocumentEngines are the four rungs CODEAF_DOC_ENGINE accepts.
+var DocumentEngines = []string{"auto", "local", "free", "ocr"}
+
+// SearchProviderAuto is the row's default: no pin, and internal/search walks
+// its own ladder — the keyed plug when its key is present, the zero-key plug
+// otherwise. It is spelled here rather than as the empty string because a
+// choice row has to have a word for "I did not choose", and "" would render as
+// a blank cell nobody can tell from a broken read.
+const SearchProviderAuto = "auto"
+
+// SearchProviders are the answers the search row accepts.
+//
+// The names are STRINGS HERE and not [search.RegisteredSearch], for the reason
+// [DocumentEngines] is a literal: a settings value is a word on disk, and a
+// list derived from a registry would silently change what a person's saved
+// answer means the day a plug is renamed or one is added. The cost is that a
+// new plug needs a line here to be pinnable — which is the right cost, because
+// a plug nobody can name in the sheet is still reachable through auto.
+// jina-search is named here too so every registered search plug is pinnable.
+var SearchProviders = []string{SearchProviderAuto, "firecrawl", "duckduckgo", "exa", "jina-search"}
+
+// ModelPoolChoices are the answers the pool row accepts, and the same words
+// the pool's resolver reads from its environment pin.
+var ModelPoolChoices = []string{"on", "read", "off"}
+
+// OperatorEnvPins is the explicit allowlist of environment variables that are
+// plumbing rather than settings: endpoints, credentials, profile roots, and
+// planner internals. They are listed read-only in the sheet's environment
+// footer and never become editable rows.
+var OperatorEnvPins = []string{
+	"CODEAF_BASE_URL",
+	// These two addresses make the real Codex browser and backend roads
+	// reproducible against a local fixture. They are plumbing, not preferences.
+	"CODEAF_CODEX_ISSUER",
+	"CODEAF_CODEX_BACKEND",
+	// The check seat has no editable profile row. Its environment rung is
+	// launch plumbing, listed read-only without changing the task.Role boundary.
+	"CODEAF_CHECK_MODEL",
+	// CODEAF_HOME moves the graph, workspace, craft repository and resident
+	// lease somewhere else in one word. It is plumbing rather than a setting
+	// for the plainest reason there is: it decides which store the sheet
+	// itself is being read out of.
+	"CODEAF_HOME",
+	// CODEAF_RELAY points a headless peer at the relay this host pairs through
+	// (internal/pair). It is an address, so it is plumbing for the same reason
+	// CODEAF_BASE_URL is.
+	"CODEAF_RELAY",
+	// CODEAF_FURROW names a furrow to use instead of the one codeaf carries
+	// (internal/furrow). A path to a program is plumbing.
+	"CODEAF_FURROW",
+	// The three site-attribution pins — a URL, an app name, a category list —
+	// used to sit here, and they are gone rather than moved: the OpenRouter app
+	// this binary reports as is decided in internal/provider from the binary's
+	// own release stamp, and nothing reads it from the environment any more. A
+	// footer that still listed them would be promising an override that does
+	// nothing, which is worse than saying nothing at all.
+	"CODEAF_PROFILE_DIR",
+	// The model API codeaf serves one program's run, and the token for it
+	// (internal/delegate's ChildEnv). codeaf sets them on the child it starts
+	// and nobody else does; they are an address and a credential, so plumbing,
+	// and the footer names them and never shows a value.
+	"CODEAF_MODEL_API",
+	"CODEAF_MODEL_TOKEN",
+	// The mark codeaf sets on a program's process so that, if the program's
+	// engine is killed outright, the processes its commands left behind can
+	// still be found and ended (internal/processgroup). codeaf sets it and reads
+	// it back, and a person has nothing to say to it, so it is plumbing too.
+	"CODEAF_DELEGATE_RUN",
+	// The descriptor a program's process holds its host's hold on its folder
+	// by (internal/delegate's HoldEnv), so the folder stays held until the
+	// program has gone too. codeaf sets it on the launch and the program reads
+	// it back; it is a number only that one process can mean, so plumbing.
+	"CODEAF_PROGRAM_HOLD_FD",
+	// The inbox file a listening program reads the words sent to it from
+	// (internal/delegate's EnvInbox). codeaf sets it on the launch of a program
+	// that can be told something while it works, and that program reads it
+	// back; it is a path into one task's record folder, so plumbing.
+	"CODEAF_INBOX",
+	// The release check's one-launch opt-out and its two mirror addresses
+	// (internal/update). They are plumbing rather than settings rows: the first
+	// is a shell's decision not to make a launch request, while the other two
+	// redirect GitHub traffic for a mirror or a test. Persisting any of them in
+	// the profile would make a temporary network posture outlive its reason.
+	"CODEAF_NO_UPDATE_CHECK",
+	"CODEAF_GITHUB_API",
+	"CODEAF_GITHUB_DOWNLOAD",
+	// CODEAF_INSTALL_NAME belongs to the shell installer and not to this
+	// program: it chooses the file name an install writes, and codeaf never
+	// reads it. It is spelled in Go at all only because the curl line codeaf
+	// offers after a failed update has to be the command that reinstalls THIS
+	// file, and a file installed under another name needs that word in the
+	// line. Plumbing rather than a row for the plainest reason there is: a row
+	// would persist a preference this binary cannot act on.
+	"CODEAF_INSTALL_NAME",
+	// The two pins on the model-call log (internal/calllog). CODEAF_CALL_LOG
+	// switches it off or moves the file; CODEAF_CALL_LOG_BODIES adds the whole
+	// request and response to every line. Plumbing rather than settings rows,
+	// and the second one emphatically so: a row in the sheet offering to record
+	// every prompt a person ever sends is not a preference, it is a decision
+	// somebody should have to make on purpose, in a shell, for one run.
+	"CODEAF_CALL_LOG",
+	"CODEAF_CALL_LOG_BODIES",
+	// CODEAF_TELEMETRY_ENDPOINT points the anonymous usage events at some
+	// other collector (a sink, an "empty" box, a CI stub). It is plumbing
+	// for the reason CODEAF_BASE_URL is — it is an address — and the
+	// reason the bodies pin is: a sheet row that could be written from a
+	// project file would be a repository able to say where a machine's
+	// usage counts are sent, which is not a preference any team should
+	// hold over a person's own telemetry off switch.
+	"CODEAF_TELEMETRY_ENDPOINT",
+	// THE DEBUG RECORD'S SWITCH AND ITS TWO CEILINGS (internal/trace).
+	// CODEAF_DEBUG turns on the full record of a run — the bodies of its model
+	// calls, its tool calls and the choices it made, in one folder per run under
+	// the state root — and it is the same switch as `--debug` on chat, do and
+	// exec and as `/debug` inside a conversation. CODEAF_CALL_LOG_BODIES above
+	// means the same thing for one release, which is why it is written beside
+	// this one rather than anywhere else. CODEAF_TRACE_MAX_MB moves what one
+	// run's folder may hold and CODEAF_TRACE_KEEP how many run folders survive.
+	//
+	// All three are plumbing for exactly the reason the bodies pin is: what they
+	// record is the person's own prompts and files, and a sheet row offering to
+	// keep all of that is not a preference — it is a decision somebody should
+	// have to make on purpose, in a shell, for one run.
+	"CODEAF_DEBUG",
+	"CODEAF_TRACE_MAX_MB",
+	"CODEAF_TRACE_KEEP",
+	"CODEAF_MODELS",
+	"CODEAF_REASONING",
+	"CODEAF_EXEC_REASONING",
+	// The three `codeaf exec` walls. They are plumbing rather than settings
+	// for the reason the node budget is: they are the ceilings one headless
+	// invocation runs under, set by the harness that made the call, and the
+	// preference the product actually has an opinion about is the daily rail.
+	// A sheet row offering to persist them would be offering to cap a
+	// conversation nobody is holding.
+	"CODEAF_EXEC_TURNS",
+	"CODEAF_EXEC_BUDGET",
+	"CODEAF_EXEC_TIMEOUT",
+	// The two walls an UNATTENDED conversation carries its own work on under
+	// (--max-hours / --max-cost, internal/session's principal.go). They are
+	// plumbing for exactly the reason the three above are: they are the ceilings
+	// ONE launch runs under, named by whoever started it, and a sheet row
+	// offering to persist them would be offering to make every future
+	// conversation an unattended one. The preference the product has an opinion
+	// about is the daily rail, and it is a row already.
+	"CODEAF_MAX_HOURS",
+	"CODEAF_MAX_COST",
+	"CODEAF_SPINE_SAMPLES",
+	"CODEAF_MAX_DEPTH",
+	"CODEAF_NODE_BUDGET",
+	"CODEAF_SKILL_DIR",
+	"CODEAF_SKILLS_BIN",
+	"CODEAF_RTK",
+	"CODEAF_RTK_BIN",
+	"CODEAF_PREAUTHORIZE_SPEND",
+	// CODEAF_WIRE_LOG names a file the surface appends one line per second of
+	// byte-meter readings to (internal/wirelog): a developer's instrument for
+	// the SSH-smoothness story, with no settings row and no slash command,
+	// because there is no question a person using codeaf would ask that it
+	// answers. It is plumbing: diagnostic output a preference sheet has no
+	// business persisting.
+	"CODEAF_WIRE_LOG",
+	// CODEAF_QUESTION_DEMO names one of the fixture questions the question page
+	// draws itself with (internal/tui3's questiondemo.go), so that a page whose
+	// real questions do not exist yet can be SEEN full rather than only through
+	// a test's string comparison. It is the same trade `make demo-home` makes
+	// and it is plumbing under the same terms the wire log is: the file itself
+	// says there is no key, no slash command and no row that mentions it, it
+	// writes nothing anywhere, and it goes the day the ask tool and the cards
+	// give the page real questions. A row offering to persist it would be
+	// offering to open a fixture over somebody's conversation every launch.
+	"CODEAF_QUESTION_DEMO",
+	// CODEAF_SUITE_DIRLOCK_PATH names the older directory lock a heavy suite
+	// takes beside its file lock, so that a checkout too old to know about the
+	// file lock can still see the box is busy (scripts/one-suite.sh, #1307). It
+	// is plumbing in the plainest sense: it is a path to a lock on one machine,
+	// set by the wrapper that runs the suite, meaningless to anybody not
+	// running one, and it goes the day the last checkout behind #1264 does. A
+	// row offering to persist it would be offering to point a person's box at
+	// somebody else's lock.
+	"CODEAF_SUITE_DIRLOCK_PATH",
+	// CODEAF_PROMPT_PROFILE used to sit here, on the reasoning that the profile
+	// is derived and the pin belongs to a bench measuring one arm against the
+	// other. It is a settings row's pin now ([KeyPromptProfile]), because the
+	// derivation can be wrong about an endpoint that misreports its window and
+	// a person needs somewhere to say so. The sheet renders that row read-only
+	// while the variable is set, which is what the entry here could never do.
+	// CODEAF_GROWTH_GATE is the growth governor's rollback switch
+	// (internal/resident/grow.go): set to 0 and the governor keeps its three
+	// free checks and never asks the paid satisfaction question. It is
+	// plumbing rather than a preference — a wave's escape hatch — and it has
+	// the same lifetime a persisted setting must not have: it disappears once the gate
+	// has proven itself, which is exactly the lifetime a persisted setting
+	// must not have.
+	"CODEAF_GROWTH_GATE",
+	// CODEAF_SWARM is cooperative decomposition's ESCAPE HATCH, and it used to
+	// be its arming switch (config.go's Config.Swarm). ON IS NOW THE DEFAULT
+	// (config.go's DefaultSwarm): a resident leaf carries request_split, a v3
+	// task's worker carries divide_work, and the sizing judgments read measured
+	// overrun base rates. Set it to 0 and the tree is byte-identical to before
+	// the wave. It is plumbing rather than a preference — it decides which
+	// decomposition doctrine the binary runs, not something the product has an
+	// opinion about — and it has the same lifetime: it
+	// disappears when nobody has a reason to turn the default off any more,
+	// which is exactly the lifetime a persisted setting must not have.
+	"CODEAF_SWARM",
+	// CODEAF_SPLITGATE names which reading of the split gate the binary runs
+	// (internal/splitgate, read by cmd/codeaf/cooperative.go and by
+	// internal/session's task_divide.go). UNSET IS OFF: every division the
+	// planner or a worker drew is kept, and nothing here counts anything. `1`
+	// arms the gate as it shipped until 2026-09-02, weighing a division against
+	// the items its evidence enumerates against a six-item floor; `judgment`
+	// asks the plan's own sizing instead of the text, and falls back to that
+	// count where the plan has no opinion. `0` is the rollback spelling this
+	// switch has always carried and now selects what an unset pin does anyway.
+	// Anything unrecognised reads as OFF, because off is the default and a typo
+	// must not quietly put a floor back under somebody's divisions.
+	// THE DEFAULT MOVED ON MEASUREMENT, not on argument: a designed experiment
+	// ran four planner arms against four readings of this gate over 273 judged
+	// plan draws, and the front it drew is the planner with the gate off —
+	// docs/design/plan-gate-doe/REPORT.md, issues #418 and #384. It is plumbing
+	// for the reason CODEAF_SWARM is — it picks which decomposition doctrine the
+	// binary runs, not something the product has an opinion about — and it has
+	// the same lifetime: it disappears when nobody has a reason to reach for a
+	// floor any more, which is exactly the lifetime a persisted setting must not
+	// have.
+	"CODEAF_SPLITGATE",
+	// CODEAF_MECHANISM names which coordination mechanism the binary arms —
+	// today its one recognized word is `quorum`, which sets Config.Quorum the
+	// same way CODEAF_QUORUM does (config.go). It is plumbing for the reason
+	// its siblings are — it picks a doctrine under benchmark, not a
+	// preference — and it shares their lifetime: it disappears when one
+	// mechanism has won.
+	"CODEAF_MECHANISM",
+	// CODEAF_QUORUM is the two-verifier gate's arming switch
+	// (config.go's Config.Quorum): on, a passed deliverable is independently
+	// verified by two cheap validators before it commits; off, the judge's
+	// pass is the final word. Same lifetime as CODEAF_SWARM.
+	"CODEAF_QUORUM",
+	// CODEAF_EXIT_CODES is the migration hatch for the ONE EXIT LADDER
+	// (cmd/codeaf/envelope.go). It takes exactly one word, `legacy`, and unset
+	// — which is every ordinary run — means the ladder every headless verb now
+	// leaves on: 0 done, 1 it could not be run at all, 2 it ran and did not
+	// finish, 3 a limit you set stopped it, 4 it needed an answer and nobody
+	// was there. What it decides: whether `codeaf exec` returns its OLD
+	// 2/3/4/5/6 instead, so that a harness written against those numbers keeps
+	// working while it is being fixed. It decides nothing about `codeaf do`,
+	// nothing about `codeaf run subharness`, and nothing about `--json`.
+	//
+	// IT IS PLUMBING AND NOT A ROW, for the reason CODEAF_SWARM and
+	// CODEAF_SPLITGATE are: it is a wave's escape hatch, it lives for one
+	// release and then goes, and that is exactly the lifetime a persisted
+	// setting must not have. A row would also be worse than useless here — a
+	// person who set `legacy` in the sheet once would have their exit codes
+	// quietly rolled back on a machine where the variable is nowhere in sight,
+	// which is the failure the hatch exists to prevent, not to cause. The
+	// scripts that need it set it in the environment beside the command, which
+	// is where a compatibility switch belongs.
+	"CODEAF_EXIT_CODES",
+	// The three numbers the response boundary reads (internal/taxonomy, and
+	// [ResponseAttemptsAt] below). They are plumbing rather than rows for the
+	// reason the context-budget pins are: nobody sets them to express a
+	// preference, they are turned when a specific provider is behaving badly or
+	// when a run is being held to a price, and the sheet already has the two
+	// rows a person actually budgets with — the daily rail and the repair count.
+	"CODEAF_RESPONSE_ATTEMPTS",
+	"CODEAF_RESPONSE_LIFT_AFTER",
+	"CODEAF_RESPONSE_LIFT_CAP",
+	// The fixture door onto the question page (internal/tui3/questiondemo.go).
+	// It names a case for one launch so the page can be SEEN full before
+	// anything in the program raises such a question — `make demo-home`'s
+	// shape, under `make demo-home`'s terms. A row offering to persist a
+	// fixture would put a demo question in front of a person every morning.
+	"CODEAF_QUESTION_DEMO",
+	// CODEAF_TASK_BELT sends a task worker BACK to the older node belt
+	// (internal/session's bashbelt.go, docs/design/worker-harness/DESIGN.md).
+	// The bash belt is the shipped default, so the variable is an escape
+	// hatch rather than the way in: `node`, `legacy` and `off` are the only
+	// words that turn it off, and one binary still runs both roads. It stays
+	// plumbing rather than a settings row for the reason the exit-code hatch
+	// is — a persisted row would pin a machine to the older engine long after
+	// whoever set it had forgotten, and an escape hatch must be as easy to
+	// stop using as it was to start. It disappears when the older belt does.
+	"CODEAF_TASK_BELT",
+	// CODEAF_PLANDB_BIN names the binary a bash-belt worker's `plandb` shim
+	// execs (internal/session's plandb_plan.go) when the running program is
+	// not the codeaf binary — a bench driving the task door in-process is the
+	// case. A path to a program is plumbing, for the reason CODEAF_FURROW is,
+	// and it shares CODEAF_TASK_BELT's lifetime.
+	"CODEAF_PLANDB_BIN",
+	// The four pool names that stay plumbing (internal/pool/poolcfg, which
+	// names them and reads none of them: the environment reaches that package
+	// as a function the caller hands in). The relay is the base the two URLs
+	// derive from — index.json and /v1/rows under it — and the TTL is how
+	// long a read copy stays young: endpoints and a cadence, on the terms the
+	// other addresses here are on. The public key is a row, not plumbing: it
+	// narrows what the install trusts, which is a preference.
+	//
+	// THE WORD ITSELF IS NOT HERE ANY MORE. CODEAF_MODEL_POOL fronts the
+	// model_pool row now, which is what the comment below used to promise:
+	// it was listed here because poolcfg took the setting as an argument and
+	// nothing in the binary called it, and a pin with no row was the honest
+	// answer then. With the row here, the word renders through the row — dim,
+	// "pinned by CODEAF_MODEL_POOL" — the way CODEAF_DOC_ENGINE does.
+	"CODEAF_MODEL_POOL_RELAY_URL",
+	"CODEAF_MODEL_POOL_URL",
+	"CODEAF_MODEL_POOL_SUBMIT_URL",
+	"CODEAF_MODEL_POOL_MIRROR_URL",
+	"CODEAF_MODEL_POOL_TTL",
+	// CODEAF_ALLOW_PROVIDER_KEYS_IN_SHELL is the opt-in that keeps a provider
+	// credential (OPENROUTER_API_KEY and its siblings) in the environment of a
+	// bash command a model runs (internal/exec's JobShellEnv, issue #1484); unset,
+	// every such key is stripped before the shell ever starts. It is plumbing and
+	// not a row for the reason CODEAF_CALL_LOG_BODIES is: keeping a secret
+	// readable by the model's own commands is not a preference a sheet should
+	// make convenient, it is a decision somebody makes on purpose, in a shell,
+	// for one run that genuinely needs it.
+	"CODEAF_ALLOW_PROVIDER_KEYS_IN_SHELL",
+}
+
+// Defaults the registry owns beyond the ones config.go already declares.
+const (
+	// DefaultPlanConsentUSD is where ambition stops being cheap. Below it a
+	// plan simply runs, because asking about a small errand is the nagging
+	// nobody wants; above it the user is quoted a count and a price and gets to
+	// say no first. It is deliberately far under the daily rail: the rail is a
+	// stop after the fact, and this is the moment before.
+	//
+	// IT WAS $3 AND $3 IS THE PRICE OF AN ORDINARY PIECE OF WORK, so the
+	// question fired on nearly every plan and became a keystroke the person
+	// owed rather than a decision they made — which is the failure mode a
+	// consent gate cannot survive, because a question asked every time is a
+	// question nobody reads. At $100 the gate fires on the plans a person
+	// would genuinely want to see priced first. 0 never asks.
+	DefaultPlanConsentUSD = 100.0
+
+	// DefaultTenureAfter is the clean-firing count a standing charter needs
+	// before it earns tenure.
+	DefaultTenureAfter = 3
+
+	// DefaultAttributionModel names the model in the `Assisted-by` line by
+	// default, because the line is provenance and the model is the part of it
+	// somebody auditing the history later actually wants. The signature itself
+	// has no row and no off: work the person did not type is always readable as
+	// such (internal/exec's AttributionLaw).
+	DefaultAttributionModel = true
+
+	// The divider clamps so neither pane can be set into uselessness. The TUI
+	// reads these so the drag, the [ ] nudge, and the sheet agree.
+	DefaultSplitPct = 80
+	MinSplitPct     = 25
+	MaxSplitPct     = 85
+
+	// DefaultHistoryEnabled remembers what was typed, because a prompt is the
+	// most expensive sentence in the product to re-type and the up arrow is the
+	// cheapest way to get it back. The file is a recall list and nothing else —
+	// internal/history caps it and never sends it anywhere.
+	DefaultHistoryEnabled = true
+
+	// DefaultTelemetry is on, because the events are coarse counts the
+	// contract allows (docs/TELEMETRY.md) and the notice names them before
+	// the first byte leaves the machine. One row turns the pipe off, and
+	// DO_NOT_TRACK answers the same question for anyone who arrives with
+	// the ecosystem's own word for it.
+	DefaultTelemetry = true
+
+	// DefaultDraftPersist keeps the unsent sentence across a restart, for the
+	// reason a text field in any other application does: the draft is the
+	// PERSON's, not the session's, and losing it to a crash or a closed window
+	// is the surface throwing away the only thing on screen it did not write.
+	DefaultDraftPersist = true
+
+	// DefaultToolApprovalMode opens new conversations in YOLO unless a saved
+	// profile, project or conversation choice supplies another posture.
+	DefaultToolApprovalMode = "allow"
+
+	// DefaultGuardian is off because choosing YOLO does not appoint a model
+	// to answer approval questions. The guardian remains an explicit choice.
+	DefaultGuardian = GuardianOff
+
+	// DefaultSpendRailUSD is 0 — no per-session ceiling. The rail that is on by
+	// default is the DAILY one, because that is the number a person actually
+	// budgets; a session ceiling is for the sitting somebody wants to box in,
+	// and a default would box in every sitting at a number nobody chose.
+	DefaultSpendRailUSD = 0.0
+
+	// DefaultTaskAutoApprove is fifteen seconds, and the direction it is wrong in
+	// is the whole choice. A task proposal is not a permission question — the
+	// model has already groomed the work and the brief, and the countdown is the
+	// person's window to REDIRECT it or wave it off. Five seconds once looked
+	// long enough to read a title and summary and reach for a key; a real card,
+	// with its where line and three answers, was gone before the person's no.
+	// Fifteen keeps silence as approval without making every task a keystroke the
+	// person owes, and gives the actual card enough time to read.
+	DefaultTaskAutoApprove = 15
+
+	// DefaultTaskRepairRounds is ONE, and one is the whole argument. The failure
+	// this exists for is a piece of work that came back nearly right — a report
+	// covering ten of the eleven companies it was asked for — and died, leaving
+	// the person to type the whole task again by hand. One round is what turns
+	// that into a task that finishes: the same worktree, the same brief, and the
+	// gaps in front of a fresh worker.
+	//
+	// It is not two, and it is not five. A second round buys much less than the
+	// first — work that is still wrong after being told exactly what is missing
+	// is work whose brief is wrong, and no number of rounds fixes a brief — while
+	// every round costs another worker and another check on the same node. So the
+	// default closes the near-misses and stops.
+	DefaultTaskRepairRounds = 1
+
+	// DefaultTaskParallel is NO LIMIT, and the change of mind it records is
+	// worth the sentence. The frontier used to hold two tasks at once, and two
+	// was a guess standing in for a resource nobody had measured — it left a
+	// sixteen-core machine idle behind a queue of ready work, and it was still
+	// one too many on a laptop already carrying somebody else's compile. The
+	// number of tasks is not what runs out. So the count became a row a person
+	// may set when they want one, the ceilings became the two below, and the
+	// default is the honest one: as much as the machine and the provider will
+	// carry.
+	DefaultTaskParallel = 0
+
+	// DefaultTaskMaxLoad is one and a half runnable threads per core, which is
+	// the number an earlier incident settled on: codeaf pinning a laptop's fan
+	// by running real compilers and real test suites beside each other
+	// (internal/exec's governor.go carries the same figure for the same class of
+	// work). Below it the machine is busy; at it, the scheduler is handing out
+	// slices and one more task makes every task slower.
+	DefaultTaskMaxLoad = 1.5
+
+	// DefaultTaskMinFreeMB is a gibibyte and a half, which is roughly what one
+	// more task needs to be worth starting: a child agent, a git worktree, and
+	// whatever build it is about to run. Starting one under that floor is how a
+	// machine reaches the OOM killer, and what the OOM killer takes is not the
+	// task that was too many — it is whichever process was largest, which on a
+	// developer's machine is usually theirs.
+	DefaultTaskMinFreeMB = 1536
+
+	// DefaultConsentTimeout is ten seconds of reminder, and it is a different
+	// number from the one above because it is a different KIND of clock. The
+	// task countdown runs toward the permissive answer, so it is kept short
+	// enough to notice. This one used to run toward the refusal (F41) and
+	// does not: at expiry the question pauses and keeps waiting. Ten seconds
+	// is long enough to read a command and a rule; after that the card stays
+	// up until somebody answers.
+	DefaultConsentTimeout = 10
+
+	// DefaultSearchProvider pins nothing. Auto is the only default that stays
+	// right as a person's keys change: the day they paste an Exa key the
+	// searches move to Exa without a second row being touched, and the day it
+	// expires they keep searching instead of getting an error from a plug they
+	// pinned six months ago and forgot.
+	DefaultSearchProvider = SearchProviderAuto
+
+	// DefaultTaskColumn stands the v3 task column up on a session that has never
+	// been told otherwise: THE COLUMN TEACHES BY EXISTING — it is how a person
+	// finds out that this chat runs work you can walk away from. Once they put it away we never stand it up again on
+	// their behalf — the strip is what keeps running work reachable from a frame
+	// with no column on it (internal/tui3's taskstrip.go).
+	DefaultTaskColumn = true
+
+	// DefaultQuickSwitch controls immediate switching with ctrl+tab where the
+	// terminal can deliver it. alt+k always browses before opening a chat.
+	DefaultQuickSwitch = true
+
+	// DefaultHints shows the v3 chat's tips to a profile that has never said
+	// otherwise. The tips retire themselves the moment each is acted on, so the
+	// default costs a veteran one line per gesture they already know, once.
+	DefaultHints = true
+)
+
+// Setting is one row: what it is called, what it reads now, and what happens
+// when the user changes it.
+type Setting struct {
+	Key      string
+	Category string
+	Label    string
+	Hint     string
+	Kind     SettingKind
+
+	// Unit is WHAT THIS ROW'S NUMBER IS COUNTED IN, and it lives here beside
+	// the default rather than in the surface that draws the row. `ssh reuse
+	// 300` is a row nobody can decide — three hundred seconds, connections,
+	// kilobytes? — and a panel that spelled the `s` for itself would be a
+	// second place for that answer to live, drifting the day somebody widened
+	// the row. One source: the registry says what the number is, every surface
+	// renders it ([Setting.Reading]).
+	//
+	// THE SYMBOLS ATTACH AND THE WORDS DO NOT. `300s`, `60%`, `20m` are one
+	// token in every terminal font, the way the two SettingDuration rows beside
+	// them already read; `1536 MB` and `65536 tok` are two words and read as
+	// two ([unitAttaches] is the whole list).
+	//
+	// A ROW WHOSE READING ALREADY CARRIES ITS UNIT LEAVES THIS EMPTY — a
+	// duration writes `20m`, a dollar row writes `$5`, [formatPercent] writes
+	// its own `%`. A row whose LABEL already names what is counted declares
+	// [UnitInLabel] rather than nothing, so "somebody decided this row needs no
+	// suffix" and "nobody has looked at this row yet" are different states and
+	// the completeness test can tell them apart.
+	Unit string
+
+	// UnitOne is [Setting.Unit] at exactly one — `1 clean firing` rather than
+	// `1 clean firings`. Empty means the unit reads the same at every number,
+	// which is true of every symbol and of `tok`, `MB` and `per core`.
+	UnitOne string
+
+	// Slot is the model role a SettingModel row fronts.
+	Slot string
+
+	// Choices lists the accepted values of a SettingChoice row.
+	Choices []string
+
+	// Env pins the row from the environment: while it is set the value is
+	// read-only and the surface says which variable owns it.
+	Env string
+
+	// EnvDefault only seeds a value the user has never chosen — the model
+	// slots work this way, so a pinned default never freezes the row.
+	EnvDefault string
+
+	// PrefsField names the chat-prefs json field this row fronts when the
+	// value lives beside the graph rather than in the profile config.
+	PrefsField string
+
+	// EmptyLabel reads for a text row whose value is unset.
+	EmptyLabel string
+
+	// Secret marks a row whose value is a credential. Such a row READS MASKED
+	// — its own reader returns the mask, so every surface that renders a value
+	// renders the mask without having to know the row is special — and its
+	// writer treats the mask as "unchanged" (see writeCredential), so an editor
+	// that opens on the displayed value and is saved unedited cannot overwrite
+	// the key with a row of bullets.
+	//
+	// The flag is here rather than a [SettingKind] because a credential edits
+	// exactly like text: the difference is what it shows, not what it accepts,
+	// and a fourth kind would make every switch in every surface grow an arm
+	// that did the same thing SettingText already does. A surface that wants to
+	// suppress its own echo while typing reads this.
+	Secret bool
+
+	// read RETURNS WHAT THE PRODUCT WILL ACTUALLY USE, and not what is stored
+	// in the profile. Where a value passes through a resolver before anything
+	// acts on it, this reads THE RESOLVER, so a person who types something the
+	// resolver will not honour watches it change in front of them instead of
+	// believing the row.
+	//
+	// That is what makes a lossy store safe, and it is the only thing that
+	// does. A 0 that means "use the default" downstream has lost the
+	// difference between unset and chosen the moment it is written, and
+	// nothing below this row can recover it; what stops the loss being
+	// invisible is that the row types the default back at the person. A read
+	// that hands over the raw stored value instead will show somebody a
+	// setting nothing obeys, and no test downstream can catch it, because
+	// downstream never sees what was typed. [persistedCount] is the lossy
+	// store this applies to today.
+	read    func() string
+	write   func(string) error
+	receipt func() string
+}
+
+// Receipt is the dim fact that belongs beside this row's value — today's spend
+// beside the day's ceiling, the price tier beside a model. It is a receipt and
+// never a second value: it is derived from a live read, it is never editable,
+// and a row with nothing true to add returns the empty string rather than a
+// placeholder (13, and 10.2.8's rule against inventing a reading).
+func (s Setting) Receipt() string {
+	if s.receipt == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.receipt())
+}
+
+// Value is the row's current reading, already formatted for display.
+func (s Setting) Value() string {
+	if s.read == nil {
+		return ""
+	}
+	value := s.read()
+	if value == "" && s.EmptyLabel != "" {
+		return s.EmptyLabel
+	}
+	return value
+}
+
+// UnitInLabel is the [Setting.Unit] of a row whose own LABEL names what is
+// counted: `tasks at once  3` needs no `tasks` on the end, and `task repair
+// rounds  1 round` would be the row saying `rounds` twice. It reads as nothing
+// and it is not nothing — it is the row saying it was looked at.
+const UnitInLabel = "-"
+
+// Reading is [Setting.Value] with the row's unit on the end — the string a
+// surface DRAWS, where Value is the string an editor opens on.
+//
+// The two are separate because a unit is a fact about the number and never part
+// of it: an edit box that opened on `300s` would be asking a person to type the
+// `s` back, and the writers refuse anything that is not a bare figure.
+func (s Setting) Reading() string {
+	value := s.Value()
+	if value == "" || s.Unit == "" || s.Unit == UnitInLabel {
+		return value
+	}
+	// A ROW READING ITS OFF WORD IS NOT READING A NUMBER. `no limit` is the
+	// answer to "how many", not a quantity of them, and `no limit tasks` would
+	// be this surface putting a unit on a refusal.
+	if s.EmptyLabel != "" && value == s.EmptyLabel {
+		return value
+	}
+	unit := s.Unit
+	if value == "1" && s.UnitOne != "" {
+		unit = s.UnitOne
+	}
+	if unitAttaches(unit) {
+		return value + unit
+	}
+	return value + " " + unit
+}
+
+// unitAttaches is the short list of units that are written against the figure
+// rather than beside it. It is a list and not a rule about length because the
+// reason is typographic: `s`, `m`, `h` and `%` are read as part of the number
+// the way `20m` on the two duration rows already is, and every word is read as
+// a word.
+func unitAttaches(unit string) bool {
+	switch unit {
+	case "s", "m", "h", "%":
+		return true
+	}
+	return false
+}
+
+// Accepts is what this row will take, in the words its own writer refuses in.
+//
+// It lives here rather than in the surfaces because it is the WRITER'S sentence
+// read forwards: "that's not a dollar amount" and "an amount in dollars" are one
+// fact, and a caller that spelled the second for itself would drift from the
+// first the day a parser widened. A panel with a picker never asks; a tool
+// putting the row in front of a model that has to type a value does, and it is
+// the difference between one call and three.
+func (s Setting) Accepts() string {
+	switch s.Kind {
+	case SettingModel:
+		return "a model id, like anthropic/claude-opus-5"
+	case SettingDollars:
+		return "an amount in dollars, like 5 or 2.50 — or none for no limit"
+	case SettingDuration:
+		return "a length of time, like 20m or 4h, or 0"
+	case SettingPercent:
+		return "a percentage"
+	case SettingCount:
+		return "a whole number"
+	case SettingBool:
+		return "on or off"
+	case SettingChoice:
+		return "one of: " + strings.Join(s.Choices, ", ")
+	}
+	if s.EmptyLabel != "" {
+		return "text, or blank for " + s.EmptyLabel
+	}
+	return "text"
+}
+
+// PinnedBy names the environment variable holding this row read-only.
+func (s Setting) PinnedBy() (string, bool) {
+	if s.Env == "" {
+		return "", false
+	}
+	if strings.TrimSpace(env.Value(s.Env)) == "" {
+		return "", false
+	}
+	return s.Env, true
+}
+
+// Apply validates, persists, and lands the live effect. A pinned row refuses
+// calmly rather than writing a value the environment would keep overriding.
+func (s Setting) Apply(raw string) error {
+	if name, pinned := s.PinnedBy(); pinned {
+		return fmt.Errorf("%s is set by %s", s.Label, name)
+	}
+	if s.write == nil {
+		return fmt.Errorf("%s cannot be changed here", s.Label)
+	}
+	return s.write(s.withoutUnit(raw))
+}
+
+// withoutUnit takes the row's own unit back off what was typed, because a row
+// that DRAWS `300s` and then refuses `300s` is a row arguing with itself: the
+// suffix is this registry's word and the person is handing it back. Anything
+// else — a unit that is not this row's, a bare figure — reaches the writer
+// untouched and is refused or accepted in the writer's own words.
+func (s Setting) withoutUnit(raw string) string {
+	text := strings.TrimSpace(raw)
+	for _, unit := range []string{s.Unit, s.UnitOne} {
+		if unit == "" || unit == UnitInLabel {
+			continue
+		}
+		if trimmed, cut := strings.CutSuffix(text, unit); cut && strings.TrimSpace(trimmed) != "" {
+			return strings.TrimSpace(trimmed)
+		}
+	}
+	return raw
+}
+
+// SettingGroup is one rendered category.
+type SettingGroup struct {
+	Title string
+	Rows  []Setting
+}
+
+// SettingsOptions supplies the live seams the registry cannot reach on its
+// own: the running model slots and the surface's own divider preference.
+type SettingsOptions struct {
+	ProfileDir string
+
+	// ModelValue and SetModel front the model slots. They stay in the chat
+	// prefs file; the registry does not migrate them.
+	ModelValue func(slot string) string
+	SetModel   func(slot, slug string) error
+
+	// SplitPct and SaveSplitPct front the chat/task divider.
+	SplitPct     func() int
+	SaveSplitPct func(pct int)
+
+	// RoleModel answers what a router role is bound to right now, for the roles
+	// the engine holds no client for. Nil is the honest state of this build —
+	// nothing resolves verify or scribe yet — and those rows then read as the
+	// role they follow instead of as a guess.
+	RoleModel func(role string) (string, bool)
+
+	// SpentTodayUSD is the day's spend, for the receipt beside the day's
+	// ceiling. The bool separates "spent nothing" from "nobody counted"
+	// (10.2.8); nil leaves the receipt off rather than printing $0.00.
+	SpentTodayUSD func() (float64, bool)
+
+	// SpentThisSessionUSD is what the conversation in front of the reader has
+	// spent, for the receipt beside its own ceiling. Nil on every door that is
+	// not a live conversation, and the bool carries the same distinction
+	// [SettingsOptions.SpentTodayUSD] carries: not counted is not zero.
+	SpentThisSessionUSD func() (float64, bool)
+
+	// ModelCost is what the provider table knows about one model's price. It is
+	// a hint beside a model row and never a filter: an unpriced model is the
+	// offline case, not a bad model. [ModelCostHint] is the derivation the
+	// wiring lane hands in.
+	ModelCost func(slug string) string
+
+	// BackgroundChecks is this machine's own scheduler as internal/standing
+	// drives it: the launchd agent or systemd user timer that runs `codeaf tick`
+	// every [standing.Interval] so standing items are checked with no window
+	// open. It is what the `standing.background` row reads and writes.
+	//
+	// NIL LEAVES THE ROW OUT ALTOGETHER, which is this codebase's law about a
+	// capability that cannot work rather than a shortcut: a Windows host, a
+	// build with no store, a registry built to read defaults out of a profile
+	// nobody has — none of them has a timer to turn on, and a row present and
+	// refusing every write would be a switch wired to nothing. The divider row
+	// is absent for the same reason ([Settings.build]).
+	BackgroundChecks standing.Watch
+
+	// Applied fires after a row is successfully written, so a process holding
+	// its own copy of a value can honor the change without waiting for a
+	// relaunch.
+	Applied func(key string)
+}
+
+// Settings is the built registry.
+type Settings struct {
+	options SettingsOptions
+	rows    []Setting
+}
+
+// NewSettings builds the registry against one profile directory and whatever
+// live seams the caller can supply. Missing seams make a row read-only rather
+// than absent, so the sheet always shows the complete surface.
+//
+// ONE ROW IS THE EXCEPTION and [Settings.build] states it where it happens: the
+// divider has nowhere to be written without [SettingsOptions.SaveSplitPct], and
+// a read-only divider is not a row somebody can read — it is a control whose
+// only behaviour is to refuse.
+func NewSettings(options SettingsOptions) *Settings {
+	registry := &Settings{options: options}
+	registry.rows = registry.build()
+	for index := range registry.rows {
+		registry.rows[index].write = registry.announce(registry.rows[index].Key, registry.rows[index].write)
+	}
+	return registry
+}
+
+func (s *Settings) announce(key string, write func(string) error) func(string) error {
+	if write == nil {
+		return nil
+	}
+	return func(raw string) error {
+		if err := write(raw); err != nil {
+			return err
+		}
+		if s.options.Applied != nil {
+			s.options.Applied(key)
+		}
+		return nil
+	}
+}
+
+// Rows returns every row in category order.
+func (s *Settings) Rows() []Setting {
+	return append([]Setting(nil), s.rows...)
+}
+
+// Row finds one row by key.
+func (s *Settings) Row(key string) (Setting, bool) {
+	for _, row := range s.rows {
+		if row.Key == key {
+			return row, true
+		}
+	}
+	return Setting{}, false
+}
+
+// Groups returns the rows grouped for rendering, skipping empty categories.
+func (s *Settings) Groups() []SettingGroup {
+	groups := make([]SettingGroup, 0, len(SettingCategories))
+	for _, title := range SettingCategories {
+		group := SettingGroup{Title: title}
+		for _, row := range s.rows {
+			if row.Category == title {
+				group.Rows = append(group.Rows, row)
+			}
+		}
+		if len(group.Rows) > 0 {
+			groups = append(groups, group)
+		}
+	}
+	return groups
+}
+
+// EnvironmentPins lists the operator plumbing currently set, for the sheet's
+// read-only footer.
+func (s *Settings) EnvironmentPins() []string {
+	set := make([]string, 0, len(OperatorEnvPins))
+	for _, name := range OperatorEnvPins {
+		if strings.TrimSpace(env.Value(name)) != "" {
+			set = append(set, name)
+		}
+	}
+	return set
+}
+
+// ModelSettingKey is the registry key fronting one model slot.
+func ModelSettingKey(slot string) string { return "model." + slot }
+
+// build is the whole sheet, in the order it is read.
+//
+// Within a group the order is how often a person touches a row, not the order
+// the rows were written or the order they happen to persist in: the day's
+// ceiling before the ask-first threshold before the practice carve-out, the
+// conversation model before the two nobody has ever changed. Between groups the
+// order is [SettingCategories]. Nothing here announces either — 15 — the
+// sequence is the sequence.
+func (s *Settings) build() []Setting {
+	dir := s.options.ProfileDir
+	slots := ModelSlots()
+	rows := make([]Setting, 0, len(slots)+10)
+
+	for _, slot := range slots {
+		rows = append(rows, s.modelRow(slot))
+	}
+
+	rows = append(rows,
+		// The two rows that pick what reads a thing rather than what runs it.
+		// They sit with the models because that is the question they answer.
+		Setting{
+			Key: KeyVisionModel, Category: CategoryModels, Kind: SettingText,
+			Label: "looking", Env: "CODEAF_VISION_MODEL", EmptyLabel: "automatic",
+			Hint: "the model that looks at images. Leave it blank and codeaf picks one that can see. " +
+				"A change lands the next time codeaf starts.",
+			read:  func() string { return VisionModelAt(dir) },
+			write: func(raw string) error { return writeText(dir, KeyVisionModel, raw) },
+		},
+		// How hard the models think, when nothing nearer to the work has said.
+		// It sits with the models rather than with spending because that is the
+		// question a person is answering when they touch it — the money is a
+		// consequence and not the subject.
+		Setting{
+			Key: KeyEffort, Category: CategoryModels, Kind: SettingChoice,
+			Label: "thinking", Choices: EffortChoices,
+			Hint: "how hard the model thinks about your turns and the work you hand out. Auto leaves reasoning to the model. " +
+				"xhigh and max ask for a deeper pass than high, and cost the time they take. " +
+				"A standing item's firings and checks never take this row; only the rung on the item's own card reaches a firing.",
+			read:  func() string { return EffortWord(DefaultEffortAt(dir)) },
+			write: func(raw string) error { return writeChoice(dir, KeyEffort, raw, EffortChoices) },
+		},
+		Setting{
+			Key: KeyDocumentEngine, Category: CategoryModels, Kind: SettingChoice,
+			Label: "reading", Env: "CODEAF_DOC_ENGINE", Choices: DocumentEngines,
+			Hint: "which rung reads your documents. auto walks local, then free, then paid OCR. " +
+				"A change lands the next time codeaf starts.",
+			read:  func() string { return resolvedEngine(DocumentEngineAt(dir)) },
+			write: func(raw string) error { return writeChoice(dir, KeyDocumentEngine, raw, DocumentEngines) },
+		},
+
+		// Searching sits beside looking and reading because it is the third
+		// question of the same shape — which back end answers when codeaf has
+		// to go outside the machine — and the three keys sit under it because a
+		// key is not a preference on its own: it is the thing that decides
+		// what the row above it can resolve to.
+		Setting{
+			Key: KeySearchProvider, Category: CategoryModels, Kind: SettingChoice,
+			Label: "searching", Choices: SearchProviders,
+			Hint: "where a web search goes. auto uses the best back end your keys reach and " +
+				"falls back to one that needs none, so search works with nothing set. " +
+				"A change lands on the next search.",
+			read:  func() string { return SearchProviderAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeySearchProvider, raw, SearchProviders) },
+		},
+		// The Model Pool row. It is the stored word [ModelPoolAt] resolves, and
+		// the pin beside it is one of the four names the resolver takes. The
+		// row sits with the search rows because it is the same shape of
+		// question — what does codeaf reach OUTSIDE the machine for — and its
+		// answer is read the same way a choice is read everywhere here.
+		Setting{
+			Key: KeyModelPool, Category: CategoryModels, Kind: SettingChoice,
+			Label: "model pool", Env: "CODEAF_MODEL_POOL", Choices: ModelPoolChoices,
+			Hint: "codeaf picks your models from the public Model Pool, and your runs improve it. " +
+				"On by default: what leaves is computed, text-free numbers under a per-install nonce, " +
+				"never code, prompts or paths. read: use the pool, send nothing. off: neither " +
+				"(CODEAF_MODEL_POOL=off for one run).",
+			read:  func() string { return ModelPoolAt(dir).Mode.String() },
+			write: func(raw string) error { return writeChoice(dir, KeyModelPool, raw, ModelPoolChoices) },
+		},
+		// The key a fetched pool index is checked under. The binary carries the
+		// index signer's key, and this row exists to pin a different one — a
+		// mirror serving its own signed index, or an install proving a key out
+		// for itself. It sits beside the pool row because it narrows that row's
+		// reading, the way the keys under searching narrow theirs.
+		Setting{
+			Key: KeyModelPoolPublicKey, Category: CategoryModels, Kind: SettingText,
+			Label: "pool key", Env: "CODEAF_MODEL_POOL_PUBLIC_KEY", EmptyLabel: "built in",
+			Hint: "the base64 Ed25519 public key an index must be signed with. " +
+				"Empty means the key built into this binary.",
+			read:  func() string { return ModelPoolAt(dir).PublicKey },
+			write: func(raw string) error { return writeText(dir, KeyModelPoolPublicKey, raw) },
+		},
+		// THE KEY EVERY MODEL CALL RIDES. The default local door normally creates
+		// one through the browser (tui3's firstrun.go); this row remains the place
+		// to paste a replacement or to use a custom endpoint's credential. It masks
+		// like every credential, the environment outranks
+		// it as it always has (apikey.go's resolution order), and a write lands
+		// on the RUNNING session through the surface's Applied hook rather than
+		// waiting for the next launch — the row this was modelled on says "on the
+		// next search" because search reads live; this is the conversation.
+		Setting{
+			Key: KeyAPIKey, Category: CategoryModels, Kind: SettingText, Secret: true,
+			Label: "openrouter key", Env: APIKeyEnv, EmptyLabel: "not set",
+			Hint: "the key codeaf talks to models with. With the default provider, a missing key " +
+				"opens connect openrouter in your browser; paste a replacement here if needed. " +
+				"Set in the shell it outranks this row. A change lands on this conversation at once.",
+			read:  func() string { return maskCredential(APIKeyAt(dir)) },
+			write: func(raw string) error { return writeCredential(dir, KeyAPIKey, raw, APIKeyAt(dir)) },
+		},
+		Setting{
+			Key: KeyExaKey, Category: CategoryModels, Kind: SettingText, Secret: true,
+			Label: "exa key", Env: "EXA_API_KEY", EmptyLabel: "not set",
+			Hint: "an exa.ai key, which buys better results and page fetches than the free " +
+				"back end. Optional — search works without it. A change lands on the next search.",
+			read:  func() string { return maskCredential(ExaKeyAt(dir)) },
+			write: func(raw string) error { return writeCredential(dir, KeyExaKey, raw, ExaKeyAt(dir)) },
+		},
+		Setting{
+			Key: KeyFirecrawlKey, Category: CategoryModels, Kind: SettingText, Secret: true,
+			Label: "firecrawl key", Env: "FIRECRAWL_API_KEY", EmptyLabel: "not set",
+			Hint: "a firecrawl.dev key, for when the free monthly allowance runs out. " +
+				"Optional — search works without it. A change lands on the next search.",
+			read: func() string { return maskCredential(FirecrawlKeyAt(dir)) },
+			write: func(raw string) error {
+				return writeCredential(dir, KeyFirecrawlKey, raw, FirecrawlKeyAt(dir))
+			},
+		},
+		Setting{
+			Key: KeyJinaKey, Category: CategoryModels, Kind: SettingText, Secret: true,
+			Label: "jina key", Env: "JINA_API_KEY", EmptyLabel: "not set",
+			Hint: "a jina.ai key. It buys nothing but headroom: page fetches already work " +
+				"unauthenticated and the key only raises the rate ceiling. " +
+				"A change lands on the next search.",
+			read:  func() string { return maskCredential(JinaKeyAt(dir)) },
+			write: func(raw string) error { return writeCredential(dir, KeyJinaKey, raw, JinaKeyAt(dir)) },
+		},
+
+		// And the rows that name WHICH APPLICATION asks for the accounts a
+		// person already has (internal/connect). They sit beside the search keys
+		// because they are the same kind of row — optional, and never a
+		// prerequisite for anything else, since a blank answer uses the
+		// applications this build ships with (connect_defaults.go). Google's
+		// are two rows because they are two values copied from two boxes;
+		// Slack's public application has only its id.
+		Setting{
+			Key: KeyGoogleOAuthClient, Category: CategoryModels, Kind: SettingText,
+			Label: "google app id", Env: "GOOGLE_OAUTH_CLIENT", EmptyLabel: "not set",
+			Hint: "the application id Google sees when codeaf asks to use your account. " +
+				"Blank uses the one codeaf ships with, which is what most people want — " +
+				"fill this in only to have your own registration ask instead, and fill in " +
+				"the secret below with it. A change lands on the next session.",
+			read:  func() string { return googleOAuthClientAt(dir) },
+			write: func(raw string) error { return writeProfileValue(dir, KeyGoogleOAuthClient, raw) },
+		},
+		Setting{
+			Key: KeyGoogleOAuthSecret, Category: CategoryModels, Kind: SettingText, Secret: true,
+			Label: "google app secret", Env: "GOOGLE_OAUTH_SECRET", EmptyLabel: "not set",
+			Hint: "the secret that goes with the application id above. Blank uses the one " +
+				"codeaf ships with. Write both or neither: your own id against the shipped " +
+				"secret connects nothing. A change lands on the next session.",
+			read: func() string { return maskCredential(googleOAuthSecretAt(dir)) },
+			write: func(raw string) error {
+				return writeCredential(dir, KeyGoogleOAuthSecret, raw, googleOAuthSecretAt(dir))
+			},
+		},
+		Setting{
+			Key: KeySlackOAuthClient, Category: CategoryModels, Kind: SettingText,
+			Label: "slack app id", Env: "SLACK_OAUTH_CLIENT", EmptyLabel: "not set",
+			Hint: "the application id Slack sees when codeaf asks to use your workspace. " +
+				"Blank uses the one codeaf ships with, which is what most people want — " +
+				"fill this in only to have your own application ask instead, with proof-key " +
+				"sign-in turned on. A change lands on the next session.",
+			read:  func() string { return slackOAuthClientAt(dir) },
+			write: func(raw string) error { return writeProfileValue(dir, KeySlackOAuthClient, raw) },
+		},
+
+		Setting{
+			Key: KeyDailyBudget, Category: CategorySpending, Kind: SettingDollars,
+			Label: "daily budget", Env: "CODEAF_DAILY_BUDGET",
+			EmptyLabel: noLimitWord,
+			Hint: "what codeaf may spend on your work in a day. It starts large — " +
+				"it is a backstop against a runaway, not a budget — so set it to what " +
+				"you actually want to spend. When the day's calls reach it, new work " +
+				"waits for midnight or for you to raise it here. " +
+				"Say none for no limit. A change lands at the next rail check.",
+			read:    func() string { return moneyValue(resolvedDollars(DailyBudgetUSDAt(dir))) },
+			write:   func(raw string) error { return writeDollars(dir, KeyDailyBudget, raw) },
+			receipt: s.spentTodayReceipt,
+		},
+		Setting{
+			Key: KeyPlanConsent, Category: CategorySpending, Kind: SettingDollars,
+			Label: "ask before spending", Env: "CODEAF_PLAN_CONSENT",
+			EmptyLabel: "never asks",
+			Hint: "when a planned job is estimated to cost more than this, codeaf quotes " +
+				"the step count and the price and waits for your go-ahead — it asks, it " +
+				"does not stop. Say none and it never asks.",
+			read:  func() string { return moneyValue(resolvedDollars(PlanConsentUSDAt(dir))) },
+			write: func(raw string) error { return writeDollars(dir, KeyPlanConsent, raw) },
+		},
+		Setting{
+			Key: KeyPracticeBudget, Category: CategorySpending, Kind: SettingDollars,
+			Label: "practice budget", Env: "CODEAF_PRACTICE_BUDGET",
+			EmptyLabel: "practice off",
+			Hint: "the slice of the day reserved for codeaf practicing on itself. When it " +
+				"is spent, practice stops until tomorrow and your own work is untouched. " +
+				"0 is the one money row that does not mean no limit: it turns practice " +
+				"off. A change lands the next time codeaf starts.",
+			read:  func() string { return moneyValue(resolvedDollars(PracticeBudgetUSDAt(dir))) },
+			write: func(raw string) error { return writeDollars(dir, KeyPracticeBudget, raw) },
+		},
+
+		// The two consent rows sit with spending because they answer the same
+		// question about a different currency: what may codeaf do without
+		// stopping to ask you. The dollars are above; the actions are here.
+		Setting{
+			Key: KeyToolApprovalMode, Category: CategorySafety, Kind: SettingChoice,
+			Label: "ask before running", Choices: ToolApprovalModes,
+			Hint: "what happens when the model asks to run a tool: prompt asks you, allow runs it, " +
+				"deny refuses it. Dangerous shell commands are asked about whichever way this is set. " +
+				"A change reaches this conversation straight away, unless the panel says it lands on the next session.",
+			read:  func() string { return ToolApprovalModeAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyToolApprovalMode, raw, ToolApprovalModes) },
+		},
+		Setting{
+			Key: KeyToolApprovals, Category: CategorySafety, Kind: SettingText,
+			Label: "tool approvals", EmptyLabel: "none",
+			Hint: "exceptions to the answer above, one per tool: `read:allow, bash:prompt`. " +
+				"What you write here changes only the tools you name. Reading files and " +
+				"codeaf's own notes are allowed unless you name them, and everything else " +
+				"you do not name follows the setting above. Answering always on an approval " +
+				"question writes one, and it takes effect straight away.",
+			read:  func() string { return ToolApprovalsAt(dir) },
+			write: func(raw string) error { return writeToolApprovals(dir, raw) },
+		},
+		Setting{
+			Key: KeyBashApprovals, Category: CategorySafety, Kind: SettingText,
+			Label: "shell command rules", EmptyLabel: "none",
+			Hint: "answers for single shell commands, first match wins: " +
+				"`allow git status*, deny rm -rf *`. A `*` matches anything; an allow " +
+				"answers only for a whole single command, a deny catches its shape " +
+				"anywhere in a longer line, and dangerous commands are asked about " +
+				"whatever this says. Answering always on an approval question writes one, " +
+				"and it takes effect straight away.",
+			read:  func() string { return BashApprovalsAt(dir) },
+			write: func(raw string) error { return writeBashApprovals(dir, raw) },
+		},
+		Setting{
+			Key: KeyGuardian, Category: CategorySafety, Kind: SettingChoice,
+			Label: "guardian", Choices: GuardianModes,
+			Hint: "when on, a small model is asked first whether a call is plainly safe — " +
+				"read-only, inside this directory, reversible — and you are only asked about the rest. " +
+				"It can never approve something the rules above refuse. A change lands on the next session.",
+			read:  func() string { return GuardianAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyGuardian, raw, GuardianModes) },
+		},
+		Setting{
+			Key: KeyConsentTimeout, Category: CategorySafety, Kind: SettingCount,
+			Label: "approval countdown", Unit: "s",
+			Hint: "how many seconds an approval question counts down before it pauses and keeps waiting. " +
+				"It never answers no for you — the call stays blocked until you answer — " +
+				"and the clock stops the moment you press any key. 0 waits from the start.",
+			read:  func() string { return strconv.Itoa(ConsentTimeoutAt(dir)) },
+			write: func(raw string) error { return writeProfileCount(dir, KeyConsentTimeout, raw) },
+		},
+		Setting{
+			Key: KeyBashBackgroundAfter, Category: CategorySafety, Kind: SettingCount,
+			Label: "background after", Unit: "s", Hint: BashBackgroundAfterHint,
+			read:  func() string { return strconv.Itoa(BashBackgroundAfterAt(dir)) },
+			write: func(raw string) error { return writeProfileCount(dir, KeyBashBackgroundAfter, raw) },
+		},
+		Setting{
+			Key: KeyRouting, Category: CategoryModels, Kind: SettingChoice,
+			Label: "routing", Choices: RoutingModes,
+			Hint: "one model id is served by many hosts, and they answer at very " +
+				"different speeds AND very different prices. Left alone — simple — codeaf " +
+				"sends no preference of its own at all: with no host pinned the router's own " +
+				"default routing answers, and a host you pinned is the whole request, that " +
+				"host and no fallbacks. Choosing another word here changes that " +
+				"everywhere: latency asks " +
+				"for the fastest host for every call, capped at a quarter over the " +
+				"model's list price, and times every answer, demoting one that keeps being " +
+				"slow; price asks for the cheapest for every call; off asks for nothing and " +
+				"measures nothing — and with nothing measured there is no host to choose, " +
+				"no sheet of them to open and no speed guard. A change lands on " +
+				"the next session.",
+			read:  func() string { return RoutingAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyRouting, raw, RoutingModes) },
+		},
+		// AND THIS ROW IS THE OTHER HALF OF THE SAME QUESTION. Routing says
+		// which machine answers; this says how much is put in front of it
+		// before you have typed. It sits with the models because that is what a
+		// person is thinking about when they touch it: this model is small, and
+		// codeaf is spending its room on instructions.
+		Setting{
+			Key: KeyPromptProfile, Category: CategoryModels, Kind: SettingChoice,
+			Label: "prompt profile", Env: EnvPromptProfile, Choices: PromptProfileModes,
+			Hint: "how much codeaf tells the model before you type. auto decides from the " +
+				"model's context window and is right almost always: under 32,000 tokens it " +
+				"goes lean. lean takes one section off the page, leaves seven verbs one " +
+				"load_capability call away, puts ask straight in the list, turns saved " +
+				"memories off and cuts the project's own instructions to 2KiB. full sends " +
+				"everything. Choose one of those two when the host reports a window its " +
+				"model does not really have. A change lands the next time codeaf starts.",
+			read:  func() string { return PromptProfileAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyPromptProfile, raw, PromptProfileModes) },
+		},
+		// AND THE ROW UNDER IT NAMES A PROVIDER. Routing says what a request
+		// prefers; this says which provider requests from this home actually go
+		// to, for the person who has watched the numbers and knows.
+		Setting{
+			Key: LaneSettingKey(LaneSlotTalk), Category: CategoryModels, Kind: SettingText,
+			Label: "host", EmptyLabel: LaneAuto,
+			Hint: "which host answers your model, for requests from this home. One model id is served by " +
+				"a dozen hosts that differ by seven times on the wait before the first " +
+				"word, so this is often a bigger change than switching model. auto lets the router " +
+				"route — and codeaf takes over choosing the host when its answers start coming " +
+				"back refused or unusable, handing it back once it has been well for a while; " +
+				"a name — `cloudflare` — pins it and nothing else is asked; " +
+				"`pinned: cloudflare, borrow when slow` keeps the pin but lets " +
+				"a slow answer be rescued elsewhere; openrouter asks for no host at all and " +
+				"lets the router balance on price, with no takeover. enter on this row opens them with what " +
+				"has been measured of each, and so does → on a model row in the picker — " +
+				"under /model and under `your model` in the settings panel alike.",
+			read:  func() string { return LaneRowWord(dir, LaneSlotTalk) },
+			write: func(raw string) error { return WriteLaneRow(dir, LaneSlotTalk, raw) },
+		},
+		Setting{
+			Key: KeyLaneGuard, Category: CategoryModels, Kind: SettingBool,
+			Label: "speed guard",
+			Hint: "when an answer takes much longer to start than that host normally " +
+				"does, the same question is asked of the next-best one and whichever replies " +
+				"first is the one you read. It hedges at most one extra call, under a tenth of " +
+				"spend; off under price routing.",
+			read:  func() string { return formatBool(LaneGuardAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyLaneGuard, raw) },
+		},
+		Setting{
+			Key: KeyMouse, Category: CategoryInterface, Kind: SettingChoice,
+			Label: "mouse", Choices: MouseModes,
+			Hint: "on gives hover, click and wheel-scroll inside the chat. Selecting text " +
+				"still works: press ctrl+s and drag, or ctrl+b to copy from the keyboard. " +
+				"Turn off to keep the terminal's plain drag at all times.",
+			read:  func() string { return MouseAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyMouse, raw, MouseModes) },
+		},
+		Setting{
+			Key: KeyTimestamps, Category: CategoryInterface, Kind: SettingChoice,
+			Label: "timestamps", Choices: TimestampModes,
+			Hint: "how much of the clock the conversation carries. footers puts one dim line " +
+				"under each finished turn — when it ended, how long it took, how many calls it " +
+				"made, what it cost — and marks where the conversation was put down for ten " +
+				"minutes or a day. separators keeps only those marks. off draws neither. " +
+				"ctrl+o on a turn writes its footer's time out in full.",
+			read:  func() string { return TimestampsAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyTimestamps, raw, TimestampModes) },
+		},
+		Setting{
+			Key: KeyWork, Category: CategoryInterface, Kind: SettingChoice,
+			Label: "turn work", Choices: WorkModes,
+			Hint:  "fold rolls completed reasoning, calls, results, and intermediate text into one worked chip. open keeps that work visible. The change applies immediately.",
+			read:  func() string { return WorkAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyWork, raw, WorkModes) },
+		},
+		Setting{
+			Key: KeyIcons, Category: CategoryInterface, Kind: SettingChoice,
+			Label: "step icons", Choices: IconModes,
+			Hint:  "auto uses rich icons, with plain symbols on terminals that need them. rich requires a Nerd Font. Choose plain if your font shows empty boxes. The change applies immediately.",
+			read:  func() string { return IconsAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyIcons, raw, IconModes) },
+		},
+		// Before the audit row, because it comes first in the life of a task: this
+		// says what STARTS when you type /task, the audit row says what has to be
+		// true before what started is allowed to land.
+		Setting{
+			Key: KeyTaskStart, Category: CategoryTasks, Kind: SettingChoice,
+			Label: "starting a task", Choices: TaskStartModes,
+			Hint: "what /task <brief> pays to find out. sized is the default: the brief " +
+				"is read for width first and one worker starts either way, and a brief with " +
+				"parts in it starts a worker that can hand them out once it has opened the " +
+				"material. single starts that one worker and skips the reading altogether. " +
+				"/task solo still says so outright whatever this is set to.",
+			read:  func() string { return TaskStartAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyTaskStart, raw, TaskStartModes) },
+		},
+		Setting{
+			Key: KeyTaskAudit, Category: CategoryTasks, Kind: SettingChoice,
+			Label: "task audit", Choices: TaskAuditModes,
+			Hint: "when on, every task node's work is checked by an independent read-only " +
+				"auditor — it runs the repo's own verification and reads the diff — before " +
+				"anything may merge into your branch. Off trusts the node's own report and " +
+				"merges unaudited. On is the default: the audit is what 'done' means, and it " +
+				"roughly doubles a small task's model cost.",
+			read:  func() string { return TaskAuditAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyTaskAudit, raw, TaskAuditModes) },
+		},
+		// And directly under it, the other end of the same question: what happens
+		// when the check above came back with nothing at all.
+		Setting{
+			Key: KeyTaskSettle, Category: CategorySafety, Kind: SettingChoice,
+			Label: "who settles a task nobody could check", Choices: TaskSettleModes,
+			Hint: "who decides about a task that finished with nobody able to say whether " +
+				"it holds. ask is the default and means you do: the landed card offers " +
+				"accept, look again and not right, and the chat says what it thinks and " +
+				"leaves the choice with you. auto means the chat decides: it reads the " +
+				"report and the work, settles the task itself, and comes back to you only " +
+				"when it genuinely cannot tell. Either way the task is neither done nor " +
+				"failed until somebody answers, its branch is kept, and anything waiting " +
+				"on it waits.",
+			read:  func() string { return TaskSettleAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyTaskSettle, raw, TaskSettleModes) },
+		},
+		Setting{
+			Key: KeyMemoryEnabled, Category: CategoryPractice, Kind: SettingChoice,
+			Label: "memory", Choices: MemoryModes,
+			Hint: "when on, codeaf carries a handful of things across conversations: what you " +
+				"asked it to remember, preferences you stated, corrections you made. A small " +
+				"model decides before each message which of them bear on it, and after each " +
+				"answer whether anything new is worth keeping. Off remembers nothing and makes " +
+				"neither call. On is the default; /memories lists what is kept.",
+			read:  func() string { return MemoryAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyMemoryEnabled, raw, MemoryModes) },
+		},
+		// The countdown sits with the two consent rows and the guardian because
+		// it answers their question in the other currency: those say what
+		// codeaf may DO without asking, this says how long you get to say
+		// something about work it has already decided to hand off.
+		Setting{
+			Key: KeyTaskAutoApprove, Category: CategorySafety, Kind: SettingCount,
+			Label: "task countdown", Unit: "s",
+			Hint: "how many seconds a proposed task waits for you before it starts on its own. " +
+				"The countdown is your window to redirect it or wave it off, not a gate — " +
+				"0 waits for your answer instead of starting. A change lands on the next session.",
+			read:  func() string { return strconv.Itoa(TaskAutoApproveAt(dir)) },
+			write: func(raw string) error { return writeProfileCount(dir, KeyTaskAutoApprove, raw) },
+		},
+		// And beside the countdown, the other number that decides what happens to
+		// work you handed off: how many times a task that came back with gaps is
+		// sent back to close them before it is called incomplete.
+		Setting{
+			Key: KeyTaskRepairRounds, Category: CategoryTasks, Kind: SettingCount,
+			Label: "task repair rounds", Unit: UnitInLabel,
+			Hint: "how many times a task that came back with something missing is sent back " +
+				"to finish the job — same working copy, same brief, with the gaps in front of " +
+				"it — before it lands as incomplete. Each round costs another run and another " +
+				"check. 0 lets the first gap end the task, which is how it worked before.",
+			read:  func() string { return strconv.Itoa(TaskRepairRoundsAt(dir)) },
+			write: func(raw string) error { return writeProfileCount(dir, KeyTaskRepairRounds, raw) },
+		},
+		// And beside those two, the three rows about how much work leaves at
+		// once. They sit together because they are one subject read at three
+		// depths: the number you may name, and the two things the machine itself
+		// will say no to whatever you named.
+		Setting{
+			Key: KeyTaskParallel, Category: CategoryTasks, Kind: SettingCount,
+			Label: "tasks at once", EmptyLabel: "no limit", Unit: UnitInLabel,
+			Hint: "how many tasks may run at the same time. Blank is no limit, which is the " +
+				"default: what actually runs out is this machine — the two rows below hold new " +
+				"tasks back when it is loaded — and the model host's own rate limit, which " +
+				"codeaf already paces itself against. A cap is a queue, never a refusal.",
+			read: func() string {
+				if value := TaskParallelAt(dir); value > 0 {
+					return strconv.Itoa(value)
+				}
+				return ""
+			},
+			write: func(raw string) error { return writeOptionalCount(dir, KeyTaskParallel, raw) },
+		},
+		Setting{
+			Key: KeyTaskMaxLoad, Category: CategoryTasks, Kind: SettingText,
+			Label: "busy machine", Unit: "per core",
+			Hint: "the load average per core at which codeaf stops starting new tasks — 1.5 by " +
+				"default, which is where the machine is handing out slices rather than running " +
+				"work. Tasks already running are never touched, so the queue moves again on " +
+				"its own. 0 stops watching the load.",
+			read:  func() string { return formatNumber(TaskMaxLoadAt(dir)) },
+			write: func(raw string) error { return writeProfileNumber(dir, KeyTaskMaxLoad, raw) },
+		},
+		Setting{
+			Key: KeyTaskMinFreeMB, Category: CategoryTasks, Kind: SettingCount,
+			Label: "memory floor", Unit: "MB",
+			Hint: "how many MB of memory must be available before another task may start — " +
+				"1536 by default, roughly what one more task and its build need. Under it, new " +
+				"tasks wait rather than push the machine into swap; running ones carry on. " +
+				"0 stops watching memory.",
+			read:  func() string { return strconv.Itoa(TaskMinFreeMBAt(dir)) },
+			write: func(raw string) error { return writeProfileCount(dir, KeyTaskMinFreeMB, raw) },
+		},
+		// Which model the work that LEAVES a conversation runs on. It sits with
+		// the countdown and the audit rather than among the model rows for the
+		// reason those two are here: all three are about the work you hand off —
+		// how long you get to redirect it, who checks it, and whose hands it is
+		// in — and none of them is a rule about how this conversation's own calls
+		// are made.
+		Setting{
+			Key: KeyTaskModel, Category: CategoryTasks, Kind: SettingText,
+			Label: "task model", EmptyLabel: "the crew's worker",
+			Hint: "the model a task's worker runs on when you have not asked for another one — " +
+				"`anthropic/claude-opus-5`. Leave it blank and the worker is the crew's: " +
+				"your /crew pin, or the model the crew picks for that task. You can still " +
+				"say which model a particular piece of work should go to, and the proposal " +
+				"names the one it will start on.",
+			read:  func() string { return TaskModelAt(dir) },
+			write: func(raw string) error { return writeText(dir, KeyTaskModel, raw) },
+		},
+		Setting{
+			Key: KeySpendRail, Category: CategorySpending, Kind: SettingDollars,
+			Label: "session ceiling", EmptyLabel: noLimitWord,
+			Hint: "what one conversation may spend before it stops starting new turns. " +
+				"When it is reached the next turn is refused and your message is still " +
+				"yours to send again once you raise it; the turn in flight always " +
+				"finishes. Say none for no limit. A change binds this conversation before the row confirms it.",
+			read:    func() string { return moneyValue(SpendRailUSDAt(dir)) },
+			write:   func(raw string) error { return writeDollars(dir, KeySpendRail, raw) },
+			receipt: s.spentThisSessionReceipt,
+		},
+
+		Setting{
+			Key: KeyPracticeIdle, Category: CategoryPractice, Kind: SettingDuration,
+			Label: "quiet before practice", Env: "CODEAF_PRACTICE_IDLE",
+			Hint:  "how long the room stays quiet before codeaf starts practicing.",
+			read:  func() string { return formatDuration(resolvedDuration(PracticeIdleAt(dir))) },
+			write: func(raw string) error { return writeDuration(dir, KeyPracticeIdle, raw) },
+		},
+		Setting{
+			Key: KeyBriefAfter, Category: CategoryPractice, Kind: SettingDuration,
+			Label: "arrival brief after", Env: "CODEAF_BRIEF_AFTER",
+			Hint:  "how long you have to be away before codeaf greets you with a summary. 0 always briefs.",
+			read:  func() string { return formatDuration(resolvedDuration(BriefAfterAt(dir))) },
+			write: func(raw string) error { return writeDuration(dir, KeyBriefAfter, raw) },
+		},
+		// THE TWO ROWS THAT ARE NOT THE CREW, AND THEN THE CREW'S THREE PINS.
+		// The tiers are what a person configures for the calls codeaf makes on
+		// its own — the name it gives a session, the check on work a task says is
+		// finished, the plan an adaptive run steers by (internal/roles). The
+		// crew's three rows are PINS: blank is `auto`, the router picking that
+		// seat for each task, and /crew is where they are read and set with the
+		// allowed models and the cap beside them (crew.go).
+		Setting{
+			Key: KeyTierReflexModel, Category: CategoryModels, Kind: SettingText,
+			Label: "reflex", EmptyLabel: "follows the conversation",
+			Hint: "the near-free model that reads every turn — it decides which remembered " +
+				"lines this turn needs and whether the exchange is worth keeping. Routing and " +
+				"extraction, never reasoning. Blank makes it follow the model you are talking to.",
+			read:  func() string { return TierModelAt(dir, ModelTierReflex) },
+			write: func(raw string) error { return writeTierModel(dir, ModelTierReflex, raw) },
+		},
+		Setting{
+			Key: KeyTierLowModel, Category: CategoryModels, Kind: SettingText,
+			Label: "small work", EmptyLabel: "follows the conversation",
+			Hint: "the cheap model for the small calls — session names, task names, digests, " +
+				"the safety gate's yes-or-no. Leave it blank and they ride the model you are " +
+				"talking to.",
+			read:  func() string { return TierModelAt(dir, ModelTierLow) },
+			write: func(raw string) error { return writeTierModel(dir, ModelTierLow, raw) },
+		},
+		Setting{
+			Key: KeyTierWorkerModel, Category: CategoryModels, Kind: SettingText,
+			Label: "worker", EmptyLabel: CrewAuto,
+			Hint: "the model that does the work of every task — blank is auto: codeaf picks it " +
+				"for each task from the kind of work it is. Pin one with a model id, or " +
+				"`model@provider` to pin the route too. /crew shows all three seats.",
+			read:  func() string { return crewSeatRow(dir, crewroute.Worker) },
+			write: func(raw string) error { return SetCrewPin(dir, crewroute.Worker, raw) },
+		},
+		Setting{
+			Key: KeyTierHighModel, Category: CategoryModels, Kind: SettingText,
+			Label: "checker", EmptyLabel: CrewAuto,
+			Hint: "the model that checks finished task work, and reads an image for a model " +
+				"that cannot — blank is auto: a strong checker for open-ended work, a cheap one " +
+				"for a narrow fix. Pin one with a model id, or `model@provider`.",
+			read:  func() string { return crewSeatRow(dir, crewroute.Checker) },
+			write: func(raw string) error { return SetCrewPin(dir, crewroute.Checker, raw) },
+		},
+		Setting{
+			Key: KeyTierMastermindModel, Category: CategoryModels, Kind: SettingText,
+			Label: "planner", EmptyLabel: CrewAuto,
+			Hint: "the model that plans a task's work and designs saved harnesses — blank is " +
+				"auto. Pin one with a model id, or `model@provider`; add `:low`, `:medium` or " +
+				"`:high` to ask it to think that hard: `moonshotai/kimi-k3:high`.",
+			read:  func() string { return crewSeatRow(dir, crewroute.Planner) },
+			write: func(raw string) error { return SetCrewPin(dir, crewroute.Planner, raw) },
+		},
+		Setting{
+			Key: KeyModelRoles, Category: CategoryModels, Kind: SettingText,
+			Label: "pinned roles", EmptyLabel: "none",
+			Hint: "exceptions to the five rows above, one per role: `title:openai/gpt-5-mini`. " +
+				"A role not named here follows its class.",
+			read:  func() string { return LivePinsAt(dir) },
+			write: func(raw string) error { return writeModelRoles(dir, raw) },
+		},
+		Setting{
+			Key: KeyModelFallbacks, Category: CategoryModels, Kind: SettingText,
+			Label: "fallback models", EmptyLabel: "nearest in the catalog",
+			Hint: "where a conversation goes when your model cannot answer — nothing serving " +
+				"it will take the request, it keeps going quiet mid-reply, or it is being " +
+				"rate limited and will not stop. One or more slugs, comma-separated, first " +
+				"tried first: `openai/gpt-5-mini, anthropic/claude-sonnet-4`. Leave it blank " +
+				"and the nearest same-class model in the catalog is used. The turn says which " +
+				"one it moved to.",
+			read:  func() string { return ModelFallbacksAt(dir) },
+			write: func(raw string) error { return writeText(dir, KeyModelFallbacks, raw) },
+		},
+		Setting{
+			Key: KeyContextFill, Category: CategoryModels, Kind: SettingCount,
+			Label: "context fill", Unit: "%", Env: "CODEAF_CONTEXT_FILL_PCT",
+			Hint: "how much of a model's context window codeaf fills before it starts " +
+				"compacting. Higher packs more in; the rest stays as thinking " +
+				"and answer room. Left alone, a conversation follows its own model's window " +
+				"instead — set this and it becomes the line, which /status then says. " +
+				"A change lands on the next call.",
+			read:  func() string { return strconv.Itoa(ContextFillAt(dir)) },
+			write: func(raw string) error { return writeContextFill(dir, raw) },
+		},
+		Setting{
+			Key: KeyCompletionReserve, Category: CategoryModels, Kind: SettingCount,
+			Label: "answer room", Unit: "tok", Env: "CODEAF_COMPLETION_RESERVE",
+			Hint: "tokens every call keeps free for its answer and its reasoning. " +
+				"Generous costs nothing on turns that do not use it; small produces empty " +
+				"replies from a model that thinks past it. A change lands on the next call.",
+			read:  func() string { return strconv.Itoa(CompletionReserveAt(dir)) },
+			write: func(raw string) error { return writeCompletionReserve(dir, raw) },
+		},
+		Setting{
+			Key: KeyWorkingSet, Category: CategoryModels, Kind: SettingCount,
+			Label: "working set", Unit: "tok", Env: "CODEAF_WORKING_SET",
+			Hint: "the most material codeaf keeps quoted in front of a worker at once, in tokens, " +
+				"however large the model's window is. A huge window is permission to send a lot, " +
+				"not a reason to: past this the older material fades to pointers it can still read " +
+				"back. A change lands on the next call.",
+			read:  func() string { return strconv.Itoa(WorkingSetAt(dir)) },
+			write: func(raw string) error { return writeWorkingSet(dir, raw) },
+		},
+		Setting{
+			Key: KeyContextReuse, Category: CategoryModels, Kind: SettingCount,
+			Label: "context reuse", Unit: "%", Env: "CODEAF_CONTEXT_REUSE_PCT",
+			// THE UNIT NAMES THE WHOLE, AND THE SENTENCE LEADS WITH THE WORKED
+			// EXAMPLE. A bare "as a percent" over a row whose default reads 250
+			// asks a reader to find the whole this is a percentage OF — a window,
+			// a budget — and the answer is none of those: it is ONE WHOLE
+			// CONTEXT, so 100% is one context over and 250% is two and a half.
+			// Naming that whole is also what stops the floor reading as a mistake
+			// (writeContextReuse refuses below 100%, where a percentage of a
+			// window would clamp above it), so the example comes before anything
+			// else the row has to say.
+			Hint: "how many times over one piece of work may re-send its whole context before " +
+				"codeaf tells it to land, as a share of one whole context — 100% is once, " +
+				"250% is two and a half times, and 100% is the floor. Every turn re-sends " +
+				"everything before it, so this is what stops a worker going round in circles " +
+				"at full price. A change lands on the next job.",
+			read:  func() string { return strconv.Itoa(ContextReuseAt(dir)) },
+			write: func(raw string) error { return writeContextReuse(dir, raw) },
+		},
+		Setting{
+			Key: KeyReplyGuard, Category: CategoryModels, Kind: SettingChoice,
+			Label: "reply guard", Choices: ReplyGuardModes,
+			Hint: "when on, a reply that stops being language — a model repeating one line " +
+				"or one letter until the budget is gone, words with three alphabets inside " +
+				"them — is cut where it went wrong, thrown away, and asked again once. None " +
+				"of it is kept, which matters because a bad reply goes back into the " +
+				"conversation and the next one reads it. Code blocks are never judged, so a " +
+				"page of zeros or a long log is safe. Off shows you whatever arrives. " +
+				"A model that goes quiet is cut either way.",
+			read:  func() string { return ReplyGuardAt(dir) },
+			write: func(raw string) error { return writeChoice(dir, KeyReplyGuard, raw, ReplyGuardModes) },
+		},
+		Setting{
+			Key: KeyTenureAfter, Category: CategoryPractice, Kind: SettingCount,
+			Label: "tenure after", Unit: "clean firings", UnitOne: "clean firing", Env: "CODEAF_TENURE_AFTER",
+			Hint:  "how many clean firings a standing charter needs before it earns tenure.",
+			read:  func() string { return strconv.Itoa(TenureAfterAt(dir)) },
+			write: func(raw string) error { return writeTenure(dir, raw) },
+		},
+	)
+
+	// THE SECOND ROW THAT IS NOT ALWAYS BUILT, on the divider's law below and
+	// for a plainer reason: on a machine with no timer to install there is
+	// nothing for this switch to switch. A Windows host, a registry built over
+	// a profile that exists only to read defaults out of, a caller that never
+	// opened a standing store — each of them gets a sheet without the row
+	// rather than a row that reads nothing and refuses every write.
+	if s.options.BackgroundChecks != nil {
+		rows = append(rows, s.backgroundRow(s.options.BackgroundChecks))
+	}
+
+	// THE ONE ROW THAT IS NOT ALWAYS BUILT, and it is the exception
+	// [NewSettings] names: a missing seam makes a row read-only, except where
+	// read-only would mean a control that cannot do the one thing it is for.
+	//
+	// The divider is a number a SURFACE keeps and this file cannot write, so a
+	// caller that hands over no [SettingsOptions.SaveSplitPct] has no divider to
+	// move. Built anyway, the row read a plausible percentage, accepted a new
+	// one, and answered "chat width is unavailable here" — a control that
+	// existed only to refuse. The v3 chat is exactly that caller: its rail is a
+	// fixed column chosen by frame width (internal/tui3's railColsFor), so there
+	// is no share of the frame to set and the honest sheet is one without the
+	// row. The v1 and v2 surfaces do keep a divider and do pass the seam
+	// (internal/command's Settings), so the row is theirs still — and it stays
+	// where it has always been, at the head of the interface group.
+	if s.options.SaveSplitPct != nil {
+		rows = append(rows, s.splitRow())
+	}
+
+	rows = append(rows,
+		Setting{
+			Key: KeyTaskColumn, Category: CategoryInterface, Kind: SettingBool,
+			Label: "task column",
+			Hint: "whether the task roster stands in a column on the right of the chat: the " +
+				"work this session has run, newest first, foldable into the shape each run " +
+				"grew. ctrl+g puts it away and brings it back; this is where the answer is " +
+				"remembered. With no column, running work still shows as a row of chips above " +
+				"the conversation. A change here lands the next time codeaf starts.",
+			read:  func() string { return formatBool(TaskColumnAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyTaskColumn, raw) },
+		},
+		Setting{
+			Key: KeyQuickSwitch, Category: CategoryInterface, Kind: SettingBool,
+			Label: "quick switch",
+			Hint: "whether ctrl+tab switches immediately where the terminal sends it. " +
+				"Off, it waits for enter. alt+k always browses before opening a chat.",
+			read:  func() string { return formatBool(QuickSwitchAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyQuickSwitch, raw) },
+		},
+		Setting{
+			Key: KeyHistoryEnabled, Category: CategoryInterface, Kind: SettingBool,
+			Label: "input history", Env: "CODEAF_HISTORY",
+			Hint: "remembers the messages you send, so the up arrow walks them back in a later " +
+				"session. Turn it off and nothing is written; what is already on disk stays. " +
+				"A change lands the next time codeaf starts.",
+			read:  func() string { return formatBool(HistoryEnabledAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyHistoryEnabled, raw) },
+		},
+		Setting{
+			Key: KeyTelemetry, Category: CategoryInterface, Kind: SettingBool,
+			Label: "telemetry", Env: "CODEAF_TELEMETRY",
+			Hint: "sends the anonymous usage counts described in docs/TELEMETRY.md — session " +
+				"starts and ends, tool and model call counts, coarse cost. Off stops sending " +
+				"immediately. Turning it on takes effect the next time codeaf starts. " +
+				"The session's own counters still count.",
+			read: func() string { return formatBool(TelemetryAt(dir)) },
+			write: func(raw string) error {
+				on, err := parseBool(raw)
+				if err != nil {
+					return err
+				}
+				if err := WriteTelemetry(dir, on); err != nil {
+					return err
+				}
+				// OFF REACHES THE RUNNING PIPE AT ONCE. Re-enabling waits for
+				// startup to resolve every opt-out before anything can be sent.
+				if !on {
+					telemetry.Configure(true)
+				}
+				return nil
+			},
+		},
+		Setting{
+			Key: KeyDraftPersist, Category: CategoryInterface, Kind: SettingBool,
+			Label: "keep drafts", Env: "CODEAF_DRAFT_PERSIST",
+			Hint: "keeps the half-typed message in the box across a restart, per directory. " +
+				"A change lands the next time codeaf starts.",
+			read:  func() string { return formatBool(DraftPersistAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyDraftPersist, raw) },
+		},
+		// THE ROW READS THE OTHER WAY UP FROM ITS KEY. `ui.hints` persists
+		// whether tips are SHOWN, and keeps doing so — a persisted identifier keeps
+		// its bytes — while the row a person reads is `disable hints`, off by
+		// default (the owner's word for it, 2026-09-22). The inversion lives here,
+		// once, so the chat's settings panel and `codeaf config` cannot disagree.
+		Setting{
+			Key: KeyHints, Category: CategoryInterface, Kind: SettingBool,
+			Label: "disable hints",
+			Hint:  "disable💡 tips everywhere (requires restart)",
+			read:  func() string { return formatBool(!HintsAt(dir)) },
+			write: func(raw string) error {
+				disabled, err := parseBool(raw)
+				if err != nil {
+					return err
+				}
+				return writeProfileValue(dir, KeyHints, !disabled)
+			},
+		},
+		Setting{
+			Key: KeyAttributionModel, Category: CategoryInterface, Kind: SettingBool,
+			Label: "model in commits", Env: "CODEAF_ATTRIBUTION_MODEL",
+			// ONE SHORT SENTENCE, AND IT IS THE TWO LINES. The signature itself is
+			// not a row any more — codeaf always signs what it writes — so the only
+			// thing left to choose is whether the `Assisted-by` line names the
+			// model, and the hint shows both answers rather than describing them.
+			// internal/exec's test holds these bytes to the line exec writes.
+			Hint:  AttributionModelHint,
+			read:  func() string { return formatBool(AttributionModelAt(dir)) },
+			write: func(raw string) error { return writeBool(dir, KeyAttributionModel, raw) },
+		},
+		// The ssh carrier is local surface policy, so its overrides live beside
+		// the other interface choices. Keeping them in the registry matters more
+		// than their rarity: a network that drops idle TCP or rewrites DSCP is a
+		// place where hard-coded command-line options cannot be repaired in
+		// ~/.ssh/config, because command-line options win.
+		Setting{
+			Key: KeySSHControlPersist, Category: CategoryInterface, Kind: SettingCount,
+			Label: "ssh reuse", Unit: "s",
+			Hint: "seconds an ssh connection stays reusable after its channel closes. 300 makes a " +
+				"quick reconnect avoid a new handshake; 0 turns persistence off. A change lands next launch.",
+			read:  func() string { return strconv.Itoa(SSHTransportAt(dir).ControlPersistSeconds) },
+			write: func(raw string) error { return writeProfileCount(dir, KeySSHControlPersist, raw) },
+		},
+		Setting{
+			Key: KeySSHServerAlive, Category: CategoryInterface, Kind: SettingCount,
+			Label: "ssh heartbeat", Unit: "s",
+			Hint: "seconds of silence before ssh asks whether the far machine is still there. 3 detects " +
+				"a dead link promptly; 0 turns heartbeats off. A change lands next launch.",
+			read:  func() string { return strconv.Itoa(SSHTransportAt(dir).ServerAliveSeconds) },
+			write: func(raw string) error { return writeProfileCount(dir, KeySSHServerAlive, raw) },
+		},
+		Setting{
+			Key: KeySSHServerMisses, Category: CategoryInterface, Kind: SettingCount,
+			Label: "ssh missed heartbeats", Unit: UnitInLabel,
+			Hint: "how many unanswered ssh heartbeats end a dead connection. 3 with the default heartbeat " +
+				"notices an unresponsive link in about 9 seconds. A change lands next launch.",
+			read:  func() string { return strconv.Itoa(SSHTransportAt(dir).ServerAliveMisses) },
+			write: func(raw string) error { return writeProfileCount(dir, KeySSHServerMisses, raw) },
+		},
+		Setting{
+			Key: KeySSHIPQoS, Category: CategoryInterface, Kind: SettingChoice,
+			Label:   "ssh traffic",
+			Choices: SSHIPQoSChoices,
+			Hint: "how ssh marks interactive traffic: lowdelay by default, af21 on networks that honor it, " +
+				"or none where traffic marking is filtered. A change lands next launch.",
+			read:  func() string { return SSHTransportAt(dir).IPQoS },
+			write: func(raw string) error { return writeChoice(dir, KeySSHIPQoS, raw, SSHIPQoSChoices) },
+		},
+	)
+	rows = append(rows, teamRows(dir)...)
+	return rows
+}
+
+// noLimitWord is what a money row says about itself when its number is zero.
+//
+// A DOLLAR ROW READING "$0" IS THE ONE PLACE THE EMPTINESS LAW CANNOT REACH.
+// Zero on these rows is not an absence — it is the person's own instruction,
+// and the instruction it spells is the OPPOSITE of what "$0" reads as at a
+// glance: "no money at all" where the code means "no ceiling at all". Every
+// other kind of row has a word for its off state ([Setting.EmptyLabel]) and a
+// dollar row cannot borrow one, because its reading is a formatted number and
+// therefore never empty. So the word goes where a row already says the dim true
+// thing beside its value: the receipt.
+//
+// It is EXPORTED because the surfaces say it too — the v3 spend place's pointer
+// line and the settings tab's `today` reading both have to spell "nothing bounds
+// this" and there is one spelling of it.
+const NoLimitWord = "no limit"
+
+// noLimitWord is the package-internal spelling of the same word.
+const noLimitWord = NoLimitWord
+
+// moneyValue is how EVERY dollar row reads, and the whole of what it adds is
+// that it never returns "$0".
+//
+// A row whose figure is zero returns NOTHING, which hands the reading to
+// [Setting.EmptyLabel] — the mechanism every other kind of row already uses for
+// its off state, and the one place each rail's own word for zero is written
+// down: `no limit` on the day and the conversation, `never asks` on the consent
+// gate, `practice off` on the carve-out, whose zero switches practice off rather
+// than uncapping it. Two things follow for free, and both are the reason it is
+// spelled this way rather than as a second receipt:
+//
+//   - THE EDIT BOX OPENS EMPTY on a row that holds nothing. Every surface
+//     already blanks the empty label before it seeds the box, so a person
+//     editing "no limit" is offered a place to type a number rather than a
+//     sentence to delete first.
+//   - THE RECEIPT IS FREED FOR A FACT. `no limit` is not a receipt — it is the
+//     value — and while it sat in the receipt column there was nowhere left to
+//     say what the row is actually doing right now ($4.25 today, this one $0.41).
+func moneyValue(value float64) string {
+	if value == 0 {
+		return ""
+	}
+	return formatDollars(value)
+}
+
+// SpentFigure is how a SPEND is written, which is not how a LIMIT is written.
+//
+// A limit is a figure somebody typed and [formatDollars] writes it back the
+// shortest way that is still the same number — right for a config file and right
+// for `$500`. A spend is a measurement nobody chose, and the shortest honest
+// form of one is a disaster: four fifths of a tenth of a cent came out of the
+// provider as 0.0005688764200000001 and went onto the row exactly like that,
+// twenty-two digits of float noise where a person wanted to read a price. So a
+// spend is cents, and four decimals under a cent — the same ladder the surface's
+// own money word uses, so the receipt and the figure beside it agree.
+//
+// AND A SPEND OF NOTHING SAYS NOTHING. The emptiness law lives here rather than
+// at each caller so there is one answer to "how is a spend written" and not two:
+// `$0.00` and `$0.0000` are claims nobody earned, and a headless footer that
+// ended `0s · 0 nodes · $0.0000` made three of them on the one line a person
+// reads to find out what happened. It is exported for the doors outside this
+// package — the headless footer, doctor, the notebook — for the same reason.
+func SpentFigure(usd float64) string {
+	if usd <= 0 {
+		return ""
+	}
+	if usd < 0.01 {
+		return SubCent(usd)
+	}
+	return fmt.Sprintf("$%.2f", usd)
+}
+
+// MoneyFloor is the smallest amount any surface writes as a figure: a hundredth
+// of a cent, four places after the point. It is the number [SubCent] compares
+// against AND the number it prints, so it is spelled once.
+const MoneyFloor = 0.0001
+
+// SubCent is how a positive amount SMALLER THAN A CENT is written, everywhere.
+//
+// ONE RULE, BECAUSE TWO DREW ONE FIGURE TWO WAYS. The chat's own money word
+// gained a floor so a real spend too small for four places reads `<$0.0001`,
+// while [SpentFigure] kept a bare four places and wrote the same spend as
+// `$0.0000`. The Spending tab then said `today <$0.0001` on one row and
+// `$0.0000 today` on the next, about the same day: four zeros for money that
+// was spent, which is the emptiness law's failure turned inside out. Every
+// sub-cent figure is written here now, and the floor never rounds to a lie.
+func SubCent(usd float64) string {
+	if usd < MoneyFloor/2 {
+		return "<" + fmt.Sprintf("$%.4f", MoneyFloor)
+	}
+	return fmt.Sprintf("$%.4f", usd)
+}
+
+// spentTodayReceipt is the day's spend beside the day's ceiling (13). Nil seam
+// or an uncounted day renders nothing at all rather than $0.00, which would be
+// a claim nobody made.
+func (s *Settings) spentTodayReceipt() string {
+	if s.options.SpentTodayUSD == nil {
+		return ""
+	}
+	spent, counted := s.options.SpentTodayUSD()
+	// AND A DAY THAT HAS COST NOTHING SAYS NOTHING. Counted-zero and
+	// not-counted are different facts about the seam and the SAME fact about
+	// the money: no call has been paid for today, and `$0 today` beside a limit
+	// is the emptiness law broken on the one row that exists to state a figure.
+	if !counted || spent <= 0 {
+		return ""
+	}
+	return SpentFigure(spent) + " today"
+}
+
+// spentThisSessionReceipt is the conversation ceiling's own receipt: what THIS
+// conversation has spent against it.
+//
+// It is the same seam as the day's and answers with the same pair, for the same
+// reason: a door with no conversation behind it — the v2 sheet, the model's own
+// settings tool, a headless read — has not counted zero, it has not counted, and
+// the row draws nothing rather than a $0.00 nobody earned.
+func (s *Settings) spentThisSessionReceipt() string {
+	if s.options.SpentThisSessionUSD == nil {
+		return ""
+	}
+	spent, counted := s.options.SpentThisSessionUSD()
+	if !counted || spent <= 0 {
+		return ""
+	}
+	return "this one " + SpentFigure(spent)
+}
+
+func (s *Settings) modelRow(slot ModelSlot) Setting {
+	// A CAPABILITY SLOT IS A KNOB WITH A READER, and a role slot is a live seam
+	// into a running engine. That is the whole split, and it is why the two are
+	// different rows: the drawing model is a value written down in the profile
+	// and read at the moment something draws (docs/MULTIMODAL.md Decision 5),
+	// while the conversation model is a thing a running session is ON and can
+	// only be asked of the session.
+	if slot.Role == "" {
+		return s.mediaModelRow(slot)
+	}
+	options := s.options
+	row := Setting{
+		Key: ModelSettingKey(slot.Slot), Category: CategoryModels, Kind: SettingModel,
+		Label: slot.Label, Slot: slot.Slot,
+		Hint: modelSlotHint(slot),
+	}
+	if slot.Held {
+		// Only a slot the engine holds lives in the chat prefs file. A role
+		// bound in the roles table and resolved nowhere has no prefs field to
+		// name, and claiming one would send the surface looking for provenance
+		// in a file that has never heard of it.
+		row.PrefsField = modelPrefsField(slot.Slot)
+	}
+	if slot.Follows != "" {
+		row.EmptyLabel = "follows " + slot.Follows
+	}
+	if name, ok := modelSlotEnvDefault(slot.Slot); ok {
+		row.EnvDefault = name
+	}
+	row.read = func() string { return modelSlotReading(options, slot) }
+	row.write = func(slug string) error {
+		if options.SetModel == nil {
+			return fmt.Errorf("model switching is unavailable here")
+		}
+		return options.SetModel(slot.Slot, strings.TrimSpace(slug))
+	}
+	row.receipt = func() string {
+		if options.ModelCost == nil {
+			return ""
+		}
+		return options.ModelCost(modelSlotReading(options, slot))
+	}
+	return row
+}
+
+// mediaModelRow is one of the five capability slots — drawing, speaking,
+// composing, filming, voice — and since the v3 revision its write is ACCEPTED.
+//
+// THE ROW IS THE FRONT DOOR (docs/MULTIMODAL.md Decision 5). The double-knob
+// era, where the sheet held a row nothing read beside an environment variable
+// or a role pin that everything read, is over: the value is written into the
+// profile's config.json under this row's own key, and every resolver that asks
+// which model draws — the v3 use-time resolver, and [Load] for the older
+// surfaces — reads that key back through [MediaSlotModelAt]. One knob, one
+// reader.
+//
+// It carries no [Setting.PrefsField] on purpose. A prefs field means "this row
+// fronts a store the registry does not own", which was true while these rows
+// lived beside the graph and is exactly wrong now: the value is in the file
+// this registry writes, so the provenance chip can and must say so.
+func (s *Settings) mediaModelRow(slot ModelSlot) Setting {
+	dir := s.options.ProfileDir
+	options := s.options
+	row := Setting{
+		Key: ModelSettingKey(slot.Slot), Category: CategoryModels, Kind: SettingModel,
+		Label: slot.Label, Slot: slot.Slot,
+		// An unset capability slot is not a blank: the resolver walks on to the
+		// catalog and picks a model that publishes the capability, so the honest
+		// reading is the same word the looking row has always used.
+		EmptyLabel: "automatic",
+		Hint:       modelSlotHint(slot),
+	}
+	if name, ok := modelSlotEnvDefault(slot.Slot); ok {
+		row.EnvDefault = name
+	}
+	row.read = func() string { return MediaSlotModelAt(dir, slot.Slot) }
+	row.write = func(slug string) error {
+		return writeText(dir, ModelSettingKey(slot.Slot), slug)
+	}
+	row.receipt = func() string {
+		if options.ModelCost == nil {
+			return ""
+		}
+		return options.ModelCost(MediaSlotModelAt(dir, slot.Slot))
+	}
+	return row
+}
+
+// MediaSlotModelAt is ONE CAPABILITY SLOT'S MODEL, in the order every other
+// persisted knob resolves in: the operator's environment variable, then the row
+// the settings sheet wrote into the profile, then nothing.
+//
+// Nothing is the honest last answer rather than a curated name. This function
+// answers "what did a person choose", and the ladder that turns no choice into
+// a working model is the resolver's business (cmd/codeaf's chatv3_media.go, and
+// [CandidateMediaModel] behind it) — a default invented here would be a rung
+// the resolver could not tell from a deliberate pin.
+//
+// A slot that is not a capability slot answers nothing at all: "talk" is the
+// conversation, and reading CODEAF_MODEL through this door would let a media
+// resolver quietly take the chat model for a modality it cannot serve.
+func MediaSlotModelAt(profileDir, slot string) string {
+	slot = strings.TrimSpace(slot)
+	if _, media := mediaSlotWords[slot]; !media {
+		return ""
+	}
+	if name, ok := modelSlotEnvDefault(slot); ok {
+		if raw := strings.TrimSpace(env.Value(name)); raw != "" {
+			return raw
+		}
+	}
+	if value, ok := persistedString(profileDir, ModelSettingKey(slot)); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// modelSlotReading asks the ONE source that can answer for this slot. A role
+// the engine holds no client for is asked of the roles table if the wiring lane
+// supplied one, and of nothing otherwise — never of the engine, whose slot
+// lookup would hand back the conversation model for a word it does not know
+// (internal/command's CurrentModel falls through), which is a wrong answer
+// wearing a confident face.
+func modelSlotReading(options SettingsOptions, slot ModelSlot) string {
+	if slot.Held {
+		if options.ModelValue == nil {
+			return ""
+		}
+		return strings.TrimSpace(options.ModelValue(slot.Slot))
+	}
+	if options.RoleModel == nil {
+		return ""
+	}
+	value, bound := options.RoleModel(string(slot.Role))
+	if !bound {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+// backgroundRow is the `background checks` switch.
+//
+// WHAT IT READS IS DERIVED FROM THE MACHINE AND NEVER FROM THE FILE. The value
+// on disk is what the person last asked for; whether anything is actually
+// checking is a definition on this host, and [standing.Timer.Status] answers it
+// by reading that definition's own bytes. A row that read the file would say
+// `on` over a timer somebody removed with launchctl, in the one place a person
+// went to check — so the file's answer is used for exactly one thing, the
+// launch repair, and never for the sentence in front of you.
+//
+// A status that cannot be read renders as NOTHING, which is the emptiness law:
+// a switch that guessed would be worse than a switch that admits it does not
+// know.
+func (s *Settings) backgroundRow(watch standing.Watch) Setting {
+	dir := s.options.ProfileDir
+	return Setting{
+		Key: KeyStandingBackground, Category: CategoryPractice, Kind: SettingChoice,
+		Label: "background checks", Choices: BackgroundModes,
+		Hint: "whether reminders, watches and routines are checked when no codeaf window " +
+			"is open. On installs one small timer under your own login that runs " +
+			"`codeaf tick` every " + standing.IntervalWords() + " — a launchd agent called " +
+			standing.DarwinTickLabel + " on a Mac, a systemd user timer called " +
+			standing.LinuxTickTimer + " on Linux — and on is the default. Off removes it, and " +
+			"then things are checked only while a window is open. Either way nothing runs " +
+			"while the machine is asleep, and nothing runs when you are not logged in.",
+		read: func() string {
+			status, err := watch.Status()
+			if err != nil {
+				return ""
+			}
+			if status.Installed {
+				return BackgroundOn
+			}
+			return BackgroundOff
+		},
+		write: func(raw string) error {
+			value := strings.ToLower(strings.TrimSpace(raw))
+			if value == "" {
+				value = DefaultBackground
+			}
+			if value != BackgroundOn && value != BackgroundOff {
+				return fmt.Errorf("pick one of: %s", strings.Join(BackgroundModes, ", "))
+			}
+			// THE ANSWER IS WRITTEN DOWN BEFORE THE MACHINE IS TOUCHED, which is
+			// the law the first-item notice keeps too (internal/session's
+			// tools_standing.go): a person whose install half-worked is somebody
+			// this build knows what they asked for, rather than somebody it
+			// quietly does the opposite for at the next launch.
+			if err := writeProfileValue(dir, KeyStandingBackground, value); err != nil {
+				return err
+			}
+			if value == BackgroundOff {
+				return watch.Uninstall(context.Background())
+			}
+			return watch.Install(context.Background())
+		},
+	}
+}
+
+func (s *Settings) splitRow() Setting {
+	options := s.options
+	row := Setting{
+		Key: KeySplitPct, Category: CategoryInterface, Kind: SettingPercent,
+		Label: "chat width", PrefsField: KeySplitPct,
+		Hint: fmt.Sprintf("the chat pane's share of the frame while the task rail is open (%d–%d). "+
+			"[ and ] nudge it too.", MinSplitPct, MaxSplitPct),
+	}
+	row.read = func() string {
+		return formatPercent(ClampSplitPct(readSplit(options)))
+	}
+	row.write = func(raw string) error {
+		value, err := parsePercent(raw, MinSplitPct, MaxSplitPct)
+		if err != nil {
+			return err
+		}
+		// Unreachable, and kept: [Settings.build] will not make this row without
+		// the seam, so nobody meets this sentence any more. A future caller that
+		// builds the row by hand gets a refusal rather than a nil call.
+		if options.SaveSplitPct == nil {
+			return fmt.Errorf("chat width is unavailable here")
+		}
+		options.SaveSplitPct(value)
+		return nil
+	}
+	return row
+}
+
+func readSplit(options SettingsOptions) int {
+	if options.SplitPct == nil {
+		return DefaultSplitPct
+	}
+	if pct := options.SplitPct(); pct != 0 {
+		return pct
+	}
+	return DefaultSplitPct
+}
+
+// ClampSplitPct keeps the divider inside the usable band. Zero stays "unset"
+// and resolves to the default at layout time.
+func ClampSplitPct(pct int) int {
+	if pct == 0 {
+		return 0
+	}
+	return max(MinSplitPct, min(MaxSplitPct, pct))
+}
+
+func modelPrefsField(slot string) string {
+	switch slot {
+	case "talk":
+		return "chat_model"
+	case "work":
+		return "task_model"
+	default:
+		return slot + "_model"
+	}
+}
+
+func modelSlotEnvDefault(slot string) (string, bool) {
+	switch slot {
+	case "talk", "work":
+		return "CODEAF_MODEL", true
+	case "plan":
+		return "CODEAF_PLAN_MODEL", true
+	case "voice":
+		return "CODEAF_VOICE_MODEL", true
+	case "image":
+		return "CODEAF_IMAGE_MODEL", true
+	case "speech":
+		return "CODEAF_SPEECH_MODEL", true
+	case "music":
+		return "CODEAF_MUSIC_MODEL", true
+	case "video":
+		return "CODEAF_VIDEO_MODEL", true
+	default:
+		return "", false
+	}
+}
+
+// modelSlotHint is what the row says about itself, in the product's words. The
+// two roles nothing resolves yet say so — 5.20 rule 3: a row that cannot change
+// anything today must not read as though it can.
+func modelSlotHint(slot ModelSlot) string {
+	switch slot.Role {
+	case store.RoleOrchestrate:
+		return "the model that answers you here. It changes on your next message."
+	case store.RoleWork:
+		return "the model that does the work. It changes on the next job."
+	case store.RolePlan:
+		return "the model that plans and reviews the work. Empty follows the work model."
+	case store.RoleVerify:
+		return "the model that checks the work — gates, judges, second opinions. " +
+			"Nothing reads this binding yet; it is written down and waiting."
+	case store.RoleScribe:
+		return "the model that writes the short things — titles, labels, summaries. " +
+			"Nothing reads this binding yet; it is written down and waiting."
+	}
+	switch slot.Slot {
+	case "voice":
+		return "the model that hears you when you speak."
+	case "image":
+		return "the model that draws."
+	case "speech":
+		return "the model that speaks."
+	case "music":
+		return "the model that composes."
+	case "video":
+		return "the model that films."
+	}
+	return ""
+}
+
+// Persisted resolution — environment, then the profile's config.json, then the
+// built-in default. Malformed persisted values fall back to the default rather
+// than stopping a launch; a malformed environment value is the operator's own
+// explicit instruction and still errors.
+
+// PlanConsentUSDAt resolves the estimate above which a plan asks first.
+func PlanConsentUSDAt(profileDir string) (float64, error) {
+	if raw := strings.TrimSpace(env.Get("CODEAF_PLAN_CONSENT")); raw != "" {
+		return validateDailyBudgetValue(raw, "CODEAF_PLAN_CONSENT")
+	}
+	if value, ok := persistedFloat(profileDir, KeyPlanConsent); ok && value >= 0 {
+		return value, nil
+	}
+	return DefaultPlanConsentUSD, nil
+}
+
+// PracticeBudgetUSDAt resolves the daily self-practice carve-out.
+func PracticeBudgetUSDAt(profileDir string) (float64, error) {
+	if raw := strings.TrimSpace(env.Get("CODEAF_PRACTICE_BUDGET")); raw != "" {
+		return validateDailyBudgetValue(raw, "CODEAF_PRACTICE_BUDGET")
+	}
+	if value, ok := persistedFloat(profileDir, KeyPracticeBudget); ok && value >= 0 {
+		return value, nil
+	}
+	return DefaultPracticeBudgetUSD, nil
+}
+
+// PracticeIdleAt resolves the quiet period before self-practice.
+func PracticeIdleAt(profileDir string) (time.Duration, error) {
+	return durationAt(profileDir, "CODEAF_PRACTICE_IDLE", KeyPracticeIdle, DefaultPracticeIdle)
+}
+
+// BriefAfterAt resolves the absence that earns an arrival brief.
+func BriefAfterAt(profileDir string) (time.Duration, error) {
+	return durationAt(profileDir, "CODEAF_BRIEF_AFTER", KeyBriefAfter, DefaultBriefAfter)
+}
+
+func durationAt(profileDir, envName, key string, fallback time.Duration) (time.Duration, error) {
+	if raw := strings.TrimSpace(env.Value(envName)); raw != "" {
+		value, err := time.ParseDuration(raw)
+		if err != nil || value < 0 {
+			return 0, fmt.Errorf("%s: want a non-negative duration, got %q", envName, raw)
+		}
+		return value, nil
+	}
+	if value, ok := persistedDuration(profileDir, key); ok {
+		return value, nil
+	}
+	return fallback, nil
+}
+
+// TenureAfterAt resolves the clean-firing count that earns a charter tenure.
+func TenureAfterAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_TENURE_AFTER")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+		return DefaultTenureAfter
+	}
+	if value, ok := persistedInt(profileDir, KeyTenureAfter); ok && value > 0 {
+		return value
+	}
+	return DefaultTenureAfter
+}
+
+// The two resolvers that used to sit here — practice_demand_pct and
+// propose_new_skills — are gone with their rows. Nothing in this build read
+// either one: the value was resolved, copied onto a Config field, and never
+// looked at again, so the sheet was offering a person a dial wired to nothing.
+// 5.20 is that an affordance which does nothing must not be offered as though
+// it does, and the fix for a knob with no reader is to delete the knob, not to
+// leave it turning. When the learning loop that wants them lands it brings its
+// own rows, and the completeness gate will make sure of it.
+
+// AttributionModelHint is the `attribution.model` row's hint: what the line
+// says with the row on, and what it says with the row off.
+const AttributionModelHint = "On, commits say `Assisted-by: CodeAF (<model>)`; off, `Assisted-by: CodeAF`."
+
+// AttributionModelAt resolves whether the `Assisted-by` line codeaf signs its
+// commits with names the model. A malformed pin reads as the default rather
+// than refusing a launch over a name.
+func AttributionModelAt(profileDir string) bool {
+	if raw := strings.TrimSpace(env.Get("CODEAF_ATTRIBUTION_MODEL")); raw != "" {
+		if value, err := parseBool(raw); err == nil {
+			return value
+		}
+		return DefaultAttributionModel
+	}
+	if value, ok := persistedBool(profileDir, KeyAttributionModel); ok {
+		return value
+	}
+	return DefaultAttributionModel
+}
+
+// AssistedByModelAt is the model a door hands the attribution line: this model
+// when the `attribution.model` row is on, and nothing when it is off, which
+// leaves the line bare. It is the ONE place the row is turned into a name, so
+// every door that builds a leaf loop answers it the same way.
+func AssistedByModelAt(profileDir, model string) string {
+	if !AttributionModelAt(profileDir) {
+		return ""
+	}
+	return model
+}
+
+// HistoryEnabledAt resolves whether the v3 chat surface records what was typed
+// into ~/.codeaf/v3/history.jsonl. A malformed pin reads as the default
+// rather than refusing a launch over a recall list.
+func HistoryEnabledAt(profileDir string) bool {
+	if raw := strings.TrimSpace(env.Get("CODEAF_HISTORY")); raw != "" {
+		if value, err := parseBool(raw); err == nil {
+			return value
+		}
+		return DefaultHistoryEnabled
+	}
+	if value, ok := persistedBool(profileDir, KeyHistoryEnabled); ok {
+		return value
+	}
+	return DefaultHistoryEnabled
+}
+
+// DraftPersistAt resolves whether the v3 chat surface keeps the unsent draft on
+// disk between sessions. Shaped exactly like [HistoryEnabledAt].
+func DraftPersistAt(profileDir string) bool {
+	if raw := strings.TrimSpace(env.Get("CODEAF_DRAFT_PERSIST")); raw != "" {
+		if value, err := parseBool(raw); err == nil {
+			return value
+		}
+		return DefaultDraftPersist
+	}
+	if value, ok := persistedBool(profileDir, KeyDraftPersist); ok {
+		return value
+	}
+	return DefaultDraftPersist
+}
+
+// TaskColumnAt resolves whether the v3 chat stands its task column up, default
+// on. A row that will not parse reads as the default rather than as off, for
+// [TimestampsAt]'s reason: a garbled row must not quietly take the session's
+// record of its own work off the screen.
+func TaskColumnAt(profileDir string) bool {
+	if value, ok := persistedBool(profileDir, KeyTaskColumn); ok {
+		return value
+	}
+	return DefaultTaskColumn
+}
+
+// SaveTaskColumn records what the person did to the column with their hands.
+//
+// It is EXPORTED because the surface writes it from a chord, and it is the v3 half of the same
+// bargain: this is the one interface row whose value is normally chosen by a
+// keystroke rather than by visiting the sheet, so the key needs a door to disk
+// that goes through the same writer the row's own does. Two doors, one
+// validation.
+func SaveTaskColumn(profileDir string, open bool) error {
+	return writeBool(profileDir, KeyTaskColumn, formatBool(open))
+}
+
+// QuickSwitchAt resolves whether the conversation switcher's chord switches on
+// each press, default on. A row that will not parse reads as the default rather
+// than as off, for [TaskColumnAt]'s reason: a garbled row must not quietly slow
+// a gesture down.
+func QuickSwitchAt(profileDir string) bool {
+	if value, ok := persistedBool(profileDir, KeyQuickSwitch); ok {
+		return value
+	}
+	return DefaultQuickSwitch
+}
+
+// HintsAt resolves whether the v3 chat shows its tips, default on. A row that
+// will not parse reads as the default rather than as off, for [TaskColumnAt]'s
+// reason: a garbled row must not quietly take a newcomer's only pointers away.
+func HintsAt(profileDir string) bool {
+	if value, ok := persistedBool(profileDir, KeyHints); ok {
+		return value
+	}
+	return DefaultHints
+}
+
+// DocumentEngineAt resolves the document-reading rung.
+func DocumentEngineAt(profileDir string) (string, error) {
+	if raw := strings.TrimSpace(env.Get("CODEAF_DOC_ENGINE")); raw != "" {
+		engine := strings.ToLower(raw)
+		if !knownDocumentEngine(engine) {
+			return "", fmt.Errorf("CODEAF_DOC_ENGINE: unknown engine %q (auto, local, free, ocr)", engine)
+		}
+		return engine, nil
+	}
+	if value, ok := persistedString(profileDir, KeyDocumentEngine); ok {
+		if engine := strings.ToLower(strings.TrimSpace(value)); knownDocumentEngine(engine) {
+			return engine, nil
+		}
+	}
+	return DefaultDocumentEngine, nil
+}
+
+// VisionModelAt resolves the image-inspection proxy slot. Empty means resolve
+// from the live catalog at use.
+func VisionModelAt(profileDir string) string {
+	if raw := strings.TrimSpace(env.Get("CODEAF_VISION_MODEL")); raw != "" {
+		return raw
+	}
+	if value, ok := persistedString(profileDir, KeyVisionModel); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// InstallPersistedEnv exports the persisted value of every knob whose only
+// reader is the process environment, so a choice made in the sheet survives a
+// relaunch without a second lookup path. A variable the user actually set is
+// never overwritten — the environment still wins.
+func InstallPersistedEnv(profileDir string) {
+	if strings.TrimSpace(env.Get("CODEAF_TENURE_AFTER")) != "" {
+		return
+	}
+	if value, ok := persistedInt(profileDir, KeyTenureAfter); ok && value > 0 {
+		_ = os.Setenv("CODEAF_TENURE_AFTER", strconv.Itoa(value))
+	}
+}
+
+// ── the web-search rows ─────────────────────────────────────────────────────
+//
+// The three key rows ARE environment-pinned, where the v3 rows below are not,
+// and the difference is what the variable can do. A pin on the tool gate would
+// be a bypass — a stray export widening what may run without asking. A pin on
+// a credential is the credential itself: EXA_API_KEY, FIRECRAWL_API_KEY and
+// JINA_API_KEY are the vendors' own variable names, already exported in the
+// shells of the people who have keys, and a settings sheet that ignored them
+// would make the same person paste the same secret twice and then wonder which
+// copy was live.
+//
+// They are the vendors' spellings rather than CODEAF_-prefixed ones for that
+// same reason: the value is not ours, and renaming somebody's key variable to
+// claim it would be the product asking the world to accommodate it.
+//
+// The provider row has NO pin. It is a preference and not a secret, and the
+// sheet is where a preference is answered so it can be read back.
+
+// SearchProviderAt resolves where a web search goes: the persisted row when it
+// names a provider this build accepts, otherwise auto. An unrecognised value
+// reads as auto rather than as an error, which is the direction a garbled
+// setting may be wrong in — auto still searches.
+func SearchProviderAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeySearchProvider); ok {
+		if provider := strings.ToLower(strings.TrimSpace(value)); knownSearchProvider(provider) {
+			return provider
+		}
+	}
+	return DefaultSearchProvider
+}
+
+// ModelPoolSettingAt is the stored word the pool row holds: one of the three
+// choices, or empty for a person who has never answered. It is the argument
+// the pool's resolver takes, and the raw half of [ModelPoolAt].
+func ModelPoolSettingAt(profileDir string) string {
+	value, _ := persistedString(profileDir, KeyModelPool)
+	return value
+}
+
+// ModelPoolPublicKeySettingAt is the stored word the pool key row holds:
+// base64 text, or empty for the key the binary carries. It is the second
+// setting [ModelPoolAt] resolves.
+func ModelPoolPublicKeySettingAt(profileDir string) string {
+	value, _ := persistedString(profileDir, KeyModelPoolPublicKey)
+	return value
+}
+
+// ModelPoolAt resolves how the Model Pool behaves: the stored mode word, the
+// stored public key and the pool's environment names, through poolcfg.Resolve.
+// IT IS THE ONE PLACE THE PROCESS ENVIRONMENT IS READ FOR THE POOL — poolcfg
+// itself takes the environment as a function, and a caller with its own (the
+// `codeaf pool` verb, whose tests inject one) resolves [ModelPoolSettingAt]
+// and [ModelPoolPublicKeySettingAt] against its own lookup rather than
+// calling this.
+func ModelPoolAt(profileDir string) poolcfg.Config {
+	return ModelPoolResolved(profileDir, os.LookupEnv)
+}
+
+// ModelPoolResolved is [ModelPoolAt] with the environment injected, for the
+// verbs whose tests hand one in. It is where the telemetry off switch reaches
+// the pool: the environment rungs (CODEAF_TELEMETRY, DO_NOT_TRACK) are read by
+// the resolver through lookup, and the two rungs that live on disk — the
+// project file and the profile row the settings sheet's telemetry switch writes — are
+// read here and applied with [poolcfg.Config.Quieted]. The rows, not the
+// pin: a caller that injected an environment must get the answer for THAT
+// environment's CODEAF_TELEMETRY, not the one the harness happens to export
+// (the fall-through [telemetryRowsOff] describes is the one exception).
+func ModelPoolResolved(profileDir string, lookup func(string) (string, bool)) poolcfg.Config {
+	cfg := poolcfg.Resolve(ModelPoolSettingAt(profileDir), ModelPoolPublicKeySettingAt(profileDir), lookup)
+	cwd, _ := os.Getwd()
+	if telemetryRowsOff(cwd, profileDir) {
+		cfg = cfg.Quieted()
+	}
+	return cfg
+}
+
+// PoolTelemetryRowsOffAt rechecks the telemetry project file and profile row
+// before an in-flight pool send, because either can change after the caller
+// resolved its configuration. The caller keeps its own resolved environment;
+// this check does not resolve the pool configuration again.
+func PoolTelemetryRowsOffAt(profileDir string) bool {
+	cwd, _ := os.Getwd()
+	return telemetryRowsOff(cwd, profileDir)
+}
+
+// telemetryRowsOff is the disk half of [TelemetryOffReason]: the project file
+// and the profile row. It does not read CODEAF_TELEMETRY itself — the caller
+// has read that through its own lookup — but it is not blind to the process
+// environment either: [ProjectBoolAt] falls through to [TelemetryAt] when the
+// project file says nothing, and TelemetryAt reads the pin through
+// internal/env, which honours the former AFORGE_TELEMETRY spelling. // legacy-name
+// THAT FALL-THROUGH IS WHY THE FORMER SPELLING CAPS THE POOL; a rewrite that
+// read the two rows directly would drop it.
+func telemetryRowsOff(cwd, profileDir string) bool {
+	if cwd != "" {
+		if value, err := ProjectBoolAt(cwd, profileDir, KeyTelemetry); err == nil && !value {
+			return true
+		}
+	}
+	value, ok := persistedBool(profileDir, KeyTelemetry)
+	return ok && !value
+}
+
+// ExaKeyAt resolves the Exa credential: the environment first, then the sheet,
+// then empty — and empty is a working configuration, not a fault.
+func ExaKeyAt(profileDir string) string {
+	return credentialAt(profileDir, "EXA_API_KEY", KeyExaKey)
+}
+
+// FirecrawlKeyAt resolves the optional Firecrawl ceiling credential the same way.
+func FirecrawlKeyAt(profileDir string) string {
+	return credentialAt(profileDir, "FIRECRAWL_API_KEY", KeyFirecrawlKey)
+}
+
+// JinaKeyAt resolves the Jina credential the same way.
+func JinaKeyAt(profileDir string) string {
+	return credentialAt(profileDir, "JINA_API_KEY", KeyJinaKey)
+}
+
+// SearchOptionsAt is the one mapping from profile rows to the search layer's
+// input. Auto becomes an absent pin because the resolver treats absence as the
+// instruction to walk its ladder; credentials retain their environment-first
+// resolution from the rows above.
+func SearchOptionsAt(profileDir string) search.Options {
+	pin := SearchProviderAt(profileDir)
+	if pin == SearchProviderAuto {
+		pin = ""
+	}
+	return search.Options{
+		Provider:     pin,
+		ExaKey:       ExaKeyAt(profileDir),
+		FirecrawlKey: FirecrawlKeyAt(profileDir),
+		JinaKey:      JinaKeyAt(profileDir),
+	}
+}
+
+// SearchProviderHintAt explains what the searching row means right now. It is
+// recomputed when the sheet rebuilds after a write, so the row describes the
+// next search without turning every rendered frame into a config-file read.
+func SearchProviderHintAt(profileDir string) string {
+	opts := SearchOptionsAt(profileDir)
+	status := search.Status(opts)
+	spoken := strings.Replace(status, " · ", ", ", 1)
+	if opts.Provider == "" {
+		if strings.HasSuffix(status, " · keyless") {
+			return "now " + spoken + " — set search.exaKey or search.firecrawlKey to raise it"
+		}
+		return "now " + spoken
+	}
+	if strings.HasSuffix(status, " · key not set — searches fail") {
+		key := ""
+		switch opts.Provider {
+		case "exa":
+			key = KeyExaKey
+		case "jina-search":
+			key = KeyJinaKey
+		}
+		if key != "" {
+			return fmt.Sprintf("%s is pinned but %s is not set — every search answers %q. Choose auto, or set the key.", opts.Provider, key, search.Failure(opts.Provider, search.ErrNoAPIKey))
+		}
+	}
+	return spoken
+}
+
+// GoogleOAuthClientAt resolves the Google registration: the environment first,
+// then the sheet, then the registration this build ships with
+// (connect_defaults.go, which states why a desktop client's secret may be
+// compiled in at all). So the answer is never empty, and every build can offer
+// to connect an account without a person filling in a registration form first.
+//
+// IT ANSWERS BOTH HALVES OR NEITHER IS WORTH HAVING, which is why it is one
+// call and not two. An id without its secret cannot ask Google for anything, so
+// a caller handed half a pair would have to write the same "and the other one"
+// check every reader of these rows already needs; here it is written once, and
+// the caller's test is the one it should be — is the id there.
+//
+// EACH HALF WALKS THE RUNGS ALONE, which is the shape the rows already had: the
+// two are separate values a person copies from two separate boxes, and each is
+// resolved by the same credentialAt every other credential uses. The one edge
+// that leaves is a person who answers ONE half of their own registration — they
+// get their id against this build's secret, which Google refuses — and the cure
+// is the obvious one, answer the other half too, which is what the sheet's hint
+// on both rows already says.
+func GoogleOAuthClientAt(profileDir string) (id, secret string) {
+	id = googleOAuthClientAt(profileDir)
+	if id == "" {
+		id = defaultGoogleOAuthClient
+	}
+	secret = googleOAuthSecretAt(profileDir)
+	if secret == "" {
+		secret = defaultGoogleOAuthSecret
+	}
+	return id, secret
+}
+
+// The two halves on their own, for the registry rows: a row reads and writes one
+// value, and a row that displayed a pair would have nothing to write back to.
+func googleOAuthClientAt(profileDir string) string {
+	return credentialAt(profileDir, "GOOGLE_OAUTH_CLIENT", KeyGoogleOAuthClient)
+}
+
+func googleOAuthSecretAt(profileDir string) string {
+	return credentialAt(profileDir, "GOOGLE_OAUTH_SECRET", KeyGoogleOAuthSecret)
+}
+
+// SlackOAuthClientAt resolves the Slack registration: the environment first,
+// then the sheet, then the public application this build ships with. The
+// answer is never empty, so every build can offer Slack without asking a
+// person to register an application first.
+func SlackOAuthClientAt(profileDir string) string {
+	id := slackOAuthClientAt(profileDir)
+	if id == "" {
+		id = defaultSlackOAuthClient
+	}
+	return id
+}
+
+// slackOAuthClientAt is the bare rung walk for the registry row. The row shows
+// only what the person answered, so an unanswered row still reads "not set"
+// while [SlackOAuthClientAt] uses the application this build ships with.
+func slackOAuthClientAt(profileDir string) string {
+	return credentialAt(profileDir, "SLACK_OAUTH_CLIENT", KeySlackOAuthClient)
+}
+
+func credentialAt(profileDir, envName, key string) string {
+	if raw := strings.TrimSpace(env.Value(envName)); raw != "" {
+		return raw
+	}
+	if value, ok := persistedString(profileDir, key); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+func knownSearchProvider(provider string) bool {
+	for _, candidate := range SearchProviders {
+		if candidate == provider {
+			return true
+		}
+	}
+	return false
+}
+
+// maskCredentialBullets is how many bullets stand in for the head of a key. It
+// is a FIXED count and not the key's real length: a mask that grew with the
+// secret would leak its length, and a forty-character row of dots reads as
+// damage rather than as a value.
+const maskCredentialBullets = 8
+
+// maskCredentialTail is how much of the key survives the mask — enough to tell
+// two keys apart when a person is checking which one is loaded, and far too
+// little to be worth anything to somebody reading over their shoulder.
+const maskCredentialTail = 4
+
+// maskCredential is what a secret row reads as. An unset row masks to empty so
+// the row's EmptyLabel still speaks: "not set" and a row of bullets are
+// different facts and must not render the same.
+func maskCredential(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	bullets := strings.Repeat("•", maskCredentialBullets)
+	runes := []rune(value)
+	if len(runes) <= maskCredentialTail {
+		// A value this short is not a key — a typo, a paste that lost its
+		// tail. Show none of it rather than all of it.
+		return bullets
+	}
+	return bullets + string(runes[len(runes)-maskCredentialTail:])
+}
+
+// writeCredential persists a secret row, and treats the MASK as "unchanged".
+//
+// That guard is the whole reason this is not writeText. Every editor in the
+// tree opens on the value the row displays, which for a secret row is the
+// mask; a person who opens the row to look at it and presses enter would
+// otherwise replace their key with eight bullets and four characters of it —
+// an unrecoverable edit made by doing nothing.
+//
+// Empty still CLEARS. "I did not change it" is the mask; "" is a person
+// deleting the field, which is the only way to remove a key from the sheet.
+func writeCredential(profileDir, key, raw, current string) error {
+	value := strings.TrimSpace(raw)
+	if value != "" && value == maskCredential(current) {
+		return nil
+	}
+	return writeProfileValue(profileDir, key, value)
+}
+
+func knownDocumentEngine(engine string) bool {
+	for _, candidate := range DocumentEngines {
+		if candidate == engine {
+			return true
+		}
+	}
+	return false
+}
+
+// ── the v3 session's own rows ───────────────────────────────────────────────
+//
+// None of these six is pinned by an environment variable, and that is
+// deliberate rather than an omission. A tool gate that a stray export could
+// widen to "allow everything" is a gate with a bypass; a spend ceiling the
+// shell can lift is not a ceiling. They are answered in the sheet, where the
+// answer is written down and can be read back.
+
+// ToolApprovalModeAt resolves the blanket answer the tool gate starts from. An
+// absent setting uses YOLO; an unrecognised persisted value still asks, so a
+// garbled setting does not widen a previously selected posture.
+func ToolApprovalModeAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyToolApprovalMode); ok {
+		if mode := strings.ToLower(strings.TrimSpace(value)); knownToolApprovalMode(mode) {
+			return mode
+		}
+		return "prompt"
+	}
+	if _, found := persistedValue(profileDir, KeyToolApprovalMode); found {
+		return "prompt"
+	}
+	return DefaultToolApprovalMode
+}
+
+// HeadlessToolApprovalModeAt requires an explicit setting to open an unwatched gate.
+// Invalid saved values retain the ordinary reader's conservative fallback.
+func HeadlessToolApprovalModeAt(workspace, profileDir string) (string, error) {
+	project, err := LoadProjectConfig(workspace)
+	if err != nil {
+		return "", err
+	}
+	if _, found, err := project.String(KeyToolApprovalMode); err != nil {
+		return "", err
+	} else if found {
+		return project.ResolveString(profileDir, KeyToolApprovalMode)
+	}
+	if _, found := persistedValue(profileDir, KeyToolApprovalMode); found {
+		if _, text := persistedString(profileDir, KeyToolApprovalMode); !text {
+			return "prompt", nil
+		}
+		return ToolApprovalModeAt(profileDir), nil
+	}
+	return "prompt", nil
+}
+
+// GuardianAt resolves whether a small model answers a tool prompt before the
+// person is asked. An unrecognised persisted value reads as the default, which
+// is off — a garbled setting must never be the one that appoints a stand-in.
+func GuardianAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyGuardian); ok {
+		if mode := strings.ToLower(strings.TrimSpace(value)); mode == GuardianOff || mode == GuardianOn {
+			return mode
+		}
+	}
+	return DefaultGuardian
+}
+
+// GuardianEnabledAt is [GuardianAt] as the bool internal/session's Config takes.
+// The two exist separately because the row's value is a WORD — that is what the
+// sheet renders and what the file holds — and the seam on the other side is a
+// switch; one function answering both would have to pick which of those it lies
+// about.
+func GuardianEnabledAt(profileDir string) bool {
+	return GuardianAt(profileDir) == GuardianOn
+}
+
+// MouseAt resolves the mouse row to its word, default off.
+func MouseAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyMouse); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultMouse
+}
+
+// MouseEnabledAt is [MouseAt] as the bool the surface's View takes — the same
+// word/switch split [GuardianEnabledAt] documents.
+func MouseEnabledAt(profileDir string) bool {
+	return MouseAt(profileDir) == MouseOn
+}
+
+// TimestampsAt resolves the timestamps row to its word, default footers. An
+// unknown word reads as the default rather than as off, for [RoutingAt]'s
+// reason: a garbled row must not quietly take a fact off the screen.
+func TimestampsAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyTimestamps); ok {
+		value = strings.TrimSpace(strings.ToLower(value))
+		for _, mode := range TimestampModes {
+			if value == mode {
+				return value
+			}
+		}
+	}
+	return DefaultTimestamps
+}
+
+// WorkAt resolves the completed-work presentation, default fold.
+func WorkAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyWork); ok {
+		value = strings.TrimSpace(strings.ToLower(value))
+		for _, mode := range WorkModes {
+			if value == mode {
+				return value
+			}
+		}
+	}
+	return DefaultWork
+}
+
+// IconsAt resolves the step icon preference. Unknown values use detection
+// rather than turning off the normal rich presentation.
+func IconsAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyIcons); ok {
+		value = strings.ToLower(strings.TrimSpace(value))
+		for _, mode := range IconModes {
+			if value == mode {
+				return value
+			}
+		}
+	}
+	return IconsAuto
+}
+
+// routingWritten is the routing word in raw when this build knows it, and empty
+// for anything else — unwritten, blank, garbled, or a word a later build
+// spelled. It is the one place the row's vocabulary is checked, so that "what
+// did they write?" and "what is in force?" cannot come apart.
+func routingWritten(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	for _, mode := range RoutingModes {
+		if raw == mode {
+			return raw
+		}
+	}
+	return ""
+}
+
+// RoutingWord is what an already-read routing row is IN FORCE as: the word when
+// somebody wrote one this build knows, and [DefaultRouting] otherwise.
+//
+// A surface that holds the row in hand asks this rather than deciding for
+// itself what an unknown word means, so the shipped row is stated once
+// (internal/tui3's palette.go reads it for the sentence on the `auto` row).
+func RoutingWord(raw string) string {
+	if written := routingWritten(raw); written != "" {
+		return written
+	}
+	return DefaultRouting
+}
+
+// RoutingAt resolves the routing row to the word in force, [DefaultRouting]
+// when nobody wrote one. An unreadable or unknown word falls back to the
+// default rather than to off: a garbled row must not quietly stop a session
+// sending what it would otherwise send, and off is a real answer somebody
+// chooses rather than one they arrive at by accident.
+func RoutingAt(profileDir string) string {
+	value, _ := persistedString(profileDir, KeyRouting)
+	return RoutingWord(value)
+}
+
+// RoutingChoiceAt is the routing row A PERSON ACTUALLY WROTE, empty when they
+// have written nothing readable.
+//
+// It is the same read as [RoutingAt] without the fallback, and the two are both
+// needed because they answer different questions. A settings sheet asks "what
+// is in force?" and must be told the shipped row, which is what an unset row
+// does. The adapter asks "did somebody CHOOSE?", and it must be able to hear no
+// — which is what lets a client that was handed nothing fall to the row this
+// process installed, while an explicit word still wins over both
+// (internal/provider's velocity.go).
+func RoutingChoiceAt(profileDir string) string {
+	value, _ := persistedString(profileDir, KeyRouting)
+	return routingWritten(value)
+}
+
+// TaskAuditAt resolves the audit row to its word, default on.
+func TaskAuditAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyTaskAudit); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultTaskAudit
+}
+
+// TaskAuditEnabledAt is [TaskAuditAt] as the bool the session's Config takes.
+func TaskAuditEnabledAt(profileDir string) bool {
+	return TaskAuditAt(profileDir) == TaskAuditOn
+}
+
+// ReplyGuardAt resolves the reply-guard row to its word, default on.
+func ReplyGuardAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyReplyGuard); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultReplyGuard
+}
+
+// ReplyGuardEnabledAt is [ReplyGuardAt] as the bool the session's Config takes.
+// The two exist separately for the reason the guardian's pair does: the row's
+// value is a WORD, and the seam on the other side is a switch.
+func ReplyGuardEnabledAt(profileDir string) bool {
+	return ReplyGuardAt(profileDir) == ReplyGuardOn
+}
+
+// TaskSettleAt resolves the row to its word, default ask. A value this build
+// does not recognise reads as the default rather than as an error, on the rule
+// [TaskStartAt] states: this row decides who is asked about somebody's work, and
+// a typo in a config file must not start answering on their behalf.
+func TaskSettleAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyTaskSettle); ok {
+		if value = strings.TrimSpace(value); value == TaskSettleAuto || value == TaskSettleAsk {
+			return value
+		}
+	}
+	return DefaultTaskSettle
+}
+
+// TaskStartAt resolves [KeyTaskStart]: the persisted row, else the default. A
+// value this build does not recognise reads as the default rather than as an
+// error, because the row decides what a command does and a typo in a config file
+// must not be a command that refuses.
+//
+// THAT RULE IS ALSO HOW A RETIREMENT IS PAID FOR. `adaptive` and `ask` were both
+// answers here once; taking a word out of [TaskStartModes] is the whole of
+// retiring it, because a profile that still holds one falls through this loop
+// and reads as [DefaultTaskStart] — no migration, no error, and nothing said to
+// somebody about a preference they set months ago.
+func TaskStartAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyTaskStart); ok {
+		value = strings.ToLower(strings.TrimSpace(value))
+		for _, mode := range TaskStartModes {
+			if mode == value {
+				return value
+			}
+		}
+	}
+	return DefaultTaskStart
+}
+
+// MemoryAt resolves the memory row to its word, default on.
+func MemoryAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyMemoryEnabled); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultMemory
+}
+
+// PromptProfileAt resolves the prompt-profile row to its word: the environment
+// pin, then the persisted row, then `auto`.
+//
+// AN UNRECOGNISED PIN IS NOT A PIN, and that is where this differs from the
+// bool rows above, which read a malformed pin as their default. The engine
+// already rules it that way (internal/session's promptprofile.go says so at
+// length, after internal/splitgate's Mode): a stale or mistyped word in
+// somebody's shell must not quietly move a conversation onto the other arm, and
+// it must not quietly cancel the row they did choose either. So a word this
+// list does not have falls through to the row, exactly as an unset variable
+// does.
+func PromptProfileAt(profileDir string) string {
+	if raw := strings.ToLower(strings.TrimSpace(env.Get(EnvPromptProfile))); raw != "" {
+		for _, mode := range PromptProfileModes {
+			if mode == raw {
+				return mode
+			}
+		}
+	}
+	if value, ok := persistedString(profileDir, KeyPromptProfile); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultPromptProfile
+}
+
+// MemoryEnabledAt is [MemoryAt] as the bool the v3 door reads before it opens a
+// brain at all: memory off is a session handed no store, which is what makes
+// "no block and no calls" a property of the wiring rather than a branch every
+// caller has to remember (internal/session's memory.go states the law).
+func MemoryEnabledAt(profileDir string) bool {
+	return MemoryAt(profileDir) == MemoryOn
+}
+
+// BackgroundChecksAt resolves the background-checks row to its word, default
+// on. It is the person's INTENT and not a reading of the machine: what the
+// settings row shows is derived from the timer ([Settings.build]), and this is
+// what the row was last told.
+func BackgroundChecksAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyStandingBackground); ok {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return DefaultBackground
+}
+
+// BackgroundChecksWantedAt is [BackgroundChecksAt] as the bool the launch reads
+// before it repairs a timer that has drifted off a program that moved
+// (cmd/codeaf's chatv3_process.go). A person who turned the row off is a person
+// whose machine must stay as they left it.
+func BackgroundChecksWantedAt(profileDir string) bool {
+	return BackgroundChecksAt(profileDir) == BackgroundOn
+}
+
+// ToolApprovalsAt resolves the per-tool exceptions as the person wrote them.
+// The text is the record; [ParseToolApprovals] is how a caller reads it.
+func ToolApprovalsAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyToolApprovals); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// ParseToolApprovals reads `read:allow, bash:prompt` into the map
+// internal/approval's Load takes as its "tools" section.
+//
+// The flat text is a STAND-IN. The structured map — per-tool rules, and the
+// ordered bash pattern list beside them — lands with the settings file that can
+// hold a nested shape; until then a person needs some way to say "never ask me
+// about read", and one line they can read back beats a nested editor nobody has
+// written yet. The parse is strict about the action for the reason
+// approval.ParseAction is: a typo that was silently dropped would be a rule
+// somebody thinks is protecting them.
+func ParseToolApprovals(raw string) (map[string]string, error) {
+	pairs, err := parsePairs(raw, "tool")
+	if err != nil {
+		return nil, err
+	}
+	for tool, action := range pairs {
+		if !knownToolApprovalMode(action) {
+			return nil, fmt.Errorf("%s: %q is not allow, prompt or deny", tool, action)
+		}
+	}
+	return pairs, nil
+}
+
+// TierModelAt resolves the model one tier runs on. Empty means the tier follows
+// the session's own model, which is internal/roles' floor.
+//
+// A CREW SEAT'S TIER — worker, mastermind (the planner), high (the checker) —
+// reads its pin, or the router's standing pick when it has none ([TierSeatAt]),
+// so the calls that ride those tiers outside a task follow the crew without a
+// second place to set it.
+//
+// THE OTHER TWO ROWS KEEP THE RULE THEY HAVE ALWAYS HAD: UNSET AND CLEARED ARE
+// DIFFERENT ANSWERS. A profile that has never held the key gets this build's
+// own near-free model ([DefaultReflexModel], [DefaultLowModel]), because a call
+// made twice a turn is a bill nobody agreed to; a row somebody emptied ON
+// PURPOSE reads empty and follows the conversation, because refusing to let
+// them turn it off would make a default into a rule.
+//
+// The value may carry a level (`moonshotai/kimi-k3:low`) and IS RETURNED WHOLE.
+// Splitting is [roles.SplitEffort]'s job at the point of resolution, because a
+// settings surface wants the string the person wrote and a request wants the two
+// halves apart.
+func TierModelAt(profileDir, tier string) string { return TierSeatAt(profileDir, tier).Model }
+
+// tierKeyFor is the settings key one tier word writes. It is total over
+// [ModelTiers] and degrades to the low row, which is what an unknown word has
+// always resolved to here.
+func tierKeyFor(tier string) string {
+	switch tier {
+	case ModelTierHigh:
+		return KeyTierHighModel
+	case ModelTierWorker:
+		return KeyTierWorkerModel
+	case ModelTierReflex:
+		return KeyTierReflexModel
+	case ModelTierMastermind:
+		return KeyTierMastermindModel
+	}
+	return KeyTierLowModel
+}
+
+// builtinTierModel is the build's own model for the two rows that are not crew
+// seats. A crew seat's tier has none — it is routed — and reads the small-work
+// model only if a caller asks for a tier word this build does not know.
+func builtinTierModel(tier string) string {
+	if tier == ModelTierReflex {
+		return DefaultReflexModel
+	}
+	return DefaultLowModel
+}
+
+// ModelRolesAt resolves the per-role pins as the person wrote them.
+func ModelRolesAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyModelRoles); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// LivePinsAt is the pinned-roles row AS IT IS ACTED ON: the person's own text
+// with the pins this build will never consult taken out.
+//
+// THE ROW DRAWS WHAT IS TRUE. [ModelRolesAt] is the raw stored string and stays
+// that, because the writer needs the text to rewrite; but a row that DISPLAYED
+// it would draw `compaction: some/model` as a live pin while the role list under
+// it had no such line, and the person would be reading a setting that does
+// nothing. What they are told instead is [RetiredPinNote], next to the row.
+func LivePinsAt(profileDir string) string {
+	pins, dropped, err := parseModelRoles(ModelRolesAt(profileDir))
+	if err != nil || len(dropped) == 0 {
+		return ModelRolesAt(profileDir)
+	}
+	names := make([]string, 0, len(pins))
+	for name := range pins {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	kept := make([]string, 0, len(names))
+	for _, name := range names {
+		kept = append(kept, name+":"+pins[name])
+	}
+	return strings.Join(kept, ", ")
+}
+
+// ParseModelRoles reads `title:openai/gpt-5-mini` into role → model. The value
+// is split at the FIRST colon only, because a model slug can carry one of its
+// own (`…/model:free`).
+//
+// A PIN FOR A WORD THAT IS NOT A ROLE IS DROPPED, NOT REFUSED — see
+// [parseModelRoles], which is this and the names it dropped.
+func ParseModelRoles(raw string) (map[string]string, error) {
+	pins, _, err := parseModelRoles(raw)
+	return pins, err
+}
+
+// parseModelRoles is [ParseModelRoles] and also SAYS WHAT IT DROPPED.
+//
+// A PIN FOR A WORD THAT IS NOT A ROLE IS DROPPED, NOT REFUSED, and the read does
+// not care WHY it is not a role. A name this build retired and a name somebody
+// mistyped are the same thing here by design: both are a pin no call will ever
+// consult, and the row around them is a person's own text that outlives any
+// particular build. Refusing the whole row over one dead word is what made every
+// OTHER pin on that machine unchangeable when `compaction` was deleted, because
+// the panel re-serialises the whole string on any change.
+//
+// THE DROP IS RETURNED AND NOT LOGGED. This is a pure parser on the settings
+// panel's draw path, and a log line here would print on stderr in every headless
+// and `--json` door, over the top of a machine-readable answer. Who should hear
+// about a dead pin depends on who is asking: the panel says it to the person in
+// front of it ([RetiredPinNote]), and the writer just stops writing it back.
+func parseModelRoles(raw string) (pins map[string]string, dropped []string, err error) {
+	pins, err = parsePairs(raw, "role")
+	if err != nil {
+		return nil, nil, err
+	}
+	for name := range pins {
+		if !knownRole(name) {
+			dropped = append(dropped, name)
+			delete(pins, name)
+		}
+	}
+	sort.Strings(dropped)
+	return pins, dropped, nil
+}
+
+// knownRole reports a name this build has a role for.
+//
+// IT ASKS THE VOCABULARY AND NOT THE REGISTRY, which are two different
+// questions. The registry is the TIER TABLE: a role gets into it by registering,
+// and a role with no tier never does. `imagegen` is exactly that — a painter is
+// chosen by a pin or not at all, since a chat model in tiers.high is not a
+// statement about painting — so reading the registry here threw away a person's
+// `imagegen:` pin, which is a real setting doing real work.
+func knownRole(name string) bool { return roles.Known(name) }
+
+// RetiredPinNote is what a surface with a person in front of it says about pins
+// this build will not act on, and "" when there are none. It is a sentence and
+// not a log line, because the only reader who wants it is the one looking at the
+// row it is about.
+func RetiredPinNote(raw string) string {
+	_, dropped, err := parseModelRoles(raw)
+	if err != nil || len(dropped) == 0 {
+		return ""
+	}
+	if len(dropped) == 1 {
+		return fmt.Sprintf("%s is no longer a role — that pin is ignored", dropped[0])
+	}
+	return fmt.Sprintf("%s are no longer roles — those pins are ignored", strings.Join(dropped, " and "))
+}
+
+// ModelFallbacksAt resolves the fallback chain as the person wrote it.
+func ModelFallbacksAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyModelFallbacks); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// ParseModelFallbacks reads the row into an ordered list of model slugs.
+//
+// It is comma-separated and NOT a pair list, unlike the two model rows above it:
+// there is no key here, only an order, and the order is the whole content. A
+// slug may carry a colon of its own (`…/model:free`), which is exactly why this
+// splits on commas and nothing else.
+//
+// Blank entries are dropped and duplicates collapse to their first appearance,
+// so a trailing comma or a name written twice is a tidy-up rather than an error.
+// It cannot fail: this row names models, and whether a model exists is a
+// question only the provider can answer.
+func ParseModelFallbacks(raw string) []string {
+	seen := map[string]bool{}
+	var models []string
+	for _, field := range strings.Split(raw, ",") {
+		model := strings.TrimSpace(field)
+		key := strings.ToLower(model)
+		if model == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		models = append(models, model)
+	}
+	return models
+}
+
+// ── the response boundary's three numbers ───────────────────────────────────
+
+// The keys the boundary's numbers persist under. They are named `response.`
+// because that is what the boundary reads — one response, and what kind of
+// failure it was — rather than `task.` or `model.`, either of which would put
+// the row beside the wrong question (internal/taxonomy).
+const (
+	// KeyResponseAttempts is N: how many times ONE request is tried on its own
+	// tier before the wire is given up on. The first try is included.
+	KeyResponseAttempts = "response.attempts"
+	// KeyResponseLiftAfter is K: how many checks must read finished work and
+	// find gaps in it, on the same tier and with the wire ruled out, before a
+	// stronger model is bought.
+	KeyResponseLiftAfter = "response.lift_after"
+	// KeyResponseLiftCap is what that stronger model may cost ONE piece of
+	// work, in dollars. 0 is no cap.
+	KeyResponseLiftCap = "response.lift_cap_usd"
+)
+
+// ResponseLimitsAt resolves the whole of [taxonomy.Limits] for a profile:
+// environment pin, then the persisted row, then the package default, which is
+// the order every other number in this file resolves in.
+//
+// IT IS ONE READER AND NOT THREE, because the three numbers are one policy and
+// a caller that resolved two of them would be running a boundary nobody
+// configured. The backoff is not among them: it is derived from the attempt
+// count's own schedule and there has never been a reason to turn it apart from
+// the count.
+func ResponseLimitsAt(profileDir string) taxonomy.Limits {
+	return taxonomy.Limits{
+		Patience:         ResponseAttemptsAt(profileDir),
+		TransportBackoff: taxonomy.DefaultTransportBackoff,
+		SemanticFailures: ResponseLiftAfterAt(profileDir),
+		TierCapUSD:       ResponseLiftCapAt(profileDir),
+	}
+}
+
+// ResponseAttemptsAt resolves N. A pin below one is nonsense — a request that is
+// never sent — and reads as the default rather than as an instruction.
+//
+// ── WHAT N MEANS CHANGED, AND THE ROW DID NOT ───────────────────────────────
+//
+// It was a count of sends and it is a MULTIPLIER ON THE DEADLINE
+// (docs/design/recovery/DESIGN.md §4, [taxonomy.Limits.Patience]): `3` is three
+// times the role's own give-up — four and a half minutes on a conversation's
+// turn rather than ninety seconds — and never three identical requests. The key
+// keeps its name because the QUESTION a person is answering when they turn it is
+// unchanged: how hard should this try before it tells me it could not. What it
+// no longer buys is the one thing that never helped, which is the same bytes
+// sent again to the machine that has just refused them.
+//
+// The default is one, where it was three: three was the count this build shipped
+// with, and one is the measured give-up with nothing multiplied on top. A person
+// who had written `3` into their profile when three was the default is asking
+// for three times the patience now — which is a reading of their row this change
+// cannot avoid and says so in its change entry.
+func ResponseAttemptsAt(profileDir string) float64 {
+	if raw := strings.TrimSpace(env.Get("CODEAF_RESPONSE_ATTEMPTS")); raw != "" {
+		if value, err := strconv.ParseFloat(raw, 64); err == nil && value >= 1 {
+			return value
+		}
+		return taxonomy.DefaultPatience
+	}
+	if value, ok := persistedFloat(profileDir, KeyResponseAttempts); ok && value >= 1 {
+		return value
+	}
+	return taxonomy.DefaultPatience
+}
+
+// ResponseLiftAfterAt resolves K, the same way.
+func ResponseLiftAfterAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_RESPONSE_LIFT_AFTER")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value >= 1 {
+			return value
+		}
+		return taxonomy.DefaultSemanticFailures
+	}
+	if value, ok := persistedInt(profileDir, KeyResponseLiftAfter); ok && value >= 1 {
+		return value
+	}
+	return taxonomy.DefaultSemanticFailures
+}
+
+// ResponseLiftCapAt resolves the cap, in dollars.
+//
+// A PERSISTED 0 IS A VALUE AND NOT AN ABSENCE, for [TaskAutoApproveAt]'s reason:
+// 0 means no cap, and somebody who wrote it must not find one back in the
+// morning.
+func ResponseLiftCapAt(profileDir string) float64 {
+	if raw := strings.TrimSpace(env.Get("CODEAF_RESPONSE_LIFT_CAP")); raw != "" {
+		if value, err := strconv.ParseFloat(raw, 64); err == nil && value >= 0 {
+			return value
+		}
+		return taxonomy.DefaultTierCapUSD
+	}
+	if value, ok := persistedFloat(profileDir, KeyResponseLiftCap); ok && value >= 0 {
+		return value
+	}
+	return taxonomy.DefaultTierCapUSD
+}
+
+// TaskAutoApproveAt resolves the task countdown, in seconds. 0 is a clock that
+// is off: the proposal waits for an answer instead of starting itself.
+//
+// A persisted 0 is a VALUE and not an absence, which is why the reader tests
+// ok before it tests the number: a person who turned the clock off must not
+// find it back at fifteen the next morning.
+func TaskAutoApproveAt(profileDir string) int {
+	if value, ok := persistedInt(profileDir, KeyTaskAutoApprove); ok && value >= 0 {
+		return value
+	}
+	return DefaultTaskAutoApprove
+}
+
+// TaskRepairRoundsAt resolves how many repair rounds a task gets, default one.
+//
+// A persisted 0 is a VALUE and not an absence, for [TaskAutoApproveAt]'s reason:
+// a person who turned the loop off must not find it back on in the morning.
+func TaskRepairRoundsAt(profileDir string) int {
+	if value, ok := persistedInt(profileDir, KeyTaskRepairRounds); ok && value >= 0 {
+		return value
+	}
+	return DefaultTaskRepairRounds
+}
+
+// TaskParallelAt resolves how many tasks may run at once. 0 is no limit, and
+// no limit is the default.
+//
+// A persisted 0 is a VALUE and not an absence, for [TaskAutoApproveAt]'s
+// reason — though here the value and the default agree, so the test that
+// matters is the other direction: a person who wrote 2 must not find it gone.
+func TaskParallelAt(profileDir string) int {
+	if value, ok := persistedInt(profileDir, KeyTaskParallel); ok && value >= 0 {
+		return value
+	}
+	return DefaultTaskParallel
+}
+
+// TaskMaxLoadAt resolves the per-core load average above which no new task is
+// started. 0 turns the check off.
+func TaskMaxLoadAt(profileDir string) float64 {
+	maxLoad, _ := TaskAdmissionLimitsAt(profileDir, DefaultTaskMaxLoad, DefaultTaskMinFreeMB)
+	return maxLoad
+}
+
+// TaskMinFreeMBAt resolves the available-memory floor under starting a task, in
+// mebibytes. 0 turns the check off.
+func TaskMinFreeMBAt(profileDir string) int {
+	_, minFreeMB := TaskAdmissionLimitsAt(profileDir, DefaultTaskMaxLoad, DefaultTaskMinFreeMB)
+	return minFreeMB
+}
+
+// TaskAdmissionLimitsAt overlays current persisted ceilings on the caller's
+// startup values. Missing keys preserve those values, including explicit zero.
+// Both settings come from one read so a newly created gate sees one profile.
+func TaskAdmissionLimitsAt(profileDir string, maxLoad float64, minFreeMB int) (float64, int) {
+	values, err := readProfileConfig(profileDir)
+	if err != nil {
+		return maxLoad, minFreeMB
+	}
+	var load float64
+	if raw, found := values[KeyTaskMaxLoad]; found && json.Unmarshal(raw, &load) == nil && load >= 0 {
+		maxLoad = load
+	}
+	var memory int
+	if raw, found := values[KeyTaskMinFreeMB]; found && json.Unmarshal(raw, &memory) == nil && memory >= 0 {
+		minFreeMB = memory
+	}
+	return maxLoad, minFreeMB
+}
+
+// TaskModelAt resolves the model tasks run on, as the person wrote it. Empty
+// is the ordinary answer and means "the conversation's own": the row is an
+// override, and whether the name in it exists is a question only the catalog
+// can answer (internal/session resolves it against one).
+func TaskModelAt(profileDir string) string {
+	if value, ok := persistedString(profileDir, KeyTaskModel); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+// ConsentTimeoutAt resolves the approval countdown, in seconds. 0 is a clock
+// that is off: the question waits from the start. A positive number is how
+// long the reminder runs before the card pauses; it never answers no.
+//
+// It tests ok before it tests the number for the reason [TaskAutoApproveAt]
+// does: a persisted 0 is a person who turned the clock off, not an absence.
+func ConsentTimeoutAt(profileDir string) int {
+	if value, ok := persistedInt(profileDir, KeyConsentTimeout); ok && value >= 0 {
+		return value
+	}
+	return DefaultConsentTimeout
+}
+
+// writeProfileCount persists a whole-number row as itself. The context-law
+// writers have their own because each carries a band and hands the whole law
+// to ctxbudget; a plain count has neither.
+func writeProfileCount(profileDir, key, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	return writeProfileValue(profileDir, key, value)
+}
+
+// writeOptionalCount is [writeProfileCount] for a row whose ZERO IS ITS EMPTY
+// READING — task.parallel shows "no limit" rather than "0" (its EmptyLabel), so
+// a person who opens it, clears it and saves is asking for exactly that, and a
+// row that answered "that's not a whole number" would be punishing them for
+// reading it the way it is written.
+func writeOptionalCount(profileDir, key, raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return writeProfileValue(profileDir, key, 0)
+	}
+	return writeProfileCount(profileDir, key, raw)
+}
+
+func writeProfileNumber(profileDir, key, raw string) error {
+	value, err := parseNumber(raw)
+	if err != nil {
+		return err
+	}
+	return writeProfileValue(profileDir, key, value)
+}
+
+// SpendRailUSDAt resolves one conversation's own ceiling. 0 is off.
+func SpendRailUSDAt(profileDir string) float64 {
+	if value, ok := persistedFloat(profileDir, KeySpendRail); ok && value >= 0 {
+		return value
+	}
+	return DefaultSpendRailUSD
+}
+
+func knownToolApprovalMode(mode string) bool {
+	for _, known := range ToolApprovalModes {
+		if known == mode {
+			return true
+		}
+	}
+	return false
+}
+
+// parsePairs reads `a:b, c:d` — comma, semicolon or newline separated — into a
+// map. Duplicate keys are an error rather than last-one-wins: two answers for
+// one name is a person who meant something and cannot be told which half was
+// obeyed.
+func parsePairs(raw, subject string) (map[string]string, error) {
+	pairs := map[string]string{}
+	for _, item := range pairItems(raw) {
+		name, value, found := strings.Cut(item, ":")
+		name = strings.TrimSpace(name)
+		value = strings.TrimSpace(value)
+		if !found || name == "" || value == "" {
+			return nil, fmt.Errorf("write one %s per entry, like `%s:value` — %q is not a pair", subject, subject, item)
+		}
+		if _, repeated := pairs[name]; repeated {
+			return nil, fmt.Errorf("%s %q is named twice", subject, name)
+		}
+		pairs[name] = value
+	}
+	return pairs, nil
+}
+
+// pairItems splits a pair row into its entries, blanks dropped and each one
+// trimmed. It is where the separators a person may use are decided — comma,
+// semicolon, newline — and it is one function because [parsePairs] and the
+// rewriter that takes a dead role back out of a stored row
+// ([withoutRetiredRoles]) have to cut the string the same way. A rewriter that
+// split it differently would drop an entry the parser kept, or keep one it had
+// already refused.
+func pairItems(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';' || r == '\n'
+	})
+	items := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if item := strings.TrimSpace(field); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// writeToolApprovals validates the pairs, then keeps the person's own text.
+// Storing the text rather than the parsed map is what lets the row read back
+// exactly as it was typed; the map is derived on every read anyway.
+func writeToolApprovals(profileDir, raw string) error {
+	if _, err := ParseToolApprovals(raw); err != nil {
+		return err
+	}
+	return writeText(profileDir, KeyToolApprovals, raw)
+}
+
+// writeModelRoles is [writeToolApprovals] for the role pins. The model name is
+// not validated against the catalog: a person configuring a model they have not
+// pulled yet is early, not wrong, and the call that uses it will say so.
+//
+// THE ROLE NAME IS VALIDATED, and that half is not the same bargain at all. A
+// model slug nobody recognises fails loudly at the call that uses it; a ROLE
+// nobody recognises fails silently forever — the pin is stored, it reads back
+// exactly as it was typed, the panel shows it, and not one call ever consults
+// it. `harness_designer:some/model` is a sentence about nothing, and the only
+// evidence is work that keeps coming out on the wrong model.
+//
+// It became worth refusing when the settings pair landed
+// (internal/session's tools_settings.go): a person choosing this row in the
+// panel is reading the list of roles printed directly above it, while a model
+// writing the row is guessing the name — and it guessed `harness_designer` the
+// first time it was asked.
+func writeModelRoles(profileDir, raw string) error {
+	pins, dropped, err := parseModelRoles(raw)
+	if err != nil {
+		return err
+	}
+	// ONLY THE PIN BEING ADDED IS REFUSED. A name already in the stored row has
+	// been there for a while and may have been a role when it was typed — the
+	// person is not adding it now and cannot act on being told about it now, and
+	// refusing it would take the whole row with it. What a person CAN act on is
+	// the word they just wrote, which is where the refusal has always earned its
+	// keep: the settings pair guessed `harness_designer` the first time it was
+	// asked.
+	//
+	// AND "ALREADY STORED" IS A QUESTION ABOUT THE PERSON'S TEXT, NOT ABOUT THE
+	// PARSE. Asking [parseModelRoles] was the wrong reader to ask: it drops every
+	// retired word by design, so the stored row it reports back can never contain
+	// the one word this check is looking for, and a name that had sat in the file
+	// for months read as a name being typed for the first time.
+	before := storedRoleWords(profileDir)
+	for _, name := range dropped {
+		if !before[roles.RoleKey(name)] {
+			return fmt.Errorf("%q is not a role. The roles are: %s", name, strings.Join(roleNames(), ", "))
+		}
+	}
+	// AND A WORD THIS BUILD DOES NOT ANSWER TO IS NEVER WRITTEN BACK. The parse
+	// took it out of the map; this takes it out of the TEXT, which is what is
+	// actually stored. Without it a person who changes any pin keeps re-saving a
+	// word nothing will ever read, forever.
+	//
+	// THE ROW IS REBUILT ONLY WHEN IT HAS TO BE. It is stored verbatim so it reads
+	// back the way it was typed, and normalising a person's separators on every
+	// save would edit their sentence for no reason.
+	if len(dropped) == 0 {
+		return writeText(profileDir, KeyModelRoles, raw)
+	}
+	kept := make([]string, 0, len(pins))
+	for _, item := range pairItems(raw) {
+		if name, _, _ := strings.Cut(item, ":"); knownRole(name) {
+			kept = append(kept, item)
+		}
+	}
+	return writeText(profileDir, KeyModelRoles, strings.Join(kept, ", "))
+}
+
+// storedRoleWords is every role word the stored row NAMES, whether or not this
+// build still answers to it — which is the set [writeModelRoles] compares a new
+// row against to tell a word being added from a word that was already there.
+//
+// It reads the text rather than the pins on purpose. Every reader above this
+// line drops what it does not recognise, and the word this set exists to hold is
+// exactly the word they drop.
+func storedRoleWords(profileDir string) map[string]bool {
+	words := map[string]bool{}
+	for _, item := range pairItems(ModelRolesAt(profileDir)) {
+		if name, _, ok := strings.Cut(item, ":"); ok {
+			words[roles.RoleKey(name)] = true
+		}
+	}
+	return words
+}
+
+// roleNames is the registered roles as a sorted list of plain words, for the
+// refusal above to name them all rather than make somebody go looking.
+func roleNames() []string {
+	names := make([]string, 0, len(roles.Vocabulary()))
+	for _, role := range roles.Vocabulary() {
+		names = append(names, string(role))
+	}
+	sort.Strings(names)
+	return names
+}
+
+// Writers. Each validates in plain language, then persists atomically through
+// the same profile config.json the budget rail already writes.
+
+func writeDollars(profileDir, key, raw string) error {
+	value, err := parseDollars(raw)
+	if err != nil {
+		return err
+	}
+	return writeProfileValue(profileDir, key, value)
+}
+
+func writeDuration(profileDir, key, raw string) error {
+	value, err := parseDuration(raw)
+	if err != nil {
+		return err
+	}
+	return writeProfileValue(profileDir, key, formatDuration(value))
+}
+
+func writeBool(profileDir, key, raw string) error {
+	value, err := parseBool(raw)
+	if err != nil {
+		return err
+	}
+	return writeProfileValue(profileDir, key, value)
+}
+
+func writeChoice(profileDir, key, raw string, choices []string) error {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	for _, choice := range choices {
+		if choice == value {
+			return writeProfileValue(profileDir, key, value)
+		}
+	}
+	return fmt.Errorf("pick one of: %s", strings.Join(choices, ", "))
+}
+
+func writeText(profileDir, key, raw string) error {
+	return writeProfileValue(profileDir, key, strings.TrimSpace(raw))
+}
+
+// TelemetryAt resolves whether the anonymous-usage pipe is on, default on.
+// The environment pin wins over the project file over the profile config over
+// the built-in default — the same ladder every other on/off row walks, with
+// the working directory's own file between the pin and the profile because a
+// repository may answer for itself what a machine answers for everybody
+// (see ProjectKeys). A pin or file that will not parse reads as the default
+// rather than refusing a launch over a count nobody can see.
+func TelemetryAt(profileDir string) bool {
+	return TelemetryAtIn("", profileDir)
+}
+
+// TelemetryAtIn is [TelemetryAt] with a working directory whose project file
+// may hold the answer. An empty cwd has no project layer, and a project file
+// that cannot be loaded is skipped for the same reason a malformed one is —
+// the row reads as if nobody had written it.
+func TelemetryAtIn(cwd, profileDir string) bool {
+	if raw := strings.TrimSpace(env.Get("CODEAF_TELEMETRY")); raw != "" {
+		if value, err := parseBool(raw); err == nil {
+			return value
+		}
+		return DefaultTelemetry
+	}
+	// THE PIN IS THE OPERATOR SPEAKING, so it lands before the project file.
+	// A pin that says nothing stays out of the project layer's way, which is
+	// the same order [ProjectConfig.ResolveBool] walks for the history row.
+	if cwd != "" {
+		// ProjectBoolAt resolves through the project file first, then the
+		// profile reader — which is TelemetryAt, on the rung below the pin
+		// it was about to read anyway. One ladder, not two.
+		if value, err := ProjectBoolAt(cwd, profileDir, KeyTelemetry); err == nil && !value {
+			return false
+		}
+	}
+	if value, ok := persistedBool(profileDir, KeyTelemetry); ok {
+		return value
+	}
+	return DefaultTelemetry
+}
+
+// WriteTelemetry persists the person's own answer to the telemetry row, the
+// one writer the settings sheet's telemetry switch goes through. (`codeaf
+// telemetry on|off` wrote through it too, until the command left on
+// 2026-10-01.)
+func WriteTelemetry(profileDir string, on bool) error {
+	return writeProfileValue(profileDir, KeyTelemetry, on)
+}
+
+// TelemetryOffReason answers what turned the pipe off, in the words the
+// telemetry command prints beside the off reading: the environment pin, the
+// project file, the profile config, or nothing at all when the answer is on.
+// It is the accessor the binary calls to learn “did config turn telemetry
+// off”, and the reason is returned with it because a switch that went quiet
+// without saying why is a row nobody can audit.
+func TelemetryOffReason(cwd, profileDir string) (off bool, reason string) {
+	if raw := strings.TrimSpace(env.Get("CODEAF_TELEMETRY")); raw != "" {
+		if value, err := parseBool(raw); err == nil && !value {
+			return true, "CODEAF_TELEMETRY is set to " + raw
+		}
+		return DefaultTelemetry == false, ""
+	}
+	if cwd != "" {
+		if value, err := ProjectBoolAt(cwd, profileDir, KeyTelemetry); err == nil && !value {
+			return true, "the project config turns telemetry off"
+		}
+	}
+	if value, ok := persistedBool(profileDir, KeyTelemetry); ok && !value {
+		return true, "the profile config turns telemetry off"
+	}
+	return false, ""
+}
+
+// ContextFillAt resolves the fill law: environment pin, then the persisted
+// row, then the package default. A malformed pin reads as the default.
+func ContextFillAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_CONTEXT_FILL_PCT")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+		return ctxbudget.DefaultFillPercent
+	}
+	if value, ok := persistedInt(profileDir, KeyContextFill); ok && value > 0 {
+		return value
+	}
+	return ctxbudget.DefaultFillPercent
+}
+
+// CompletionReserveAt resolves the answer-and-reasoning reserve the same way.
+func CompletionReserveAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_COMPLETION_RESERVE")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+		return ctxbudget.DefaultCompletionReserveTokens
+	}
+	if value, ok := persistedInt(profileDir, KeyCompletionReserve); ok && value > 0 {
+		return value
+	}
+	return ctxbudget.DefaultCompletionReserveTokens
+}
+
+// WorkingSetAt resolves the cap on the live working set the same way.
+func WorkingSetAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_WORKING_SET")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+		return ctxbudget.DefaultWorkingSetTokens
+	}
+	if value, ok := persistedInt(profileDir, KeyWorkingSet); ok && value > 0 {
+		return value
+	}
+	return ctxbudget.DefaultWorkingSetTokens
+}
+
+// ContextReuseAt resolves the cumulative re-send allowance the same way.
+func ContextReuseAt(profileDir string) int {
+	if raw := strings.TrimSpace(env.Get("CODEAF_CONTEXT_REUSE_PCT")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+		return ctxbudget.DefaultReusePercent
+	}
+	if value, ok := persistedInt(profileDir, KeyContextReuse); ok && value > 0 {
+		return value
+	}
+	return ctxbudget.DefaultReusePercent
+}
+
+// contextLaw is the whole of the context law as this profile currently states
+// it. It is assembled in one place because the law is configured as one value:
+// a writer that rebuilt only its own field would hand ctxbudget zeroes for the
+// other three and quietly revert them to their defaults for the life of the
+// process.
+//
+// EVERY FIELD IS THE ROW AS A PERSON WROTE IT, AND ZERO WHERE NOBODY HAS, which
+// is the law ctxbudget.Limits states about itself in as many words: "zero in any
+// field means unset — the environment pin, then the default, carry that field on
+// its own". This function used to hand over the fully resolved figure from the
+// *At readers instead, which answer with the built-in default when neither the
+// environment nor the profile has spoken. The resolved answer is identical
+// either way, because ctxbudget falls back to the same defaults — but it arrived
+// having thrown away the one thing only this end knew, and ctxbudget could no
+// longer tell a fill somebody pinned to sixty from a fill nobody has ever
+// touched. The conversation's compaction trigger needs exactly that distinction
+// (ctxbudget.PinnedFillPercent), so the provenance travels rather than a number
+// that has forgotten where it came from.
+func contextLaw(profileDir string) ctxbudget.Limits {
+	return ctxbudget.Limits{
+		FillPercent:             persistedCount(profileDir, KeyContextFill),
+		CompletionReserveTokens: persistedCount(profileDir, KeyCompletionReserve),
+		WorkingSetTokens:        persistedCount(profileDir, KeyWorkingSet),
+		ReusePercent:            persistedCount(profileDir, KeyContextReuse),
+	}
+}
+
+// persistedCount is one count row as it is written down in this profile, and
+// zero when it is not written down at all. It is the registry's own answer to
+// "did a person set this?" — the same file [Settings.PersistedKeys] reads to
+// draw a provenance chip — narrowed to a single key for a caller that needs the
+// value with it.
+//
+// IT DESTROYS THE DIFFERENCE BETWEEN UNSET AND ZERO, and that is a law about
+// its callers rather than a note about its body. A key nobody wrote and a key
+// written as 0 both come back 0, so no caller downstream can tell which it
+// was or decide what the person meant. Every caller today feeds
+// [ctxbudget.Limits], where 0 means use the default and the row's read
+// returns the resolver, so a person who types 0 sees the default appear in
+// the row and the loss is visible to them. That is what makes it safe here.
+//
+// A CALLER THAT NEEDS TO TELL UNSET FROM ZERO MUST NOT USE THIS. Use
+// [persistedInt], which returns the value and whether it was present, and
+// decide at the call site. Reaching for this one because it hands back a
+// bare int is how a setting acquires a zero whose meaning lives somewhere
+// other than where the setting is declared.
+func persistedCount(profileDir, key string) int {
+	if value, ok := persistedInt(profileDir, key); ok && value > 0 {
+		return value
+	}
+	return 0
+}
+
+// writeContextFill persists the fill percent and hands the whole law to
+// ctxbudget, so the change lands in this process as well as the next one.
+func writeContextFill(profileDir, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	if value < 10 || value > 90 {
+		return fmt.Errorf("that needs to be between 10 and 90")
+	}
+	if err := writeProfileValue(profileDir, KeyContextFill, value); err != nil {
+		return err
+	}
+	ctxbudget.Configure(contextLaw(profileDir))
+	return nil
+}
+
+// writeCompletionReserve persists the reserve and hands it to ctxbudget.
+func writeCompletionReserve(profileDir, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	if value < 1024 {
+		return fmt.Errorf("that needs to be at least 1024 tokens")
+	}
+	if err := writeProfileValue(profileDir, KeyCompletionReserve, value); err != nil {
+		return err
+	}
+	ctxbudget.Configure(contextLaw(profileDir))
+	return nil
+}
+
+// writeWorkingSet persists the working-set ceiling and hands it to ctxbudget.
+// The lower bound is the completion reserve: a working set smaller than the
+// room every call already keeps for its own answer leaves nothing for the work.
+func writeWorkingSet(profileDir, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	if floor := CompletionReserveAt(profileDir); value < floor {
+		return fmt.Errorf("that needs to be at least %d tokens — the room kept for the answer", floor)
+	}
+	if err := writeProfileValue(profileDir, KeyWorkingSet, value); err != nil {
+		return err
+	}
+	ctxbudget.Configure(contextLaw(profileDir))
+	return nil
+}
+
+// writeContextReuse persists the re-send allowance and hands it to ctxbudget.
+// Below 100 it would stop a worker before it had sent its context once, which
+// is a refusal rather than a governor.
+func writeContextReuse(profileDir, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	if value < 100 {
+		return fmt.Errorf("that needs to be at least 100 — one whole context")
+	}
+	if err := writeProfileValue(profileDir, KeyContextReuse, value); err != nil {
+		return err
+	}
+	ctxbudget.Configure(contextLaw(profileDir))
+	return nil
+}
+
+// writeTenure persists the count and exports it, because the standing watch
+// reads the variable at each check: the change lands in this process too.
+func writeTenure(profileDir, raw string) error {
+	value, err := parseCount(raw)
+	if err != nil {
+		return err
+	}
+	if value <= 0 {
+		return fmt.Errorf("that needs to be at least 1")
+	}
+	if err := writeProfileValue(profileDir, KeyTenureAfter, value); err != nil {
+		return err
+	}
+	_ = os.Setenv("CODEAF_TENURE_AFTER", strconv.Itoa(value))
+	return nil
+}
+
+// Parsers. Their errors are the words the row shows under itself, so they read
+// like a person talking rather than a validator.
+
+// noLimitWords are every way a person spells "take the limit off" on a money
+// row, and they all land the same zero.
+//
+// NO LIMIT IS A WORD AND A NUMBER IS A NUMBER. `0` has always been the
+// instruction, and `0` is the one spelling of it that reads at a glance as its
+// own opposite — "no money at all" where the code means "no ceiling at all". A
+// person who wants the rail gone types what they mean, and every word they might
+// reach for is here rather than in a refusal that tells them to type a digit.
+// The row then READS `no limit` ([Setting.EmptyLabel]), so what was typed and
+// what is shown agree.
+var noLimitWords = []string{"none", "no", "off", "unlimited", "∞", "no limit", "nolimit", "never"}
+
+func parseDollars(raw string) (float64, error) {
+	text := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(raw), "$"))
+	for _, word := range noLimitWords {
+		if strings.EqualFold(text, word) {
+			return 0, nil
+		}
+	}
+	value, err := strconv.ParseFloat(text, 64)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("that's not a dollar amount — a number, or none for no limit")
+	}
+	return value, nil
+}
+
+func parseDuration(raw string) (time.Duration, error) {
+	text := strings.TrimSpace(raw)
+	if text == "0" {
+		return 0, nil
+	}
+	value, err := time.ParseDuration(text)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("that's not a length of time — try 20m or 4h")
+	}
+	return value, nil
+}
+
+func parsePercent(raw string, low, high int) (int, error) {
+	text := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(raw), "%"))
+	value, err := strconv.Atoi(text)
+	if err != nil || value < low || value > high {
+		return 0, fmt.Errorf("that's not a percentage between %d and %d", low, high)
+	}
+	return value, nil
+}
+
+// parseNumber reads a row that is a plain non-negative figure rather than a
+// count — a load average is 1.5 and rounding it to 1 or 2 would be the row
+// changing what the person asked for.
+func parseNumber(raw string) (float64, error) {
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("that's not a number")
+	}
+	return value, nil
+}
+
+func parseCount(raw string) (int, error) {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("that's not a whole number")
+	}
+	return value, nil
+}
+
+func parseBool(raw string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "on", "true", "yes", "1":
+		return true, nil
+	case "off", "false", "no", "0":
+		return false, nil
+	}
+	return false, fmt.Errorf("that's not on or off")
+}
+
+// Formatters.
+
+func formatDollars(value float64) string {
+	return "$" + strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func formatPercent(value int) string { return strconv.Itoa(value) + "%" }
+
+// formatNumber writes a plain figure back the shortest way that is still the
+// same number: 1.5 stays 1.5 and 2 does not become 2.0.
+func formatNumber(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func formatBool(value bool) string {
+	if value {
+		return "on"
+	}
+	return "off"
+}
+
+// formatDuration writes the shortest honest form: 4h, 20m, 1h30m.
+func formatDuration(value time.Duration) string {
+	if value <= 0 {
+		return "0"
+	}
+	var text strings.Builder
+	if hours := int(value / time.Hour); hours > 0 {
+		fmt.Fprintf(&text, "%dh", hours)
+	}
+	if minutes := int(value % time.Hour / time.Minute); minutes > 0 {
+		fmt.Fprintf(&text, "%dm", minutes)
+	}
+	if seconds := int(value % time.Minute / time.Second); seconds > 0 {
+		fmt.Fprintf(&text, "%ds", seconds)
+	}
+	if text.Len() == 0 {
+		return value.String()
+	}
+	return text.String()
+}
+
+// A row still has to read while the environment holds an unparsable value.
+// The sheet shows the pin and refuses the edit; the reading falls back rather
+// than blanking.
+
+func resolvedDollars(value float64, err error) float64 {
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+func resolvedDuration(value time.Duration, err error) time.Duration {
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+func resolvedEngine(value string, err error) string {
+	if err != nil {
+		return DefaultDocumentEngine
+	}
+	return value
+}
+
+// Typed reads of the profile config. A malformed entry reports "absent" so a
+// hand-edited file degrades to the default instead of refusing to start.
+
+func persistedFloat(profileDir, key string) (float64, bool) {
+	encoded, ok := persistedValue(profileDir, key)
+	if !ok {
+		return 0, false
+	}
+	var value float64
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func persistedInt(profileDir, key string) (int, bool) {
+	encoded, ok := persistedValue(profileDir, key)
+	if !ok {
+		return 0, false
+	}
+	var value int
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func persistedBool(profileDir, key string) (bool, bool) {
+	encoded, ok := persistedValue(profileDir, key)
+	if !ok {
+		return false, false
+	}
+	var value bool
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		return false, false
+	}
+	return value, true
+}
+
+func persistedString(profileDir, key string) (string, bool) {
+	encoded, ok := persistedValue(profileDir, key)
+	if !ok {
+		return "", false
+	}
+	var value string
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		return "", false
+	}
+	return value, true
+}
+
+func persistedDuration(profileDir, key string) (time.Duration, bool) {
+	text, ok := persistedString(profileDir, key)
+	if !ok {
+		return 0, false
+	}
+	value, err := parseDuration(text)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func persistedValue(profileDir, key string) (json.RawMessage, bool) {
+	values, err := readProfileConfig(profileDir)
+	if err != nil {
+		return nil, false
+	}
+	encoded, ok := values[key]
+	return encoded, ok
+}

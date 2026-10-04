@@ -1,0 +1,112 @@
+package trace
+
+import (
+	"bytes"
+	"regexp"
+	"strings"
+	"sync"
+)
+
+// THE RECORD IS A PERSON'S OWN DATA AND A KEY IS NOT IN IT.
+//
+// The bodies written here are the JSON that travelled, and headers are never
+// captured at all — so in the ordinary case there is nothing to redact. Scrub
+// is defensive rather than corrective: a provider that echoes its own
+// authorization back in an error object, a tool result that quotes a curl
+// command, and a request an adapter one day builds with its credentials inside
+// the body are all things a person would only discover by finding their key in
+// a file they were about to attach to a bug report.
+//
+// So every string and every body written by this package passes through here
+// first, and what it finds becomes the word "[redacted]" — which is a word
+// somebody reading the record can search for, unlike an elision.
+const redacted = "[redacted]"
+
+var (
+	// headerLike catches a credential written as a JSON field, whatever the
+	// field is spelled: authorization, x-api-key, api-key, api_key. THE FIELD'S
+	// NAME GOES WITH ITS VALUE — the record is greppable evidence a person
+	// attaches to a bug report, and `grep -i authorization` over it has to come
+	// back empty, which a redacted value under its own name does not manage.
+	headerLike = regexp.MustCompile(`(?i)"(authorization|x-api-key|api[-_]key)"\s*:\s*"[^"]*"`)
+	// bearerLike catches the scheme wherever it appears — a header echoed into
+	// a message, a curl line in a tool result — with the token after it.
+	bearerLike = regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._\-]{8,}`)
+	// keyLike catches the shape the keys this program uses are written in:
+	// OpenRouter's `sk-or-v1-…` and every other `sk-…` any provider mints.
+	keyLike = regexp.MustCompile(`\bsk-[A-Za-z0-9._\-]{8,}`)
+)
+
+// secrets are the exact values this process knows to be credentials — the
+// configured key, handed over by the door that loaded it. They are matched
+// literally, which is the only way to catch a key whose shape this file has
+// never seen.
+var secrets struct {
+	mutex sync.Mutex
+	list  []string
+}
+
+// Secret registers a value that must never appear in the record. Every door
+// calls it with each credential this profile is configured with
+// (config.Credentials), because a shape only ever catches the shapes somebody
+// thought of and the exact value catches the rest.
+//
+// EIGHT CHARACTERS IS THE FLOOR, AND THE REASON IS NOT TIDINESS. Registered
+// values are replaced by literal match anywhere in a body, so a short one would
+// redact ORDINARY TEXT: a placeholder like "none" or "test", a truncated paste,
+// an empty row read as "" — each would turn every occurrence of those letters
+// in a person's own prompts and the model's replies into `[redacted]`, and a
+// record full of holes is a record nobody can debug from. No real credential is
+// shorter than eight characters, so the floor costs nothing true.
+func Secret(value string) {
+	value = strings.TrimSpace(value)
+	if len(value) < 8 {
+		return
+	}
+	secrets.mutex.Lock()
+	defer secrets.mutex.Unlock()
+	for _, known := range secrets.list {
+		if known == value {
+			return
+		}
+	}
+	secrets.list = append(secrets.list, value)
+}
+
+// Scrub returns the bytes with every credential it can recognize replaced. It
+// returns the input unchanged when there is nothing to find, so the common case
+// costs one pass and no allocation.
+func Scrub(body []byte) []byte {
+	if len(body) == 0 {
+		return body
+	}
+	out := headerLike.ReplaceAll(body, []byte(`"credential":"`+redacted+`"`))
+	out = bearerLike.ReplaceAll(out, []byte("Bearer "+redacted))
+	out = keyLike.ReplaceAll(out, []byte(redacted))
+	return ScrubRegistered(out)
+}
+
+// ScrubRegistered removes only the exact credential bytes handed to Secret.
+// It exists beside Scrub because semantic ingress must preserve diagnostics
+// that merely resemble credentials, while records and other output sinks need
+// Scrub's broader defence against unregistered key and header shapes.
+func ScrubRegistered(body []byte) []byte {
+	if len(body) == 0 {
+		return body
+	}
+	secrets.mutex.Lock()
+	if len(secrets.list) == 0 {
+		secrets.mutex.Unlock()
+		return body
+	}
+	known := append([]string(nil), secrets.list...)
+	secrets.mutex.Unlock()
+	out := body
+	for _, secret := range known {
+		literal := []byte(secret)
+		if bytes.Contains(out, literal) {
+			out = bytes.ReplaceAll(out, literal, []byte(redacted))
+		}
+	}
+	return out
+}

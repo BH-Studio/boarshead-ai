@@ -1,0 +1,892 @@
+package session
+
+// WHERE A TASK STANDS, end to end and at the door.
+//
+// The first test here is issue #76 rebuilt: a conversation opened somewhere that
+// is not the project, an hour of work that was plainly about a repository three
+// directories away, and every piece of machinery downstream believing the empty
+// place. It is written as the whole road — a real graph, a real worktree, a real
+// merge, a real check — because every part of that failure was correct on its
+// own and only the seam between them was wrong.
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+)
+
+// heldTaskWorld lets a door test observe the worker's live directory before
+// its scripted run is released. The contract is about isolation while work is
+// happening, so waiting until cleanup would miss the checkout write it guards.
+func heldTaskWorld(t *testing.T, agent *Agent, path, content string) (<-chan taskTree, func()) {
+	t.Helper()
+	world := make(chan taskTree, 1)
+	release := make(chan struct{})
+	var once sync.Once
+	stubbedGraph(agent, func(node *TaskNode) {
+		tree, ok := agent.openTaskWorld(context.Background(), node, io.Discard)
+		if !ok {
+			return
+		}
+		writeFile(t, filepath.Join(tree.dir, path), content)
+		world <- tree
+		<-release
+		merge, changed := keptWork(tree, node.title(), []string{path}, gitSignature{})
+		node.finish("scripted run ended", changed, tree.branch, merge)
+		node.graph.complete(node, TaskFailed)
+	})
+	done := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(done)
+	return world, done
+}
+
+// A manager outside its project must hand the actual repository files to its
+// worker, not just report the right ground on the proposal card.
+func TestManagerProjectFallbackOpensAWorktreeWithItsDocuments(t *testing.T) {
+	repo := newTestRepo(t)
+	writeFile(t, filepath.Join(repo, "DESIGN.md"), "project design\n")
+	gitOut(t, repo, "add", "DESIGN.md")
+	gitOut(t, repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "add project design")
+	place := Place{Dir: t.TempDir(), Workspace: repo}
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = t.TempDir()
+		config.Place = place
+		config.AskConsent = false
+		config.TaskAutoApproveSeconds = 0
+	})
+	world, release := heldTaskWorld(t, agent, "result.txt", "done\n")
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "read project design", Summary: "use the project document",
+		Brief: "Read DESIGN.md and write result.txt", Deliverable: "result.txt",
+		Acceptance: "result.txt contains the result",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil || isError {
+		t.Fatalf("proposeTask = %q, error=%v, isError=%v", result, err, isError)
+	}
+	tree := <-world
+	if tree.root != canonicalPath(repo) || !withinDir(place.Trees(), tree.dir) {
+		t.Fatalf("worker is not in the project's isolated tree: %+v", tree)
+	}
+	if content, err := os.ReadFile(filepath.Join(tree.dir, "DESIGN.md")); err != nil || string(content) != "project design\n" {
+		t.Fatalf("relative project document missing in worker: %q, %v", content, err)
+	}
+	release()
+	waitDoneNode(t, agent.graph().node(1))
+}
+
+// C1: a model asking for in-place repository work gets a task branch, the live
+// checkout stays untouched, and the proposal receipt says why it was redirected.
+func TestC1AProposalCannotPutRepositoryWorkInTheCheckout(t *testing.T) {
+	repo := newTestRepo(t)
+	place := Place{Dir: t.TempDir(), Workspace: repo}
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = repo
+		config.Place = place
+		config.AskConsent = false
+		config.TaskAutoApproveSeconds = 0
+	})
+	world, release := heldTaskWorld(t, agent, "isolated.txt", "only on the task branch\n")
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "isolate the write", Summary: "write without touching the checkout",
+		Brief: "write isolated.txt", Deliverable: "isolated.txt", Where: "in place",
+		Acceptance: "isolated.txt contains the line",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil || isError {
+		t.Fatalf("proposeTask = %q, error=%v, isError=%v", result, err, isError)
+	}
+	tree := <-world
+	wantSentence := whereRedirectSentence("in place", canonicalPath(repo))
+	if strings.Count(result, wantSentence) != 1 {
+		t.Fatalf("proposal receipt does not carry the redirect once:\n%s", result)
+	}
+	if tree.root != canonicalPath(repo) || !strings.HasPrefix(tree.branch, "task/") {
+		t.Fatalf("tree = %+v, want a task branch of %s", tree, repo)
+	}
+	if !withinDir(place.Trees(), tree.dir) {
+		t.Fatalf("task directory %s is not under %s", tree.dir, place.Trees())
+	}
+	if _, err := os.Stat(filepath.Join(repo, "isolated.txt")); !os.IsNotExist(err) {
+		t.Fatalf("the live checkout was written while the worker ran: %v", err)
+	}
+	if list := gitOut(t, repo, "worktree", "list"); !strings.Contains(list, tree.dir) {
+		t.Fatalf("git does not know the task copy:\n%s", list)
+	}
+	if got := taskWhereNotice(place, repo, 1, "in place", TaskModeWorktree); got == repo || got != filepath.Join(place.Trees(), "1") {
+		t.Fatalf("proposal card directory = %q, want the task folder", got)
+	}
+	// IN PLACE RE-ENTERS THE LADDER. A contract naming no file therefore gets
+	// the repository as a reference, but its redirected placement still puts
+	// the worker and the proposal card in the task's own folder.
+	reference := agent.resolveTaskGround(taskSpec{
+		where: "in place", deliverable: "a concise answer", acceptance: "the question is answered",
+	})
+	if reference.mode != TaskModeReference || reference.redirect != wantSentence {
+		t.Fatalf("read-only in-place request resolved as %+v, want a redirected reference", reference)
+	}
+	if got := taskWhereNotice(place, repo, 2, "in place", reference.mode); got != filepath.Join(place.Trees(), "2") {
+		t.Fatalf("reference proposal card directory = %q, want its task folder", got)
+	}
+	release()
+	waitDoneNode(t, agent.graph().node(1))
+}
+
+// C3: every spelling of where keeps its old plain-folder behaviour, while an
+// existing or future path inside a committed repository resolves to its root.
+func TestC3WhereInsideARepositoryIsBranchedAndPlainFoldersStayInPlace(t *testing.T) {
+	repo := newTestRepo(t)
+	inside := filepath.Join(repo, "notes")
+	if err := os.MkdirAll(inside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	plain := t.TempDir()
+	fresh := filepath.Join(t.TempDir(), "future", "out")
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = repo })
+
+	for _, test := range []struct {
+		name  string
+		where string
+		mode  TaskMode
+		dir   string
+		rung  string
+	}{
+		{"absolute path inside the repository", inside, TaskModeWorktree, canonicalPath(repo), taskGroundNamed},
+		{"plain folder", plain, TaskModeInPlace, canonicalPath(plain), taskGroundNamed},
+		{"future folder outside repositories", fresh, TaskModeInPlace, canonicalPath(fresh), taskGroundNamed},
+		{"future relative path inside the repository", "notes/out", TaskModeWorktree, canonicalPath(repo), taskGroundNamed},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stand := agent.resolveTaskGround(taskSpec{where: test.where, deliverable: "out.txt", acceptance: "it exists"})
+			if stand.mode != test.mode || stand.dir != test.dir || stand.rung != test.rung {
+				t.Fatalf("stand = %+v, want dir %s mode %s rung %s", stand, test.dir, test.mode, test.rung)
+			}
+		})
+	}
+
+	place := Place{Dir: t.TempDir(), Workspace: repo}
+	tree, err := prepareTaskTreeAt(context.Background(), place, repo, "named", 9, "write below notes", "notes/out", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tree.root != canonicalPath(repo) || tree.dir == filepath.Join(repo, "notes", "out") {
+		t.Fatalf("relative repository placement made %+v", tree)
+	}
+	tree.releaseKept()
+
+	created, err := prepareTaskTreeAt(context.Background(), Place{}, repo, "plain", 10, "write outside", fresh, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.dir != canonicalPath(fresh) || created.merge != mergeInPlace {
+		t.Fatalf("future plain folder made %+v", created)
+	}
+	if info, err := os.Stat(fresh); err != nil || !info.IsDir() {
+		t.Fatalf("future plain folder was not created: %v", err)
+	}
+}
+
+// C3b: a contract that spells its ground another way is still a contract about
+// that ground. Read as bytes, one that named the ground three times looked like
+// one that named nothing under it, so the work became a read-only reference —
+// and a reference binds none of its addresses to the copy it was given, which
+// left the worker writing in the person's own checkout.
+func TestC3bAContractSpellingTheGroundThroughAnAliasStillWritesInIt(t *testing.T) {
+	repo := newTestRepo(t)
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(repo, alias); err != nil {
+		t.Skipf("this filesystem does not make symlinks: %v", err)
+	}
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = t.TempDir() })
+
+	writes := agent.resolveTaskGround(taskSpec{
+		ground:      alias,
+		brief:       "change " + filepath.Join(alias, "internal", "widget.go") + " so it says new",
+		deliverable: filepath.Join(alias, "internal", "widget.go"),
+		acceptance:  filepath.Join(alias, "internal", "widget.go") + " says new",
+	})
+	if writes.dir != canonicalPath(repo) || writes.mode != TaskModeWorktree {
+		t.Fatalf("stand = %+v, want a worktree of %s", writes, canonicalPath(repo))
+	}
+	// AND THE READ-ONLY CASE IS UNCHANGED, which is what says the reading above
+	// grew no more generous than the alias: work whose contract names no file in
+	// the ground at all still gets the reference it always got.
+	reads := agent.resolveTaskGround(taskSpec{
+		ground: alias, brief: "say what the widget does", deliverable: "a concise answer",
+		acceptance: "the question is answered",
+	})
+	if reads.dir != canonicalPath(repo) || reads.mode != TaskModeReference {
+		t.Fatalf("stand = %+v, want a reference to %s", reads, canonicalPath(repo))
+	}
+}
+
+// C4: an in-place mode the person put on a referred repository remains the one
+// authority that deliberately writes that repository directly.
+func TestC4APersonsInPlaceModeOnAReferredRepositoryIsHonoured(t *testing.T) {
+	repo := newTestRepo(t)
+	workspace := t.TempDir()
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = workspace })
+	if _, err := agent.ReferPlace(repo, PlaceSaid); err != nil {
+		t.Fatal(err)
+	}
+	if err := agent.SetPlaceMode(repo, "in place"); err != nil {
+		t.Fatal(err)
+	}
+	stand := agent.resolveTaskGround(taskSpec{deliverable: "shared.txt", acceptance: "it changed"})
+	if stand.dir != canonicalPath(repo) || stand.mode != TaskModeInPlace {
+		t.Fatalf("the person's mode was overruled: %+v", stand)
+	}
+}
+
+// C5: in place still means exactly that for a plain workspace and for a
+// repository with no commit from which a branch could be cut.
+func TestC5InPlaceWithoutACommittedRepositoryIsUnchanged(t *testing.T) {
+	plain := t.TempDir()
+	for _, test := range []struct {
+		name      string
+		workspace string
+	}{
+		{"plain folder", plain},
+		{"repository with no commit", func() string {
+			dir := t.TempDir()
+			mustGit(t, dir, "init")
+			return dir
+		}()},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = test.workspace })
+			stand := agent.resolveTaskGround(taskSpec{where: "in place", deliverable: "notes.txt", acceptance: "it exists"})
+			if stand.dir != canonicalPath(test.workspace) || stand.mode != TaskModeInPlace || stand.redirect != "" {
+				t.Fatalf("stand = %+v, want unchanged in-place work", stand)
+			}
+			tree, err := prepareTaskTreeAt(context.Background(), Place{}, test.workspace, "plain", 1, "write notes", "in place", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tree.dir != test.workspace || tree.merge != mergeInPlace || tree.branch != "" {
+				t.Fatalf("tree = %+v, want the workspace itself", tree)
+			}
+			note := taskNote(TaskNotice{ID: 1, Title: "Write notes", State: TaskDone, Merge: mergeInPlace}, "", TaskSettleAsk, landingAddress{person: true})
+			if !strings.Contains(note, "there was no repository to branch") {
+				t.Fatalf("in-place completion says nothing about the missing branch:\n%s", note)
+			}
+		})
+	}
+}
+
+// THE DEFECT: the chat was opened in a home directory, the harness cut both
+// workers a worktree from an empty repository beside the session, and the check
+// that decides whether work is finished ran in that empty tree — so two tasks
+// with open, correct pull requests behind them landed as incomplete.
+//
+// What the conversation had actually been doing was reading the project. That is
+// the evidence the ground is resolved from, and this test asserts every place
+// the answer has to reach: the branch is cut from the PROJECT, the record says
+// so, the work merges into the PROJECT's own branch, and the auditor stands in a
+// clean copy of the project rather than in a directory holding nothing.
+func TestATaskStandsWhereTheConversationHasBeenWorking(t *testing.T) {
+	home := newTestRepo(t)
+	project := newTestRepo(t)
+	t.Setenv("HOME", t.TempDir())
+
+	completer := &routedCompleter{
+		parent: []step{
+			// The conversation reads the project — one ordinary call, and the whole
+			// of what the ladder has to go on.
+			func(context.Context, []ai.Message) (*ai.Response, error) {
+				return toolResponse("call-read", "read",
+					`{"path":`+quoteJSON(filepath.Join(project, "shared.txt"))+`}`), nil
+			},
+			proposeCall("Add the greeting", "write hello.txt containing hi"),
+			finalText("handed off"),
+		},
+		child: []step{
+			func(context.Context, []ai.Message) (*ai.Response, error) {
+				return toolResponse("call-write", "write", `{"path":"hello.txt","content":"hi\n"}`), nil
+			},
+			finalText("Wrote hello.txt with the greeting."),
+		},
+		// THE CHECK STANDS WHERE THE WORK STOOD. The auditor reads a file that
+		// exists only in the project, so a restore cut from the conversation's own
+		// empty repository can only answer REFUTED.
+		audit: []step{
+			bashCall("call-cat", "cat shared.txt"),
+			verdictFromEvidence("the original line",
+				"VERIFIED — the restore holds the project and the new file",
+				"REFUTED — the restore does not hold the project"),
+		},
+	}
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.Workspace = home
+		config.AskConsent = false
+		config.TaskAutoApproveSeconds = 0
+	})
+	graph := agent.graph()
+
+	events, err := agent.Submit(context.Background(), "add a greeting to the project")
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	collect(t, events)
+
+	node := graph.node(1)
+	if node == nil {
+		t.Fatal("no node was admitted")
+	}
+	waitDoneNode(t, node)
+	notice := node.notice()
+
+	if notice.State != TaskDone {
+		t.Fatalf("state = %q, report = %q", notice.State, notice.Report)
+	}
+	if want := canonicalPath(project); notice.Ground != want {
+		t.Fatalf("ground = %q, want the project the conversation was reading %q", notice.Ground, want)
+	}
+	if notice.Mode != TaskModeWorktree {
+		t.Fatalf("mode = %q, want %q", notice.Mode, TaskModeWorktree)
+	}
+	if notice.Merge != mergeMerged {
+		t.Fatalf("merge = %q, report = %q", notice.Merge, notice.Report)
+	}
+	if content := readFile(t, filepath.Join(project, "hello.txt")); content != "hi\n" {
+		t.Fatalf("the work did not land in the project: %q", content)
+	}
+	if _, err := os.Stat(filepath.Join(home, "hello.txt")); !os.IsNotExist(err) {
+		t.Fatal("the work landed in the conversation's own repository")
+	}
+	// AND THE RECORD CARRIES IT, so a resumed node finds its own branch again and
+	// a row in the project's history says which project it was.
+	graph.mu.Lock()
+	record := node.recordLocked()
+	graph.mu.Unlock()
+	if record.Ground != canonicalPath(project) || record.Mode != TaskModeWorktree {
+		t.Fatalf("the checkpoint records ground %q mode %q", record.Ground, record.Mode)
+	}
+}
+
+// A separator carries no place for work to land, so prose that uses one must
+// not become a path merely because it contains path punctuation.
+func TestASlashWrittenAsProseIsNotAPathToken(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		text string
+		want []string
+	}{
+		{"a spaced slash", " / ", nil},
+		{"a slash between words", "and / or", nil},
+		{"two separators", "//", nil},
+		{"three separators", "///", nil},
+		{"the home root", "~/", nil},
+		{"relative roots", "./ ../", nil},
+		{"named absolute paths among prose", "the header renders / no regression; check /etc/hosts and ~/project/file.go", []string{"/etc/hosts", "~/project/file.go"}},
+		{"named relative paths", "write a/b and notes.md", []string{"a/b", "notes.md"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := pathTokens(test.text); !slices.Equal(got, test.want) {
+				t.Fatalf("pathTokens(%q) = %v, want %v", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+// A done-condition may use a slash as ordinary prose, and admitting that work
+// is the contract because the slash names no folder outside its ground.
+func TestATaskWhoseAcceptanceCarriesAProseSlashIsAdmitted(t *testing.T) {
+	repo := newTestRepo(t)
+	place := Place{Dir: t.TempDir(), Workspace: repo}
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = repo
+		config.Place = place
+		config.AskConsent = false
+		config.TaskAutoApproveSeconds = 0
+	})
+	spec := taskSpec{
+		deliverable: "a note in the repo",
+		acceptance:  "the header renders / no regression",
+	}
+	if stand := agent.resolveTaskGround(spec); stand.refusal != "" {
+		t.Fatalf("the prose slash produced the ground refusal %q", stand.refusal)
+	}
+
+	world, release := heldTaskWorld(t, agent, "note.txt", "the note\n")
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "write the note", Summary: "add the repository note", Brief: "write the note",
+		Deliverable: spec.deliverable, Acceptance: spec.acceptance,
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil || isError {
+		t.Fatalf("proposeTask = %q, error=%v, isError=%v", result, err, isError)
+	}
+	if strings.Contains(result, "does not stand in") {
+		t.Fatalf("the admitted proposal carries a ground refusal: %q", result)
+	}
+	<-world
+	graph := agent.graph()
+	graph.mu.Lock()
+	admitted := len(graph.nodes)
+	graph.mu.Unlock()
+	if admitted != 1 {
+		t.Fatalf("the graph admitted %d nodes, want one", admitted)
+	}
+	release()
+	waitDoneNode(t, graph.node(1))
+}
+
+// A PATH ON ANOTHER MACHINE IS NOT A FOLDER THIS TASK COULD STAND IN.
+//
+// Work handed to a host reached over ssh writes its deliverable as an absolute
+// path on that host, and such a path has no directory along it on this machine.
+// Read as a place it can never fall inside the ground, so the refusal fired on
+// every one of them and the proposer stopped handing the work out at all. The
+// contract below is that shape, and it is admitted; the same contract pointed at
+// a directory that really is here and really is outside the ground is still
+// refused, by that directory's name.
+func TestAPathOnAnotherMachineDoesNotRefuseTheTask(t *testing.T) {
+	repo := newTestRepo(t)
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = repo
+	})
+
+	// THE PATH THAT FAILED. It begins /home, and on macOS /home is a symlink to a
+	// directory that is really there, so a reading that walks up the path finds a
+	// place and refuses the task. The directory the path itself names is not here.
+	//
+	// IT NAMES NOBODY'S REAL FOLDER. It spelled a real person's checkout once, and
+	// on the machine that holds that checkout the directory is there, so the test
+	// failed on the one box it was written about.
+	remote := "/home/remote-builder/src/codeaf-probe/bin/codeaf"
+	if _, ok := placeOnThisMachine(remote); ok {
+		t.Fatalf("%s resolves to a directory on this machine, so it cannot stand in for a remote path", remote)
+	}
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "build it there", Summary: "s",
+		Brief:       "On the remote host, clone the branch into " + remote + " and build it.",
+		Deliverable: "the binary at " + remote,
+		Acceptance:  remote + " exists on the remote host and runs",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if isError {
+		t.Fatalf("a deliverable naming a path on another machine was refused: %q", result)
+	}
+
+	elsewhere := filepath.Join(t.TempDir(), "somewhere-else")
+	if err := os.MkdirAll(elsewhere, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(elsewhere, "notes.md")
+	arguments, _ = json.Marshal(taskArguments{
+		Title: "write the notes", Summary: "s", Brief: "b",
+		Deliverable: "a file at " + out,
+		Acceptance:  "the file is there",
+	})
+	result, isError, err = agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if !isError || !strings.Contains(result, out) {
+		t.Fatalf("a real folder outside the ground was answered %q, want it refused by name", result)
+	}
+}
+
+// A path in the contract that is outside the ground and in no repository is
+// refused in one sentence. The work would have nowhere to put what it made, and
+// starting it to have a guard turn every write back is a worse answer than
+// saying so before anybody spends anything.
+func TestATaskNamingAFolderItDoesNotStandInIsRefused(t *testing.T) {
+	repo := newTestRepo(t)
+	elsewhere := filepath.Join(t.TempDir(), "somewhere-else")
+	if err := os.MkdirAll(elsewhere, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = repo
+	})
+
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "write the notes", Summary: "s", Brief: "b",
+		Deliverable: "a file at " + filepath.Join(elsewhere, "notes.md"),
+		Acceptance:  "the file is there",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if !isError {
+		t.Fatalf("a task pointed outside its ground was admitted: %q", result)
+	}
+	if !strings.HasPrefix(result, "this task names a folder it does not stand in: ") {
+		t.Fatalf("the refusal reads %q", result)
+	}
+	graph := agent.graph()
+	graph.mu.Lock()
+	admitted := len(graph.nodes)
+	graph.mu.Unlock()
+	if admitted != 0 {
+		t.Fatalf("the graph admitted %d nodes for a refused proposal", admitted)
+	}
+}
+
+// A COMMAND IN THE WORKING DIRECTORY IS NOT A FOLDER AT THE ROOT OF THE MACHINE.
+//
+// A live run wrote `./slow-build.sh` in its acceptance and no ground at all, and
+// the reading below it trimmed the leading dot: the refusal named
+// `/slow-build.sh`, a directory nobody had mentioned, and the model paid a round
+// to work out that it had to spell the ground itself.
+func TestATaskNamingACommandInItsOwnDirectoryIsAdmitted(t *testing.T) {
+	workspace := t.TempDir()
+	writeFile(t, filepath.Join(workspace, "slow-build.sh"), "#!/bin/sh\necho building\n")
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.Workspace = workspace
+	})
+	stubbedGraph(agent, func(*TaskNode) {})
+
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "run the build", Summary: "s",
+		Brief:       "In the working directory, run: ./slow-build.sh\nWhen it has exited, read build.log and report what it says.",
+		Deliverable: "a short report of what build.log holds after ./slow-build.sh completed",
+		Acceptance:  "./slow-build.sh has exited and the report states what build.log holds.",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if isError {
+		t.Fatalf("work in the conversation's own directory was refused: %q", result)
+	}
+	node := agent.graph().node(admittedID(t, result))
+	if node == nil {
+		t.Fatal("the receipt names a node the graph does not hold")
+	}
+	graph := agent.graph()
+	graph.mu.Lock()
+	ground := node.recordLocked().Ground
+	graph.mu.Unlock()
+	if ground != canonicalPath(workspace) {
+		t.Fatalf("the task stands on %q, want the conversation's own folder %q", ground, canonicalPath(workspace))
+	}
+
+	// AND THE REFUSAL IS UNMOVED FOR A PATH THAT REALLY IS OUTSIDE. The same
+	// contract with an absolute output somewhere else is still refused, and by
+	// the name of that output rather than of the command beside it.
+	outside := filepath.Join(t.TempDir(), "elsewhere")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	arguments, _ = json.Marshal(taskArguments{
+		Title: "run the build", Summary: "s", Brief: "run ./slow-build.sh",
+		Deliverable: "the report at " + filepath.Join(outside, "report.md"),
+		Acceptance:  "./slow-build.sh has exited and " + filepath.Join(outside, "report.md") + " holds the report.",
+	})
+	result, isError, err = agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if !isError || !strings.Contains(result, outside) {
+		t.Fatalf("an output outside the ground was answered %q, want it refused by name", result)
+	}
+	if strings.Contains(result, "/slow-build.sh has") || strings.Contains(result, " /slow-build.sh") {
+		t.Fatalf("the refusal names a folder nobody mentioned: %q", result)
+	}
+}
+
+// WHAT A LEADING DOT MEANS, pinned on the reading itself: it is part of the
+// path, and only the punctuation that ended the sentence comes off.
+func TestPathTokensKeepsTheDotsAPathBeginsWith(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		text string
+		want []string
+	}{
+		{"a command in the working directory", "run: ./slow-build.sh", []string{"./slow-build.sh"}},
+		{"a path one folder up is not rooted", "write ../output/file.md", []string{"../output/file.md"}},
+		{"a hidden folder keeps its dot", "update .github/workflows/ci.yml", []string{".github/workflows/ci.yml"}},
+		{"the full stop that ended the sentence still goes", "then read build.log.", []string{"build.log"}},
+		{"quotes and a full stop together", "run `./slow-build.sh`.", []string{"./slow-build.sh"}},
+		{"a trailing colon still goes", "see ./notes:", []string{"./notes"}},
+		{"a label with a colon is nobody's path", "report the MARKER: value", nil},
+		{"an ellipsis is nobody's path", "wait ... then read a.md", []string{"a.md"}},
+		{"an absolute path is unchanged", "write /etc/hosts", []string{"/etc/hosts"}},
+		{"one token twice is one token", "./x.sh runs, then ./x.sh again", []string{"./x.sh"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := pathTokens(test.text)
+			if len(got) != len(test.want) {
+				t.Fatalf("pathTokens(%q) = %v, want %v", test.text, got, test.want)
+			}
+			for i, want := range test.want {
+				if got[i] != want {
+					t.Fatalf("pathTokens(%q) = %v, want %v", test.text, got, test.want)
+				}
+			}
+		})
+	}
+}
+
+// TWO PLACES WITH REAL WEIGHT ARE A QUESTION. A conversation that has been in two
+// repositories has not said which one this work is for, and the one thing the
+// harness may not do is pick — an hour of work in the wrong project is what a
+// coin toss costs.
+func TestAConversationInTwoPlacesIsAskedWhichOne(t *testing.T) {
+	first := newTestRepo(t)
+	second := newTestRepo(t)
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, nil)
+	// The conversation's own record of where it has been: one read in each
+	// project, which is exactly the evidence that settles nothing.
+	agent.mu.Lock()
+	agent.messages = append(agent.messages,
+		readCallMessage("call-a", filepath.Join(first, "shared.txt")),
+		readCallMessage("call-b", filepath.Join(second, "shared.txt")))
+	agent.mu.Unlock()
+
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "fix the crash", Summary: "s", Brief: "b",
+		Deliverable: "the fix", Acceptance: "the tests pass",
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if !isError {
+		t.Fatalf("an ambiguous ground was guessed at: %q", result)
+	}
+	for _, want := range []string{
+		"this conversation has been working in two places",
+		canonicalPath(first), canonicalPath(second), "Ask the person",
+	} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("the question does not say %q: %q", want, result)
+		}
+	}
+}
+
+// A PROPOSAL WITH TWO REPAIRABLE PROBLEMS SAYS BOTH AT ONCE. The contract is
+// repaired before placement, so the next proposal is the last rather than another
+// round that reveals a question the first refusal already knew how to ask.
+func TestAProposalRefusalCarriesCheckAndStandProblems(t *testing.T) {
+	first := newTestRepo(t)
+	second := newTestRepo(t)
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, nil)
+	agent.mu.Lock()
+	agent.messages = append(agent.messages,
+		readCallMessage("call-a", filepath.Join(first, "shared.txt")),
+		readCallMessage("call-b", filepath.Join(second, "shared.txt")))
+	agent.mu.Unlock()
+
+	arguments, _ := json.Marshal(taskArguments{
+		Title: "fix the crash", Summary: "s", Brief: "b",
+		Deliverable: "the fix", Acceptance: "the tests pass",
+		Checks: []string{"cd parser && go test ./..."},
+	})
+	result, isError, err := agent.proposeTask(context.Background(), arguments)
+	if err != nil {
+		t.Fatalf("proposeTask errored the turn: %v", err)
+	}
+	if !isError {
+		t.Fatalf("a proposal with two problems was admitted: %q", result)
+	}
+	checkAt := strings.Index(result, "checks")
+	standAt := strings.Index(result, "this conversation has been working in two places")
+	if checkAt < 0 || standAt < 0 {
+		t.Fatalf("one refusal did not carry both problems: %q", result)
+	}
+	if checkAt > standAt {
+		t.Fatalf("the refusal asks for placement before repairing its check: %q", result)
+	}
+	if !strings.Contains(result[checkAt:standAt], ". ") {
+		t.Fatalf("the two problems are not their own sentences: %q", result)
+	}
+}
+
+// A PLAIN FOLDER IS MIRRORED AND LANDS BY NAME. There is no history to branch
+// from, so the isolation a repository gets for free is made by copying — and
+// what comes home is what the node wrote and nothing else it left behind.
+func TestAFolderGroundIsMirroredAndLandsByName(t *testing.T) {
+	ground := t.TempDir()
+	writeFile(t, filepath.Join(ground, "notes.md"), "the original line\n")
+	writeFile(t, filepath.Join(ground, "deep", "under.txt"), "kept\n")
+
+	tree, err := prepareTaskTreeOn(context.Background(), Place{}, t.TempDir(), "aaaa1111aaaa1111", 3, "write it up",
+		taskStand{dir: ground, mode: TaskModeMirror})
+	if err != nil {
+		t.Fatalf("prepareTaskTreeOn: %v", err)
+	}
+	if tree.dir == ground {
+		t.Fatal("a mirrored task was put in the folder it was supposed to be a copy of")
+	}
+	if got := readFile(t, filepath.Join(tree.dir, "deep", "under.txt")); got != "kept\n" {
+		t.Fatalf("the mirror does not hold the folder: %q", got)
+	}
+	// What the node does: one file changed, one left behind that nobody wrote.
+	writeFile(t, filepath.Join(tree.dir, "notes.md"), "the written line\n")
+	writeFile(t, filepath.Join(tree.dir, "build.log"), "noise\n")
+
+	merge, detail, _, _ := tree.comeHome("write it up", []string{"notes.md"}, gitSignature{})
+	if merge != mergeInPlace || detail != "" {
+		t.Fatalf("the mirror landed as %q: %s", merge, detail)
+	}
+	if got := readFile(t, filepath.Join(ground, "notes.md")); got != "the written line\n" {
+		t.Fatalf("the work did not come home: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(ground, "build.log")); !os.IsNotExist(err) {
+		t.Fatal("the landing carried something nobody wrote")
+	}
+}
+
+// AND THE CHECK ON A MIRROR IS A COPY OF THE FOLDER ITSELF. The node worked in a
+// copy, so the original is sitting there untouched — a restore read off the
+// node's own directory by timestamp would call the whole mirror "left behind"
+// and hand the auditor an empty tree, which is issue #76's third defect wearing
+// different clothes.
+func TestTheCheckOnAMirrorIsCutFromTheFolderItStandsOn(t *testing.T) {
+	ground := t.TempDir()
+	writeFile(t, filepath.Join(ground, "notes.md"), "the original line\n")
+
+	tree, err := prepareTaskTreeOn(context.Background(), Place{}, t.TempDir(), "bbbb2222bbbb2222", 4, "write it up",
+		taskStand{dir: ground, mode: TaskModeMirror})
+	if err != nil {
+		t.Fatalf("prepareTaskTreeOn: %v", err)
+	}
+	writeFile(t, filepath.Join(tree.dir, "notes.md"), "the written line\n")
+
+	restored, why := restoreTaskWork(nil, tree, []string{"notes.md"})
+	if !restored.restored {
+		t.Fatalf("no restore was made: %s", why)
+	}
+	defer restored.drop()
+	if got := readFile(t, filepath.Join(restored.dir, "notes.md")); got != "the written line\n" {
+		t.Fatalf("the restore does not hold what the work wrote: %q", got)
+	}
+}
+
+// The ladder itself, rung by rung, with no graph behind it.
+func TestTheGroundLadderClimbsInOrder(t *testing.T) {
+	repo := newTestRepo(t)
+	plain := t.TempDir()
+
+	t.Run("said outranks everything", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = plain })
+		stand := agent.resolveTaskGround(taskSpec{ground: repo, deliverable: "shared.txt", acceptance: "it changed"})
+		if stand.dir != canonicalPath(repo) || stand.rung != taskGroundSaid {
+			t.Fatalf("stand = %+v", stand)
+		}
+		if stand.mode != TaskModeWorktree {
+			t.Fatalf("mode = %q, want a branch off the repository it was told about", stand.mode)
+		}
+	})
+
+	t.Run("standing in is what it always was", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = repo })
+		stand := agent.resolveTaskGround(taskSpec{deliverable: "an answer", acceptance: "it is written"})
+		if stand.dir != canonicalPath(repo) || stand.rung != taskGroundStandingIn {
+			t.Fatalf("stand = %+v", stand)
+		}
+		// A conversation standing in its own project keeps its branch whatever the
+		// deliverable looks like: this design came to place work that was going
+		// somewhere wrong, not to take a worktree off work that was going right.
+		if stand.mode != TaskModeWorktree {
+			t.Fatalf("mode = %q, want %q", stand.mode, TaskModeWorktree)
+		}
+	})
+
+	t.Run("nothing is the conversation's own folder", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = plain })
+		stand := agent.resolveTaskGround(taskSpec{deliverable: "an answer", acceptance: "it is written"})
+		if stand.dir != canonicalPath(plain) || stand.rung != taskGroundNothing {
+			t.Fatalf("stand = %+v", stand)
+		}
+		if stand.mode != TaskModeFolder {
+			t.Fatalf("mode = %q, want %q", stand.mode, TaskModeFolder)
+		}
+	})
+
+	t.Run("workspace outside repo falls back to place workspace", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+			config.Workspace = plain
+			config.Place = Place{Dir: t.TempDir(), Workspace: repo}
+		})
+		stand := agent.resolveTaskGround(taskSpec{deliverable: "an answer", acceptance: "it is written"})
+		if stand.dir != canonicalPath(repo) || stand.rung != taskGroundStandingIn {
+			t.Fatalf("stand = %+v, want dir=%s rung=%s", stand, repo, taskGroundStandingIn)
+		}
+	})
+
+	t.Run("a folder child keeps its parent despite a project fallback", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+			config.Workspace = plain
+			config.Place = Place{Dir: t.TempDir(), Workspace: repo}
+		})
+		stand := agent.resolveTaskGround(taskSpec{parent: 3, depth: 2, deliverable: "an answer", acceptance: "it is written"})
+		if stand.dir != canonicalPath(plain) || stand.mode != TaskModeFolder {
+			t.Fatalf("folder child moved away from its parent: %+v", stand)
+		}
+	})
+
+	t.Run("a repository the work only reads is not branched", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = plain })
+		stand := agent.resolveTaskGround(taskSpec{
+			ground:      repo,
+			deliverable: "an answer in this conversation, naming the three worst offenders",
+			acceptance:  "the three are named",
+		})
+		if stand.mode != TaskModeReference {
+			t.Fatalf("mode = %q, want %q for work that writes nothing under the repository", stand.mode, TaskModeReference)
+		}
+	})
+
+	t.Run("a part stands where its parent stands", func(t *testing.T) {
+		elsewhere := newTestRepo(t)
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = repo })
+		// Everything that could move a root proposal — a brief naming another
+		// repository, a conversation that has been reading one — is ignored for a
+		// part, because a part's branch is cut from its parent's worktree and merges
+		// back into it.
+		agent.mu.Lock()
+		agent.messages = append(agent.messages, readCallMessage("call-a", filepath.Join(elsewhere, "shared.txt")))
+		agent.mu.Unlock()
+		stand := agent.resolveTaskGround(taskSpec{
+			parent: 3, depth: 2,
+			brief:       "the fix belongs in " + filepath.Join(elsewhere, "shared.txt"),
+			deliverable: "shared.txt, changed",
+			acceptance:  "the line reads differently",
+		})
+		if stand.dir != canonicalPath(repo) || stand.rung != taskGroundStandingIn {
+			t.Fatalf("a part was re-grounded away from its parent: %+v", stand)
+		}
+	})
+
+	t.Run("the brief re-grounds when it knows better", func(t *testing.T) {
+		agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) { config.Workspace = plain })
+		stand := agent.resolveTaskGround(taskSpec{
+			brief:       "Repo: " + repo + " — the fix belongs in shared.txt",
+			deliverable: "shared.txt, changed",
+			acceptance:  "the line reads differently",
+		})
+		if stand.dir != canonicalPath(repo) {
+			t.Fatalf("the brief named a repository and the ground stayed at %q", stand.dir)
+		}
+	})
+}
+
+// readCallMessage is one assistant turn that read one path: the shape the
+// touched rung reads the conversation for.
+func readCallMessage(id, path string) ai.Message {
+	return ai.Message{
+		Role: "assistant",
+		ToolCalls: []ai.ToolCall{{
+			ID:       id,
+			Type:     "function",
+			Function: ai.ToolCallFunction{Name: "read", Arguments: `{"path":` + quoteJSON(path) + `}`},
+		}},
+	}
+}

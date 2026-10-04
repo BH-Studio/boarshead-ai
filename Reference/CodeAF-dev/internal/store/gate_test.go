@@ -1,0 +1,592 @@
+package store
+
+import (
+	"encoding/json"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+func TestDeliveryGateIsAppendOnlyAndRebuildSafe(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "ship the complete answer", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1", Intent: "answer every part"}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := DeliveryGate{Pass: false, Gap: "the benchmark result is missing", PolishClosed: true}
+	if err := graph.RecordDeliveryGate("job", want); err != nil {
+		t.Fatal(err)
+	}
+	before, err := graph.Events(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gateEvents := 0
+	for _, event := range before {
+		if event.Kind != EventDeliveryGate {
+			continue
+		}
+		gateEvents++
+		var payload DeliveryGate
+		if err := json.Unmarshal(event.Payload, &payload); err != nil || !reflect.DeepEqual(payload, want) {
+			t.Fatalf("gate payload = %+v, err %v; want %+v", payload, err, want)
+		}
+	}
+	if gateEvents != 1 {
+		t.Fatalf("gate events = %d, want one", gateEvents)
+	}
+
+	if err := graph.Rebuild(); err != nil {
+		t.Fatalf("Rebuild: %v", err)
+	}
+	after, err := graph.Events(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("Rebuild changed the append-only journal")
+	}
+	got, ok, err := graph.DeliveryGateFor("job")
+	if err != nil || !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("rebuilt gate = %+v, ok %t, err %v; want %+v", got, ok, err, want)
+	}
+}
+
+// The gap ledger is a read over one job's whole run of judgements, repair
+// rounds included, and it has to survive a rebuild for the same reason the
+// verdict does: what bounds new work must be replayable, or a restart hands the
+// job a fresh unbounded allowance.
+func TestDeliveryGateLineageReadsEveryRoundAndSurvivesRebuild(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	provenance := Provenance{Origin: OriginUser, SessionID: "s1", Intent: "answer every part"}
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "ship the complete answer", Stage: 1,
+	}}}, provenance); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job-x1", Brief: "close the gap", Stage: 1,
+	}}}, provenance); err != nil {
+		t.Fatal(err)
+	}
+	// A different job whose id begins with other bytes must not leak in.
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "jobless", Brief: "unrelated", Stage: 1,
+	}}}, provenance); err != nil {
+		t.Fatal(err)
+	}
+
+	first := DeliveryGate{Gap: "the benchmark is missing", Quote: "every part", Round: 1, Extended: true}
+	second := DeliveryGate{Gap: "still missing", Quote: "every part", Round: 2, Refused: "the same words were already worked on once"}
+	if err := graph.RecordDeliveryGate("job", first); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.RecordDeliveryGate("job-x1", second); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.RecordDeliveryGate("jobless", DeliveryGate{Gap: "someone else's", Quote: "every part", Extended: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []DeliveryGate{first, second}
+	for _, stage := range []string{"live", "rebuilt"} {
+		got, err := graph.DeliveryGateLineage("job")
+		if err != nil {
+			t.Fatalf("%s lineage: %v", stage, err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s lineage = %+v, want %+v", stage, got, want)
+		}
+		if err := graph.Rebuild(); err != nil {
+			t.Fatalf("Rebuild: %v", err)
+		}
+	}
+	// A gate that did not pass still has to say why; nothing about the ledger
+	// relaxes that, because a shortfall nobody can state is not a verdict.
+	if err := graph.RecordDeliveryGate("job", DeliveryGate{Quote: "every part"}); err == nil {
+		t.Fatal("a failed gate with a quote and no gap was recorded")
+	}
+}
+
+// A GATE THAT DID NOT PASS MUST SAY WHY, AND A REFUSAL IS ONE OF THE TWO WAYS
+// TO SAY IT.
+//
+// The harness stops spending on a job once nothing is changing: no gate is
+// asked, and what is journaled in place of a judgement is the refusal that
+// stood in for it, unclosed. The validator demanded a gap of that row and
+// refused it on every real run — `record delivery gate: invalid graph mutation:
+// a failed gate must name the gap` in the log, and no row at all — so a battery
+// reading the journal could not tell a delivery nothing had judged from one that
+// had been checked and passed. A row that says NEITHER is still refused.
+func TestADeclinedJudgementIsJournaledWithTheRefusalInPlaceOfTheGap(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "task-2", Brief: "finish the migration", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1", Intent: "finish the migration"}); err != nil {
+		t.Fatal(err)
+	}
+
+	declined := DeliveryGate{
+		Refused:  "nothing here was written or altered while this ran, so it is handed over as it stands. Nothing further was started.",
+		Unclosed: true,
+	}
+	if err := graph.RecordDeliveryGate("task-2", declined); err != nil {
+		t.Fatalf("the unasked gate was refused: %v", err)
+	}
+	got, ok, err := graph.DeliveryGateFor("task-2")
+	if err != nil || !ok {
+		t.Fatalf("DeliveryGateFor = %v, %v", ok, err)
+	}
+	if got.Pass || !got.Unclosed || got.Refused != declined.Refused || got.Gap != "" {
+		t.Fatalf("row read back as %+v, want the refusal standing with no gap", got)
+	}
+	// And it settles nothing, which is what the exit code turns on: a run that
+	// changed nothing handed over less than it promised.
+	if got.Whole() {
+		t.Fatal("a delivery nothing judged read as whole")
+	}
+	// A row that names neither a gap nor a refusal is still refused: a gate that
+	// recorded nothing at all is a gate no autopsy can read.
+	if err := graph.RecordDeliveryGate("task-2", DeliveryGate{}); err == nil {
+		t.Fatal("a gate that said nothing at all was recorded")
+	}
+	// And a refusal that does not stand — the gate was held, its finding was
+	// weighed and lost — is not a substitute for the gap either.
+	if err := graph.RecordDeliveryGate("task-2", DeliveryGate{
+		Refused: "what it asked for is already on disk under the name the request used",
+	}); err == nil {
+		t.Fatal("a closed refusal with no gap was recorded")
+	}
+}
+
+// The citation list and the mechanical flag replay out of the journal exactly
+// as they were written. They are what bounds the next repair round and what
+// decides the run's exit code, and a ledger that lost either on a restart would
+// hand a job a fresh allowance and an honest failure a success code.
+func TestTheGateLedgerReplaysItsCitationsAndItsProvenance(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "write the ladder", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1", Intent: "grow spacing.go and home.go"}); err != nil {
+		t.Fatal(err)
+	}
+	want := DeliveryGate{
+		Pass: false, Gap: "spacing.go, home.go", Quote: "spacing.go, home.go",
+		Quotes: []string{"spacing.go", "home.go"}, Mechanical: true, Round: 1,
+	}
+	if err := graph.RecordDeliveryGate("job", want); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.Rebuild(); err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := graph.DeliveryGateFor("job")
+	if err != nil || !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("rebuilt gate = %+v, ok %t, err %v; want %+v", got, ok, err, want)
+	}
+	if cited := got.Cited(); !reflect.DeepEqual(cited, []string{"spacing.go", "home.go"}) {
+		t.Fatalf("cited = %q, want the list it was recorded with", cited)
+	}
+
+	// A row written before the list existed carries only the joined line, and
+	// reading it as the one citation it was then is the honest reading: a
+	// ledger that read it as nothing would let the same words buy a second
+	// round after a restart.
+	old := DeliveryGate{Pass: false, Gap: "the benchmark numbers", Quote: "the benchmark numbers", Extended: true}
+	if err := graph.RecordDeliveryGate("job", old); err != nil {
+		t.Fatal(err)
+	}
+	back, _, err := graph.DeliveryGateFor("job")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Quotes != nil {
+		t.Fatalf("quotes = %q, want nothing invented for a row that had none", back.Quotes)
+	}
+	if cited := back.Cited(); !reflect.DeepEqual(cited, []string{"the benchmark numbers"}) {
+		t.Fatalf("cited = %q, want the line read as the one citation it was", cited)
+	}
+
+	// Blank citations are dropped rather than stored: strings.Contains is true
+	// of the empty string against any text at all, so one carried into the
+	// grounding rule would ground itself against anything.
+	if err := graph.RecordDeliveryGate("job", DeliveryGate{
+		Pass: false, Gap: "nothing landed", Quote: "nothing landed", Quotes: []string{"  ", ""}}); err != nil {
+		t.Fatal(err)
+	}
+	blank, _, err := graph.DeliveryGateFor("job")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blank.Quotes != nil {
+		t.Fatalf("quotes = %q, want the blanks dropped", blank.Quotes)
+	}
+}
+
+// The checklist is journaled against the work it will be used to judge, and it
+// is the only durable answer to "what was this work actually asked for" that
+// survives the process that planned it. An autopsy of a passed run has to be
+// able to tell a delivery that satisfied every point from one that was measured
+// against nothing.
+func TestTheAcceptanceChecklistIsJournaledAgainstTheWorkItJudges(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "task-2", Brief: "add a per-origin circuit breaker", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1",
+		Intent: "Implement an opt-in per-origin circuit breaker"}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := Acceptance{Points: []AcceptancePoint{
+		{Behaviour: "A rejected non-listed status does not close half-open state",
+			Quote: "must not close half-open state"},
+		{Behaviour: "A half-open probe holds its slot across internal retries",
+			Quote: "keeps its slot for the full logical request"},
+	}}
+	if err := graph.RecordAcceptance("task-2", want); err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := graph.AcceptanceFor("task-2")
+	if err != nil || !ok {
+		t.Fatalf("AcceptanceFor: ok=%v err=%v", ok, err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("the journal returned %#v, want %#v", got, want)
+	}
+
+	// An empty checklist writes nothing: a request that states no checkable
+	// behaviour has no checklist, and a row saying so is a row every reader has
+	// to learn to ignore.
+	if err := graph.RecordAcceptance("task-2", Acceptance{}); err != nil {
+		t.Fatal(err)
+	}
+	again, _, err := graph.AcceptanceFor("task-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(again, want) {
+		t.Errorf("an empty checklist overwrote a real one: %#v", again)
+	}
+
+	// And the mapping the gate settled rides the gate event, because the
+	// mapping is the evidence and the verdict is only its conclusion.
+	gate := DeliveryGate{Pass: true, Exercises: []ExercisedPoint{
+		{Point: "A half-open probe holds its slot across internal retries",
+			Check: "keeps half-open quota reserved while a probe is internally retrying"},
+		{Point: "A rejected non-listed status does not close half-open state"},
+	}}
+	if err := graph.RecordDeliveryGate("task-2", gate); err != nil {
+		t.Fatal(err)
+	}
+	back, ok, err := graph.DeliveryGateFor("task-2")
+	if err != nil || !ok {
+		t.Fatalf("DeliveryGateFor: ok=%v err=%v", ok, err)
+	}
+	if !reflect.DeepEqual(back.Exercises, gate.Exercises) {
+		t.Errorf("the mapping did not survive the journal: %#v", back.Exercises)
+	}
+}
+
+// AN ACQUITTAL IS OF ONE FINDING. textual s10 held a single gate whose
+// `unexercised` named two groups of behaviours the request states and nothing
+// checks, whose verdict was refused as `what it asked for is already on disk
+// under the name the request used`, and whose Overturned was true — and it
+// settled WHOLE. Exit 0 at 5 of 20 hidden checks, over the run's own measurement
+// of thirteen behaviours it had just found exercised by nothing.
+//
+// Overturning a refusal says the review was wrong about ONE thing: the file it
+// called missing is on disk. It says nothing whatever about a set measured by a
+// different mechanism on different evidence, and closed only by a check existing.
+func TestAnOverturnDoesNotCloseTheCoverageSet(t *testing.T) {
+	standing := DeliveryGate{
+		Pass:        false,
+		Refused:     "what it asked for is already on disk under the name the request used",
+		Overturned:  true,
+		Unexercised: []string{"Log and RichLog expose is_following_end", "RichLog honours expand=True"},
+	}
+	if standing.Whole() {
+		t.Error("a gate with two behaviours nothing checks settled whole on an overturn")
+	}
+	// The same overturn, with nothing open, still acquits — that is what it is
+	// for, and charging it a non-zero code would teach a harness to distrust the
+	// gate's own corrections.
+	closed := standing
+	closed.Unexercised = nil
+	if !closed.Whole() {
+		t.Error("an overturn with nothing open stopped acquitting")
+	}
+	// And it is the SET that stands, not the verdict: a pass and a repaired
+	// gate are held to it too.
+	for _, settled := range []DeliveryGate{
+		{Pass: true, Unexercised: standing.Unexercised},
+		{PolishClosed: true, Unexercised: standing.Unexercised},
+	} {
+		if settled.Whole() {
+			t.Errorf("a settled gate carried an open coverage set into whole: %#v", settled)
+		}
+	}
+}
+
+// EVERY COMPARISON IS JOURNALED, INCLUDING ONE THAT FOUND NOTHING. "Sixteen
+// files were compared and no public name was lost" and "nobody compared
+// anything" are two facts, and the absence of the row was the only spelling
+// either of them had.
+func TestTheSymbolLevelComparisonIsJournaled(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "persist the feature schema", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1",
+		Intent: "persist the feature schema"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.RecordSurface("job", SurfaceReading{
+		Compared: 3, Lost: 8, Names: []string{"Igel.results_path", "Igel.description_file"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.RecordSurface("job", SurfaceReading{Compared: 3}); err != nil {
+		t.Fatal(err)
+	}
+	readings, err := graph.SurfacesFor("job")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(readings) != 2 {
+		t.Fatalf("journaled %d comparisons, want 2", len(readings))
+	}
+	if readings[0].Lost != 8 || readings[0].Names[0] != "Igel.results_path" {
+		t.Errorf("the loss was not journaled as measured: %#v", readings[0])
+	}
+	if readings[1].Lost != 0 || readings[1].Compared != 3 {
+		t.Errorf("a comparison that found nothing was not journaled as such: %#v", readings[1])
+	}
+	// The sample is bounded the way every roster in this journal is.
+	long := make([]string, VerificationSample+4)
+	for index := range long {
+		long[index] = "Thing.name"
+	}
+	if err := graph.RecordSurface("job", SurfaceReading{Compared: 1, Lost: len(long), Names: long}); err != nil {
+		t.Fatal(err)
+	}
+	readings, _ = graph.SurfacesFor("job")
+	if got := len(readings[2].Names); got != VerificationSample {
+		t.Errorf("the journal kept %d names, want the sample bound of %d", got, VerificationSample)
+	}
+}
+
+// What a gate JUDGED has to read back out of the journal under the name a
+// reader looks it up by. ofetch s12 journaled a refusal whose `subject` was
+// absent, and the one question an autopsy of that mechanism asks — did the
+// review read the world or a sentence — had no answer on the run that needed
+// it. The field is checked on the wire, in the key it is spelled with, because
+// a struct field that never reaches the payload is a field that does not exist.
+func TestTheGateJournalsWhatItJudged(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "task-2", Brief: "add the circuit breaker", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s12", Intent: "add a circuit breaker"}); err != nil {
+		t.Fatal(err)
+	}
+	written := DeliveryGate{Pass: false, Gap: "src/circuit-breaker.ts — it never opens the circuit",
+		Subject: "tree (6 files)"}
+	if err := graph.RecordDeliveryGate("task-2", written); err != nil {
+		t.Fatal(err)
+	}
+	read, ok, err := graph.DeliveryGateFor("task-2")
+	if err != nil || !ok {
+		t.Fatalf("the gate did not read back: ok=%v err=%v", ok, err)
+	}
+	if read.Subject != written.Subject {
+		t.Fatalf("what the gate judged did not survive the journal: %q", read.Subject)
+	}
+	events, err := graph.Events(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		if event.Kind != EventDeliveryGate {
+			continue
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["subject"] != "tree (6 files)" {
+			t.Fatalf("the payload does not spell the subject where a reader looks: %v", payload)
+		}
+	}
+}
+
+// A DELIVERY THAT BROKE A RULE THE PERSON SET IS NOT WHOLE, AND NOTHING ON THIS
+// EVENT CAN ACQUIT IT.
+//
+// The other standing findings here are measurements of a repository, and an
+// acquittal is at least about the same kind of thing. This one is the person's
+// own sentence held against the files the run changed, so a pass on the
+// deliverable's substance says only that the work was good at doing what it was
+// forbidden to do — which is exactly the shape #427 shipped: the command run,
+// the line reported, and two files written under "Change no files."
+func TestADeliveryThatBrokeARuleThePersonSetIsNotWhole(t *testing.T) {
+	broke := DeliveryGate{Pass: false, Gap: `The work broke a rule the person set: "Change no files." (2 files).`,
+		Constraint: []string{"Change no files. — check.sh, internal/x/x_test.go"}}
+	if broke.Whole() {
+		t.Fatal("a broken rule settled as a whole delivery")
+	}
+	// And no reading of the substance changes that. A pass, a repair the second
+	// judge accepted, and a refusal weighed against the world and lost are the
+	// three things that normally settle this event, and none of them is about
+	// the rule.
+	for name, settled := range map[string]DeliveryGate{
+		"passed":     {Pass: true, Constraint: broke.Constraint},
+		"repaired":   {Pass: false, Gap: broke.Gap, PolishClosed: true, Constraint: broke.Constraint},
+		"overturned": {Pass: false, Gap: broke.Gap, Overturned: true, Constraint: broke.Constraint},
+	} {
+		if settled.Whole() {
+			t.Fatalf("a %s delivery carried a broken rule and still settled whole", name)
+		}
+	}
+	// A job whose request stated no rule is the job this system already ran.
+	if !(DeliveryGate{Pass: true}).Whole() {
+		t.Fatal("an ordinary passing delivery stopped being whole")
+	}
+}
+
+// A RECEIPT SAYS WHY A RUN STOPPED AND NEVER WHETHER IT LANDED. It is the one
+// positive sentence a gate can write, and letting it decide Whole would make the
+// harness able to talk itself out of every finding it raises — the failure the
+// governor's own refusal was rewritten to avoid.
+func TestAReceiptDoesNotDecideWhetherADeliveryIsWhole(t *testing.T) {
+	// The two receipts, on a gate that is short in the two ways that matter.
+	for _, short := range []DeliveryGate{
+		{Pass: false, Gap: "the answer names no file", Receipt: "the request was met as stated"},
+		{Pass: true, Unreadable: true, Receipt: "checked by tests, coverage not measured"},
+		{Pass: true, Unexercised: []string{"RichLog honours expand=True"},
+			Receipt: "the request was met as stated"},
+	} {
+		if short.Whole() {
+			t.Errorf("a receipt talked a short delivery into whole: %#v", short)
+		}
+	}
+	// And it takes nothing away from a delivery that already was whole.
+	whole := DeliveryGate{Pass: true, Receipt: "the request was met as stated"}
+	if !whole.Whole() {
+		t.Error("a receipt cost a passing gate its own verdict")
+	}
+}
+
+// And both positive fields survive the journal, because a receipt nobody can
+// read is a receipt that was never issued.
+func TestTheReceiptAndWhatIsMissingReachTheJournal(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "run the command and report the line", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1", Intent: "run it and report"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.RecordDeliveryGate("job", DeliveryGate{Pass: true,
+		Receipt: "the request was met as stated",
+		Missing: "report the final line it prints"}); err != nil {
+		t.Fatal(err)
+	}
+	gate, ok, err := graph.DeliveryGateFor("job")
+	if err != nil || !ok {
+		t.Fatalf("read back: ok=%v err=%v", ok, err)
+	}
+	if gate.Receipt != "the request was met as stated" {
+		t.Errorf("the receipt did not survive the journal: %q", gate.Receipt)
+	}
+	if gate.Missing != "report the final line it prints" {
+		t.Errorf("what the request still wanted did not survive the journal: %q", gate.Missing)
+	}
+}
+
+// A DELIVERY NOBODY READ IS NOT WHOLE, AND THE ROW THAT SAYS SO IS KEPT.
+//
+// reef-145's repair leaf finished its work, both of the gate's calls were
+// refused, and the store held no gate row for the delivered leaf at all — so the
+// door ended `ok` at exit 0 and the rig read an unchecked delivery as a clean
+// pass (2026-09-02, codeaf-14 anchor 1; #514). The row below is what that run
+// should have written: the reason, that nothing closed it, and that nobody was
+// ever answered by. All three are journaled and read back, because a field the
+// store drops is a field the exit code cannot turn on.
+func TestADeliveryNothingJudgedIsNeverWholeAndTheRowSurvives(t *testing.T) {
+	graph, err := Open(filepath.Join(t.TempDir(), "graph.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer graph.Close()
+	if err := graph.Splice(RootID, Subtree{Nodes: []NodeSpec{{
+		ID: "job", Brief: "ship the complete answer", Stage: 1,
+	}}}, Provenance{Origin: OriginUser, SessionID: "s1", Intent: "answer every part"}); err != nil {
+		t.Fatal(err)
+	}
+	unjudged := DeliveryGate{
+		Refused:  "the gate could not be reached · asked twice · API error (404): no endpoints found",
+		Unclosed: true, Unjudged: true,
+	}
+	if unjudged.Whole() {
+		t.Fatal("a delivery nothing judged answered whole")
+	}
+	// AND IT ANSWERS THE SAME WAY WHATEVER ELSE THE ROW CARRIES. Whole is what
+	// the exit code reads, and a row that claimed a pass beside this field would
+	// be the exact indistinguishability the field exists to end.
+	claiming := unjudged
+	claiming.Pass, claiming.PolishClosed, claiming.Overturned = true, true, true
+	if claiming.Whole() {
+		t.Fatal("an unjudged row talked its way back to whole")
+	}
+	if err := graph.RecordDeliveryGate("job", unjudged); err != nil {
+		t.Fatalf("the store would not keep the row an unchecked delivery leaves: %v", err)
+	}
+	kept, found, err := graph.DeliveryGateFor("job")
+	if err != nil || !found {
+		t.Fatalf("delivery gate for job: found %t, err %v", found, err)
+	}
+	if !kept.Unjudged || !kept.Unclosed || kept.Pass || kept.Refused != unjudged.Refused {
+		t.Fatalf("the row came back saying something else: %+v", kept)
+	}
+	if kept.Whole() {
+		t.Fatal("the row read back off the journal answered whole")
+	}
+	// A row that claims both is a caller with a bug, and it is refused rather
+	// than quietly corrected — a silent fix leaves the caller running.
+	if err := graph.RecordDeliveryGate("job", DeliveryGate{
+		Pass: true, Unjudged: true, Refused: "the gate could not be reached", Unclosed: true,
+	}); err == nil {
+		t.Fatal("the store kept a delivery that was both unjudged and a pass")
+	}
+}

@@ -1,0 +1,756 @@
+package tui3
+
+// Image previews are an explicit, low-resolution look at a file. The transcript
+// controls live in picturefold.go; this file only resolves and paints pixels.
+//
+// The renderer uses foreground/background half cells inside the ordinary text
+// frame. It needs no graphics overlay lifecycle during scrolling, resizing or
+// reconnecting. Full-quality inspection belongs to the original-file action:
+// forty pixel rows cannot make a screenshot's text legible on any terminal.
+//
+// ANSI256 and truecolour terminals can paint the preview. ASCII, screen-reader
+// and lower-colour displays retain the same file controls without painted cells.
+
+import (
+	"image"
+	// The decoders are imported for their side effect: they register themselves
+	// with image.Decode. png, jpeg and gif are the standard library's; webp is
+	// golang.org/x/image, which this module already requires — and the four
+	// together are exactly the formats view_image accepts, so a picture the
+	// session agreed to look at is a picture this surface can draw.
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/charmbracelet/x/ansi"
+	_ "golang.org/x/image/webp"
+
+	"github.com/Agent-Field/codeaf/internal/tui2/tokens"
+)
+
+// halfBlock is the whole alphabet of a preview: foreground is the top pixel,
+// background is the bottom one.
+const halfBlock = "▀"
+
+const (
+	// pictureResolutionWord keeps every cell-based preview honest about its fidelity.
+	pictureResolutionWord = "Low-resolution preview"
+	// pictureRowsMax is how many terminal rows one preview may take. It is the
+	// tallest block this surface draws under a tool row, and it is deliberately
+	// larger than every text window in D11's table: a diff capped at forty lines
+	// can be read forty lines at a time, while half a picture is not half an
+	// answer. Twenty rows is forty pixel rows: useful for composition, but
+	// never enough to promise legible screenshot text or diagram labels.
+	pictureRowsMax = 20
+	// pictureColsMin is the narrowest preview worth drawing. Under this the
+	// picture is a smudge that says less than the path under it, so nothing is
+	// drawn and the expansion keeps the words it always had.
+	pictureColsMin = 8
+	// pictureBytesMax is the largest file this surface will decode. It is the
+	// session's own 10MB picture ceiling with room over it for a generated png,
+	// and it exists so a person who opens a row never waits on a gigabyte.
+	pictureBytesMax = 24 << 20
+	// picturePixelsMax bounds the DECODE rather than the file: a small file can
+	// hold an enormous picture, and decoding it allocates four bytes a pixel
+	// whatever the row is going to show.
+	picturePixelsMax = 64 << 20
+	// pictureCacheMax is how many previews are kept. A preview is a few kilobytes
+	// of painted rows and rebuilding one is a decode, so the cache exists to keep
+	// a frame cheap rather than to save memory; past this many it is dropped
+	// whole, because an eviction order is more machinery than the problem has.
+	//
+	// THE NUMBER IS SIZED AGAINST ONE FRAME'S UNMEMOIZED WORKING SET. Every visible
+	// tool picture row renders on every paint ([app.pictureRows]), so a cache
+	// smaller than what one frame asks for would be wiped and decoded again ten
+	// times a second. Only explicitly expanded attachments share this cache; collapsed media
+	// never asks it for pixels. More simultaneous expansions than this bound can
+	// require another decode, which is the accepted memory/performance trade.
+	pictureCacheMax = 64
+)
+
+// pictureFact is what one stat of one picture file said: how big it is, when it
+// last changed, and whether it is a file this surface could open at all.
+//
+// IT IS READ BY `open`, BY A TICK AND BY THE CALL'S OWN ARRIVAL, NEVER BY A
+// FRAME (learned.go). The stat used to be taken from inside [app.picture]
+// because the modification time and the size ARE the preview cache's key — which
+// made the key cost one syscall per visible picture per frame, thirty times a
+// second, forever. The key is the same key; the fact behind it is now something
+// the loop learned and the frame reads.
+type pictureFact struct {
+	mod  int64
+	size int64
+	// ok is false for everything that is not a readable file — a path that is
+	// gone, a directory, a permission this process does not have — and it is
+	// LEARNED AND KEPT like any other fact, because a missing file that was
+	// re-stat'd every frame is the same syscall storm as a present one.
+	ok bool
+}
+
+// statPictureFile is the memo's one reading. It answers a fact for every
+// outcome, so that a file which cannot be drawn is a thing this surface KNOWS
+// rather than a thing it asks about again on the next frame.
+func statPictureFile(path string) pictureFact {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return pictureFact{}
+	}
+	return pictureFact{mod: info.ModTime().UnixNano(), size: info.Size(), ok: true}
+}
+
+// imagePreview is one picture as this surface already drew it: the painted
+// half-block rows, and the facts the line under them states. ok is false for a
+// file that was looked at and could not be drawn, which is cached too — a
+// missing file must not be re-decoded ten times a second either.
+type imagePreview struct {
+	rows   []string
+	width  int // the picture's own pixel width
+	height int // and its height
+	bytes  int
+	ok     bool
+}
+
+// pictureRows is the expansion's picture: the half-block rows, then one dim
+// line naming the file. It answers false when there is nothing to draw, and
+// every caller falls back to the words it would have shown.
+func (a *app) pictureRows(e *entry, width int) ([]string, bool) {
+	path, preview, drawn := a.drawPicture(e, width, pictureRowsMax)
+	if !drawn {
+		return nil, false
+	}
+	return append(append([]string{a.pal.muted(fit("Click image to open full size · alt+o", width))}, preview.rows...),
+		picturePathLine(a.linker(), path, preview, width)...), true
+}
+
+// drawPicture is the one route from an entry to a painted picture, and both the
+// expansion and the thumbnail take it: which file the call is about, then that
+// file through the cache and the renderer at the caller's row budget. What the
+// two callers differ on is what they put UNDER the rows, which is the only thing
+// they should ever differ on.
+func (a *app) drawPicture(e *entry, width, maxRows int) (string, imagePreview, bool) {
+	path, found := a.picturePath(e)
+	if !found {
+		return "", imagePreview{}, false
+	}
+	preview, drawn := a.picture(path, false, width, maxRows)
+	if !drawn {
+		return "", imagePreview{}, false
+	}
+	return path, preview, true
+}
+
+// pictureRowsFor is the path-taking door for a picture the person attached.
+// Unlike [app.drawPicture], its caller already knows both the path and which
+// machine owns it; unlike an expansion it adds no path line or other chrome.
+func (a *app) pictureRowsFor(path string, here bool, cols, maxRows int) ([]string, bool) {
+	preview, drawn := a.picture(path, here, cols, maxRows)
+	if !drawn {
+		return nil, false
+	}
+	return preview.rows, true
+}
+
+// picture is one preview, off the cache or freshly decoded.
+//
+// The key carries everything the answer depends on — the file's identity AND
+// the shape of the terminal it was drawn for — so a picture that was overwritten
+// on disk, a window that was dragged wider, and a theme that was switched all
+// produce a new rendering rather than a stale one. The row budget is in it for
+// the same reason the column count is: the thumbnail under a row and the bigger
+// look inside it are two renderings of one file, and one must never be served
+// from the other's slot.
+//
+// THE FILE'S IDENTITY IS ASKED OF THE MEMO AND NOT OF THE DISK. This is `body`,
+// and `body` may not read the disk (learned.go). The mtime and the size in the
+// key are what the loop learned when the picture arrived, at `open`, or on the
+// beat; a name no reading has reached yet draws no picture on this frame and is
+// asked about before the next one, which is the same nothing this function has
+// always drawn for a file it could not stat.
+func (a *app) picture(path string, here bool, cols, maxRows int) (imagePreview, bool) {
+	readPath, found := a.readPathFor(path, here)
+	if !found {
+		return imagePreview{}, false
+	}
+	fact, known := a.pictures.of(readPath)
+	if !known || !fact.ok {
+		return imagePreview{}, false
+	}
+	key := path + "\x00" + readPath + "\x00" + itoa(int(fact.mod)) +
+		"\x00" + itoa(int(fact.size)) + "\x00" + itoa(cols) + "\x00" + itoa(maxRows) +
+		"\x00" + itoa(int(a.pal.profile)) + "\x00" + itoa(int(a.pal.ramp.ink.r))
+	if hit, known := a.previews[key]; known {
+		return hit, hit.ok
+	}
+	preview := renderPicture(a.pal, readPath, int(fact.size), cols, maxRows)
+	if len(a.previews) >= pictureCacheMax {
+		a.previews = nil
+	}
+	if a.previews == nil {
+		a.previews = make(map[string]imagePreview, pictureCacheMax)
+	}
+	a.previews[key] = preview
+	return preview, preview.ok
+}
+
+// learnPicture is the LOOP'S door onto one picture file: read what is on disk
+// under this path now, and file it where the frame will find it (learned.go).
+//
+// Every caller is an arrival — a picture call that just finished, a file the
+// person just attached, the transcript a resumed window just opened — which is
+// where the fourth law says a reading belongs. The stat costs nothing beside the
+// tool call that produced the file, and paying it here is what buys the frame a
+// picture it can draw without asking the disk anything.
+func (a *app) learnPicture(path string, here bool) {
+	if readPath, found := a.readPathFor(path, here); found {
+		a.pictures.learn(readPath)
+	}
+}
+
+// learnPictureOf is the same door, taking the entry rather than the path: the
+// one call the reducer's `closed` hook makes when a picture tool finishes
+// (app.go's [app.feedHooks]).
+func (a *app) learnPictureOf(e *entry) {
+	if e == nil || !picturesAFile(e.tool) {
+		return
+	}
+	if path, ok := a.picturePath(e); ok {
+		// A CALL THAT JUST WROTE THIS PATH WROTE NEW BYTES, so the reading taken
+		// here replaces whatever was learned about that name before — which is
+		// what makes regenerating into the same file redraw at once rather than
+		// on the beat. [learned.learn] reads and lays in one go, so there is
+		// nothing to forget first.
+		a.learnPicture(path, true)
+	}
+}
+
+// learnMirroredPicture is the LOOP'S door for the far machine's bytes: the copy
+// the mirror has just written for one engine path, stat'd at the moment it
+// lands. The frame resolves a hosted picture through that same mirror
+// ([app.readPathFor]), so this is the same file under the same name the next
+// frame will ask about.
+func (a *app) learnMirroredPicture(blob remoteBlob) {
+	if a.rfiles == nil {
+		return
+	}
+	store, err := a.rfiles.blobStore()
+	if err != nil {
+		return
+	}
+	if path, err := store.Path(blob.ref); err == nil {
+		a.pictures.learn(path)
+	}
+}
+
+// learnShownPictures is `open`'s walk: every picture already on screen when this
+// window started, learned before the first frame asks about any of them. A
+// resumed conversation builds its rows without replaying the events that made
+// them, so without this walk every picture in it would be drawn one message late
+// (the same gap [app.prefetchReplayedPictures] fills for the far machine's
+// bytes).
+func (a *app) learnShownPictures() {
+	learn := func(entries []entry) {
+		for i := range entries {
+			e := &entries[i]
+			if e.kind == entryUser {
+				for _, picture := range e.pictures {
+					a.learnPicture(picture, e.picturesHere)
+				}
+				continue
+			}
+			if e.kind == entryTool {
+				a.learnPictureOf(e)
+			}
+		}
+	}
+	learn(a.entries)
+	if a.room != nil {
+		learn(a.room.entries)
+	}
+}
+
+// readPathFor answers which disk path can be opened here. A live attachment is
+// already on this machine even during a hosted session; an engine path must be
+// present in the connection's content-addressed mirror before it can be drawn.
+func (a *app) readPathFor(path string, here bool) (string, bool) {
+	if here || a.rfiles == nil {
+		return path, true
+	}
+	target := a.remoteTarget(path)
+	if target == "" {
+		return "", false
+	}
+	blob, known := a.rfiles.ref(target)
+	if !known {
+		return "", false
+	}
+	store, err := a.rfiles.blobStore()
+	if err != nil {
+		return "", false
+	}
+	readPath, err := store.Path(blob.ref)
+	if err != nil {
+		return "", false
+	}
+	return readPath, true
+}
+
+// renderPicture reads one file and draws it, or answers that it could not.
+func renderPicture(pal palette, path string, size, cols, maxRows int) imagePreview {
+	if !pal.paintsPictures() || cols < pictureColsMin || maxRows < 1 ||
+		size <= 0 || size > pictureBytesMax {
+		return imagePreview{}
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return imagePreview{}
+	}
+	defer file.Close()
+
+	// The header is read first and on its own, because it is the cheap half of
+	// the question: a picture too large to hold in memory is refused here, before
+	// four bytes a pixel are asked for.
+	config, _, err := image.DecodeConfig(file)
+	if err != nil || config.Width <= 0 || config.Height <= 0 {
+		return imagePreview{}
+	}
+	if config.Width*config.Height > picturePixelsMax {
+		return imagePreview{}
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		return imagePreview{}
+	}
+	source, _, err := image.Decode(file)
+	if err != nil {
+		return imagePreview{}
+	}
+
+	gridCols, gridRows := pictureGrid(config.Width, config.Height, cols, maxRows)
+	if gridCols < 1 || gridRows < 1 {
+		return imagePreview{}
+	}
+	return imagePreview{
+		rows:   pictureCells(pal, source, gridCols, gridRows),
+		width:  config.Width,
+		height: config.Height,
+		bytes:  size,
+		ok:     true,
+	}
+}
+
+// paintsPictures is the terminal's answer to "can a photograph be drawn here".
+//
+// It is three vetoes and no yes of its own, the shape every capability question
+// on this surface has (styles.go's [detectASCII]): colour below the xterm cube
+// is the person's own theme, U+2580 is the technique, and the linear tier is
+// being read aloud rather than looked at.
+func (p palette) paintsPictures() bool {
+	if p.ascii || p.linear {
+		return false
+	}
+	return p.profile == tokens.TrueColor || p.profile == tokens.ANSI256
+}
+
+// pictureGrid is the cell rectangle one picture is drawn into: as wide as it is
+// allowed and as tall as its own shape then demands, bounded by both.
+//
+// THE ARITHMETIC IS ABOUT SQUARE SUB-PIXELS. One cell carries two stacked
+// pixels and is itself about twice as tall as it is wide, so a half-cell is
+// very nearly square and the grid is sized as though it were: cols/(rows*2) is
+// made to equal the picture's own aspect. Anything else draws a portrait as an
+// egg.
+//
+// IT NEVER ENLARGES. A sixteen-pixel icon blown across sixty columns is sixty
+// columns of blur that claims to be detail; drawn at sixteen it is a thumbnail
+// that is honest about how much picture there is.
+func pictureGrid(imageWidth, imageHeight, maxCols, maxRows int) (cols, rows int) {
+	if imageWidth <= 0 || imageHeight <= 0 || maxCols <= 0 || maxRows <= 0 {
+		return 0, 0
+	}
+	cols = maxCols
+	if imageWidth < cols {
+		cols = imageWidth
+	}
+	// rows = cols · height / width / 2, rounded to nearest so a wide-and-short
+	// picture keeps at least the one row it is owed.
+	rows = (cols*imageHeight + imageWidth) / (imageWidth * 2)
+	if rows < 1 {
+		rows = 1
+	}
+	if rows > maxRows {
+		// Too tall for the budget: the height is what binds, and the width
+		// follows from it so the shape survives.
+		rows = maxRows
+		cols = (rows * 2 * imageWidth) / imageHeight
+		if cols < 1 {
+			cols = 1
+		}
+		if cols > maxCols {
+			cols = maxCols
+		}
+	}
+	return cols, rows
+}
+
+// pictureCells maps a decoded picture onto cols×rows terminal cells and paints
+// them, one string per row.
+//
+// The filter is a BOX: each half-cell averages every source pixel that falls
+// inside it. Nearest-neighbour would be one line shorter and would alias a
+// screenshot's text into noise — a box average over a downscale is the cheapest
+// filter that keeps thin strokes visible, and this is always a downscale
+// ([pictureGrid] never enlarges).
+//
+// Alpha is composited over the terminal's presumed ground rather than ignored,
+// because a transparent png drawn as though it were opaque is a picture of the
+// wrong colours: an icon exported on transparency would come out as its own
+// unpremultiplied fringe.
+func pictureCells(pal palette, source image.Image, cols, rows int) []string {
+	bounds := source.Bounds()
+	if bounds.Empty() || cols < 1 || rows < 1 {
+		return nil
+	}
+	backR, backG, backB := pal.backdrop()
+
+	// One scan of the source per half-cell row, so a picture is walked once.
+	subRows := rows * 2
+	out := make([]string, 0, rows)
+	top := make([]cellColour, cols)
+	bottom := make([]cellColour, cols)
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			top[c] = sampleBox(source, bounds, c, 2*r, cols, subRows, backR, backG, backB)
+			bottom[c] = sampleBox(source, bounds, c, 2*r+1, cols, subRows, backR, backG, backB)
+		}
+		out = append(out, pictureRow(pal, top, bottom))
+	}
+	return out
+}
+
+// cellColour is one half-cell's colour, already flattened onto the ground.
+type cellColour struct{ r, g, b uint8 }
+
+// sampleBox averages the source rectangle that half-cell (cx, cy) covers.
+//
+// The rectangle is computed from the cell index rather than accumulated, so
+// rounding never drifts across the picture, and it is widened to at least one
+// pixel: a grid finer than the source in one axis must still sample something.
+func sampleBox(source image.Image, bounds image.Rectangle, cx, cy, cols, rows int,
+	backR, backG, backB uint8) cellColour {
+
+	w, h := bounds.Dx(), bounds.Dy()
+	x0 := bounds.Min.X + cx*w/cols
+	x1 := bounds.Min.X + (cx+1)*w/cols
+	y0 := bounds.Min.Y + cy*h/rows
+	y1 := bounds.Min.Y + (cy+1)*h/rows
+	if x1 <= x0 {
+		x1 = x0 + 1
+	}
+	if y1 <= y0 {
+		y1 = y0 + 1
+	}
+	if x1 > bounds.Max.X {
+		x0, x1 = bounds.Max.X-1, bounds.Max.X
+	}
+	if y1 > bounds.Max.Y {
+		y0, y1 = bounds.Max.Y-1, bounds.Max.Y
+	}
+
+	// The sums are over 16-bit PREMULTIPLIED components, which is what the image
+	// interface hands back and the only form in which averaging is correct: an
+	// unpremultiplied average weights a transparent pixel's colour as heavily as
+	// an opaque one's.
+	var sumR, sumG, sumB, sumA uint64
+	var n uint64
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			r, g, b, alpha := source.At(x, y).RGBA()
+			sumR += uint64(r)
+			sumG += uint64(g)
+			sumB += uint64(b)
+			sumA += uint64(alpha)
+			n++
+		}
+	}
+	if n == 0 {
+		return cellColour{backR, backG, backB}
+	}
+	over := func(sum uint64, ground uint8) uint8 {
+		// src + ground·(1−α), all in the 16-bit space, then down to 8.
+		value := sum/n + uint64(ground)*257*(0xffff-sumA/n)/0xffff
+		if value > 0xffff {
+			value = 0xffff
+		}
+		return uint8(value >> 8)
+	}
+	return cellColour{over(sumR, backR), over(sumG, backG), over(sumB, backB)}
+}
+
+// backdrop is what a transparent pixel is composited over: the ground the
+// terminal almost certainly has behind this frame.
+//
+// It is read off the RAMP rather than asked of the terminal, because there is
+// no reliable way to ask and the ramp is the answer this surface already
+// committed to — a light ramp is drawn on a page and a dark one on a slate.
+func (p palette) backdrop() (r, g, b uint8) {
+	if p.ramp.ink == lightRamp.ink {
+		return 0xff, 0xff, 0xff
+	}
+	return 0x00, 0x00, 0x00
+}
+
+// pictureRow paints one row of half blocks.
+//
+// A colour is only written when it CHANGES. A flat sky is one SGR and forty
+// glyphs rather than forty SGRs, which matters twice: it is what a repaint
+// costs, and it is what a row costs to hold in the cache. The row closes on
+// SGR 39;49 so the next thing drawn inherits nothing.
+func pictureRow(pal palette, top, bottom []cellColour) string {
+	var b strings.Builder
+	b.Grow(len(top) * 12)
+	var lastTop, lastBottom cellColour
+	started := false
+	for i := range top {
+		if !started || top[i] != lastTop || bottom[i] != lastBottom {
+			b.WriteString(pal.halfCellSGR(top[i], bottom[i]))
+			lastTop, lastBottom, started = top[i], bottom[i], true
+		}
+		b.WriteString(halfBlock)
+	}
+	if started {
+		b.WriteString("\x1b[39;49m")
+	}
+	return b.String()
+}
+
+// halfCellSGR is one cell's two colours in a single escape sequence, on
+// whichever rung this terminal reached.
+func (p palette) halfCellSGR(top, bottom cellColour) string {
+	if p.profile == tokens.ANSI256 {
+		return "\x1b[38;5;" + itoa(int(nearest256(top.r, top.g, top.b))) +
+			";48;5;" + itoa(int(nearest256(bottom.r, bottom.g, bottom.b))) + "m"
+	}
+	return "\x1b[38;2;" + itoa(int(top.r)) + ";" + itoa(int(top.g)) + ";" + itoa(int(top.b)) +
+		";48;2;" + itoa(int(bottom.r)) + ";" + itoa(int(bottom.g)) + ";" + itoa(int(bottom.b)) + "m"
+}
+
+// ── the line under the picture ──────────────────────────────────────────────
+
+// picturePathLine is everything the preview says in words: the file, whole and
+// absolute, then its shape and its size.
+//
+// THE PATH IS NEVER TRUNCATED, which is the one place this file breaks the
+// expansion's own rule that rows truncate rather than wrap. A path with an
+// ellipsis in it is a path nobody can click, copy or paste, and the whole point
+// of the line is that a person can get from the picture to the file. So it is
+// given the lines it needs, and the shape and size step down to their own line
+// first — they are the part a reader can lose.
+//
+// It is wrapped in OSC 8 as well, through the surface's one door for that
+// (pathlink.go's [linker.anchor]), so a terminal that understands hyperlinks
+// makes it clickable — underlined, like every other path on this surface — and
+// one that does not shows exactly the characters that can be selected. Where
+// the path goes down across several rows EACH ROW OPENS ITS OWN ANCHOR on the
+// same file, which is what makes a terminal treat them as one link.
+//
+// A PREVIEW THAT WAS NEVER DRAWN STILL GETS ITS LINE, and then the line is the
+// path alone. This is the fallback [app.pictureWords] hands a terminal that
+// cannot paint — there is no decoded picture behind it, so there is no shape and
+// no size to state, and [design-law §EMPTINESS] says an unknown number renders
+// as nothing rather than as `0×0`. The path is the whole answer in that case,
+// which is exactly why it is the part that never truncates.
+func picturePathLine(l linker, path string, preview imagePreview, width int) []string {
+	if width < 4 {
+		width = 4
+	}
+	shape := ""
+	if preview.ok {
+		shape = itoa(preview.width) + "×" + itoa(preview.height)
+		if size := byteWord(preview.bytes); size != "" {
+			shape += " · " + size
+		}
+	}
+	if shape == "" {
+		if ansi.StringWidth(path) <= width {
+			return []string{l.pal.dim(l.anchor(path, path))}
+		}
+		out := make([]string, 0, 3)
+		for _, segment := range wrap(path, width) {
+			out = append(out, l.pal.dim(l.anchor(segment, path)))
+		}
+		return out
+	}
+	if together := path + " · " + shape; ansi.StringWidth(together) <= width {
+		return []string{l.pal.dim(l.anchor(path, path) + " · " + shape)}
+	}
+	if ansi.StringWidth(path) <= width {
+		return []string{l.pal.dim(l.anchor(path, path)), l.pal.dim(shape)}
+	}
+	// Narrower than the path itself. The path still goes down whole, across as
+	// many rows as it takes, each segment carrying the same link — a wrapped
+	// path can still be read and copied, and a cut one cannot be either.
+	out := make([]string, 0, 3)
+	for _, segment := range wrap(path, width) {
+		out = append(out, l.pal.dim(l.anchor(segment, path)))
+	}
+	return append(out, l.pal.dim(fit(shape, width)))
+}
+
+// pictureWords is WHAT A TERMINAL THAT CANNOT DRAW GETS INSTEAD: the file,
+// whole, absolute, clickable and never truncated, and then whatever the call
+// itself said.
+//
+// It answers the expansion of a picture call whose picture could not be
+// painted — sixteen colours, an ascii terminal, the linear tier, or a file this
+// program cannot decode — and it exists because on those terminals this block is
+// the ONLY record of where the picture went, while every other block on this
+// surface truncates to the width it was given. A path with an ellipsis in the
+// middle is a path nobody can open, and "here is the picture" degrading to "here
+// is a path you cannot use" is a worse answer than the one this surface gave
+// before previews existed.
+//
+// The result is kept under it because for `view_image` it is the whole point of
+// the call — what the looking model said — and for `generate_image` it is the
+// shape and the size, which no longer have a line of their own to sit on.
+//
+// THE PATH IS OUTSIDE THE CAP AND THE RESULT IS INSIDE IT, which is the same
+// division [app.detailBody] makes for a bash call's command: the part a person
+// opened the row to get is shown whole, and the part that can run to a megabyte
+// is bounded and lifts on "… N more lines".
+//
+// The file is not opened and not stat'd. A path that is merely NAMED is still
+// the useful answer — a person told where a generation went can go and look
+// whether or not this program could decode it — so nothing here can fail, and
+// the only call it declines is one where no path could be found at all.
+func (a *app) pictureWords(e *entry, width int) (rows []string, more int, ok bool) {
+	path, found := a.picturePath(e)
+	if !found {
+		return nil, 0, false
+	}
+	// The line is [picturePathLine]'s, with no preview behind it — one formatter
+	// for the path wherever it appears, so the wrapping rule, the OSC 8 link and
+	// the dim can never drift between the drawn case and this one.
+	rows = picturePathLine(a.linker(), path, imagePreview{}, width)
+	// A result with nothing in it is left off rather than drawn as the dim em
+	// dash [app.cap] would give it: the path above has already answered, and a
+	// shrug under an answer is the surface talking for the sake of it.
+	said := a.plainRows(resultText(e.detail.Output), width)
+	if len(said) == 0 {
+		return rows, 0, true
+	}
+	body, dropped := a.cap(e, said, listWindow)
+	return append(rows, body...), dropped, true
+}
+
+// ── which file a call is about ──────────────────────────────────────────────
+
+// pictureSuffixes are the formats [renderPicture] can decode, checked before a
+// file is opened so a call naming a pdf costs nothing.
+var pictureSuffixes = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,
+}
+
+// picturePath is the file one picture call is about, absolute, or false.
+//
+// Two things can name the file — the call's own `path` argument, and the path
+// `generate_image` reports back, which is asked at all because that tool chooses
+// the name itself when the caller did not (the path it picked is the first thing
+// its one-line result says, before the em dash, and is the only record of where
+// the picture went).
+//
+// AN ABSOLUTE CANDIDATE BEATS A RELATIVE ONE, whichever of the two it came from,
+// and this is the rule the whole function turns on. A relative path can only be
+// resolved against [app.workspace], which is THIS CONVERSATION'S directory — and
+// a task room's rows are drawn by this same code from a node that ran in a
+// worktree of its own (room.go), somewhere the surface is never told about. So a
+// room's `generate_image {"path":"book/cover.jpg"}` joined onto the conversation's
+// workspace names a file that is not there, and — far worse — names the WRONG
+// PICTURE on any conversation that happens to have a `book/cover.jpg` of its own.
+// The session tells the truth about where it wrote (tools_image.go's
+// [picturePathInResult] answers whole), so taking the absolute answer first
+// makes a room's picture resolve correctly and makes the wrong-file draw
+// impossible.
+//
+// The relative pass still runs, second, because it is right for every ordinary
+// conversation row and is all a `view_image` call has.
+func (a *app) picturePath(e *entry) (string, bool) {
+	if e == nil || !picturesAFile(e.tool) {
+		return "", false
+	}
+	candidates := []string{argString(argsOf(e.detail.Args), "path")}
+	if e.tool == "generate_image" {
+		candidates = append(candidates, generatedPicturePath(e.detail.Output))
+	}
+	relative := ""
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" || !pictureSuffixes[strings.ToLower(filepath.Ext(candidate))] {
+			continue
+		}
+		if filepath.IsAbs(candidate) {
+			return filepath.Clean(candidate), true
+		}
+		if relative == "" {
+			relative = candidate
+		}
+	}
+	if relative == "" || a.workspace == "" {
+		return "", false
+	}
+	return filepath.Clean(filepath.Join(a.workspace, relative)), true
+}
+
+// picturesAFile names the two tools whose expansion may draw a picture — the one
+// that makes a file and the one that looks at one.
+//
+// It is a predicate rather than two comparisons repeated because it is asked from
+// two directions: this file asks it to find the path, and toolview.go's
+// [toolBlock] asks it to keep its hands off a block whose freshness is a fact
+// about a FILE rather than about the call's arguments.
+func picturesAFile(tool string) bool {
+	return tool == "generate_image" || tool == "view_image"
+}
+
+// generatedPicturePath reads the file out of `generate_image`'s result, whose
+// whole first line is the path, an em dash, and the facts:
+//
+//	.codeaf/images/20260817-142201-a-harbour.png — 1024×1024 png, 1.4MB, generated on <model>
+//
+// A result that does not have that shape yields nothing, which is the honest
+// floor: a guessed path would draw somebody else's picture.
+func generatedPicturePath(output string) string {
+	line := firstLine(strings.TrimSpace(resultText(output)))
+	if at := strings.Index(line, " — "); at > 0 {
+		return strings.TrimSpace(line[:at])
+	}
+	return ""
+}
+
+// generatedModelMarker is what `generate_image`'s result line puts in front of
+// the model that drew the picture (internal/session's [describeGeneratedImage]
+// writes it). It is spelled here rather than derived because this file already
+// reads that line's other half the same way ([generatedPicturePath]), and one
+// parser for one sentence is easier to keep true than two halves in two places.
+const generatedModelMarker = ", generated on "
+
+// generatedPictureModel is the image model a finished `generate_image` call
+// actually drew with, read out of the tail of its own result line:
+//
+//	.codeaf/images/harbour.png — 1024×1024 png, 1.4MB, generated on vendor/paint-5
+//
+// THE RESULT IS THE ONE AUTHORITY ON THIS. The model that drew is chosen inside
+// the tool, after the call's own `model` word has been resolved against the
+// catalog — so a word the caller wrote ("best", "seedream") is a REQUEST and
+// this is the answer. A call that has not finished, or whose result does not
+// carry the marker, yields nothing, and the row draws nothing: the emptiness
+// law, applied to a name nobody here is in a position to invent.
+func generatedPictureModel(output string) string {
+	line := firstLine(strings.TrimSpace(resultText(output)))
+	at := strings.LastIndex(line, generatedModelMarker)
+	if at < 0 {
+		return ""
+	}
+	return strings.TrimSpace(line[at+len(generatedModelMarker):])
+}

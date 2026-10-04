@@ -1,0 +1,813 @@
+package tui3
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Agent-Field/codeaf/internal/effort"
+	"github.com/Agent-Field/codeaf/internal/provider"
+)
+
+// The thinking chip's acceptance tests: what the SEAM says beside the model,
+// what the chord and the press do to it, and what `/effort` opens.
+//
+// Each asserts the FACT the behaviour exists for. The cell must name what will
+// actually happen and not what somebody chose; the chord must reach the ladder
+// with a sentence half typed and leave that sentence alone; the press must walk
+// one rung the way a press on a task's thinking row walks that task's; and the
+// rung must be given up whole rather than cut when the line runs out of cells.
+
+// ── the scripted dial ───────────────────────────────────────────────────────
+
+// effortAgent is a [fakeAgent] that can say how hard it thinks. It is a separate
+// double rather than three more methods on the plain fake for the reason
+// [effortDialer] exists at all: a session with no dial has no chip, and the
+// suite needs both of those sessions.
+type effortAgent struct {
+	*fakeAgent
+	// conversation is the rung this session was set to, the scope the chip and
+	// the ladder both write.
+	conversation effort.Rung
+	// turn is a rung dialled onto the model itself, which outranks the
+	// conversation's (internal/effort's Resolve). Empty on every test but the one
+	// about a dial that cannot move.
+	turn effort.Rung
+	// installed is the install's own rung — the `effort` settings row.
+	installed effort.Rung
+	// sets is every word the surface handed to SetConversationEffort, in order,
+	// refusals included: what the chord WROTE is a different question from what
+	// the resolver then answered.
+	sets []string
+}
+
+func (e *effortAgent) ConversationEffort() string { return e.conversation.String() }
+
+func (e *effortAgent) ResolvedEffort() string {
+	return effort.Resolve(effort.Scope{
+		Turn:         e.turn,
+		Conversation: e.conversation,
+		Default:      e.installed,
+	}).String()
+}
+
+func (e *effortAgent) SetConversationEffort(rung string) bool {
+	e.sets = append(e.sets, rung)
+	parsed, ok := effort.Parse(rung)
+	if !ok {
+		return false
+	}
+	e.conversation = parsed
+	return true
+}
+
+// dialled is an app with an explicit high install setting to exercise the dial.
+// It is drawn at a width the whole seam fits on, because the rung is the third
+// thing that line gives up when it does not (foot.go's [app.seamIdentity]) and
+// every test below but the narrow one is about the rung being there.
+func dialled(t *testing.T) (*effortAgent, *app) {
+	t.Helper()
+	agent := &effortAgent{fakeAgent: &fakeAgent{model: "deepseek/deepseek-v4"}, installed: effort.High}
+	a := newTestApp(agent)
+	a.width, a.height = 120, 24
+	a.model, a.title = "deepseek/deepseek-v4", "porting the parser"
+	return agent, a
+}
+
+// shipped is the same app as it comes out of the box: nobody has dialled the
+// conversation and the install has chosen nothing either, so the resolver
+// answers absence — which is what [effort.Ship] is and what the owner's own
+// machine was doing when the cell never appeared.
+func shipped(t *testing.T) (*effortAgent, *app) {
+	t.Helper()
+	agent, a := dialled(t)
+	agent.installed = effort.None
+	return agent, a
+}
+
+// trayRow is the screen row the tray is drawn on, seamRow is the legend above
+// the box, and overlayRowY is where one row of the open list landed. All three
+// are found by asking [app.chromeAt] what is on each row, which is the same
+// question the pointer asks — an arithmetic of their own would be a second copy
+// of the layout for the test to be wrong in.
+func trayRow(a *app) int { return markedRowY(a, chromeDraft, 0) }
+
+func seamRowY(a *app) int { return markedRowY(a, chromeLegend, 0) }
+
+// seamLine is the seam as a person reads it, painted off and the frame drawn
+// first — the span the press resolves against is written by the layout, so a
+// test that read the span without drawing would be reading the frame before.
+func seamLine(t *testing.T, a *app) string {
+	t.Helper()
+	rows := strings.Split(plain(frame(a)), "\n")
+	y := seamRowY(a)
+	if y < 0 || y >= len(rows) {
+		t.Fatalf("no seam on the frame:\n%s", strings.Join(rows, "\n"))
+	}
+	return rows[y]
+}
+
+func overlayRowY(a *app, index int) int { return markedRowY(a, chromeOverlay, index) }
+
+func markedRowY(a *app, kind chromeKind, index int) int {
+	_, height := a.size()
+	for y := range height {
+		if mark, ok := a.chromeAt(y); ok && mark.kind == kind && mark.index == index {
+			return y
+		}
+	}
+	return -1
+}
+
+// ── 1. the rung on the seam ─────────────────────────────────────────────────
+
+// THE CELL NAMES THE RUNG THE NEXT TURN WILL ACTUALLY ASK FOR, not the rung
+// somebody chose. On a session where nobody has chosen anything the two are
+// different — the stored rung is absence — and it is the resolved one a person
+// needs. It is written beside the model, because it is a fact about the model.
+func TestTheSeamNamesTheResolvedThinkingRung(t *testing.T) {
+	agent, a := dialled(t)
+
+	if got := agent.ConversationEffort(); got != "" {
+		t.Fatalf("the session started with a chosen rung: %q", got)
+	}
+	line := seamLine(t, a)
+	if !strings.Contains(line, "deepseek-v4:high") {
+		t.Fatalf("the seam does not name the configured rung beside the model: %q", line)
+	}
+
+	// And it follows the resolver rather than remembering anything: a rung set on
+	// the conversation moves the word on the next frame.
+	agent.conversation = effort.Max
+	if line := seamLine(t, a); !strings.Contains(line, ":max") {
+		t.Fatalf("the seam kept the old rung: %q", line)
+	}
+}
+
+// A CONVERSATION NOBODY HAS DIALLED SAYS `auto`, WHICH IS WHAT A SHIPPED
+// INSTALL IS. [effort.Ship] is absence, so the resolver answers "" on every
+// fresh conversation — and while the cell was drawn from that word alone it was
+// missing on every conversation of every install that had not been dialled,
+// which is to say on all of them, on the in-process road and the hosted one
+// alike. A control that is invisible until you have already used it is not a
+// control (CLAUDE.md's discoverability law).
+func TestAFreshConversationSaysAutoAndIsPressable(t *testing.T) {
+	agent, a := shipped(t)
+
+	if got := agent.ResolvedEffort(); got != "" {
+		t.Fatalf("the shipped session resolved to %q, want absence", got)
+	}
+	line := seamLine(t, a)
+	if !strings.Contains(line, "deepseek-v4:"+effortAutoWord) {
+		t.Fatalf("a fresh conversation does not say auto beside the model: %q", line)
+	}
+	if !a.seamEffortSpan.pressable() {
+		t.Fatal("the auto cell is drawn but cannot be pressed")
+	}
+	// AND THE FIRST STEP OFF auto IS THE CHEAPEST RUNG, which is the wheel's own
+	// law: absence is where it starts and never a stop on it.
+	drive(t, a, key(effortKey))
+	if got := agent.ConversationEffort(); got != "low" {
+		t.Fatalf("the first press off auto left the conversation at %q, want low", got)
+	}
+	if line := seamLine(t, a); !strings.Contains(line, ":low") {
+		t.Fatalf("the chord did not walk the cell onto low: %q", line)
+	}
+}
+
+// AND THE WAY BACK IS ALSO BY NAME. The wheel reaches `auto` off the top now,
+// but `/effort auto` (and the legacy `off`) hands the scope back in one move
+// from any rung — and it must land on the seam, or a conversation dialled up
+// once could only be put back by walking it.
+func TestEffortAutoPutsTheCellBackToAuto(t *testing.T) {
+	for _, word := range []string{"auto", "off"} {
+		agent, a := shipped(t)
+		a.slash("/effort high")
+		if line := seamLine(t, a); !strings.Contains(line, ":high") {
+			t.Fatalf("/effort high did not reach the seam: %q", line)
+		}
+
+		a.slash("/effort " + word)
+		if got := agent.ConversationEffort(); got != "" {
+			t.Fatalf("/effort %s left the conversation at %q, want absence", word, got)
+		}
+		if line := seamLine(t, a); !strings.Contains(line, seamEffortJoin+effortAutoWord) {
+			t.Fatalf("/effort %s did not put the cell back to auto: %q", word, line)
+		}
+		// It says what now decides, because `auto` on the seam reads like the dial
+		// went away rather than like a state somebody chose.
+		if got := plain(frame(a)); !strings.Contains(got, "thinking · "+effortAutoWord+" · the model decides") {
+			t.Fatalf("/effort %s said nothing about what decides now:\n%s", word, got)
+		}
+	}
+}
+
+// A SESSION THAT CANNOT SAY HOW HARD IT THINKS HAS NO RUNG — the design law
+// that a capability with nothing behind it is absent rather than broken. The
+// plain scripted agent is one, and so is a connection to an engine that has
+// never heard of the ladder ([effortDialer]'s own comment).
+func TestASessionWithNoDialDrawsNoRung(t *testing.T) {
+	_, a := wired(nil)
+	a.width, a.height = 120, 24
+	if line := seamLine(t, a); strings.Contains(line, a.modelWord()+seamEffortJoin) {
+		t.Fatalf("a session with no dial drew a rung: %q", line)
+	}
+	if a.seamEffortSpan.pressable() {
+		t.Fatal("a session with no dial recorded a press target")
+	}
+	if _, ok := a.effortDial(); ok {
+		t.Fatal("the plain scripted agent claimed a thinking dial")
+	}
+}
+
+// hostedDial is a connection whose far engine says at the door whether it has a
+// dial at all — which is the only honest reading over a wire, since every
+// *remote.Agent carries the three methods and "" is a real rung.
+type hostedDial struct {
+	*effortAgent
+	known bool
+}
+
+func (h *hostedDial) EffortSupported() bool { return h.known }
+
+// A HOSTED CONVERSATION HAS THE DIAL WHERE THE ENGINE HAS ONE, AND NONE WHERE IT
+// HAS NOT. Before the wire carried it, `--host` drew no rung and answered the
+// chord with nothing on every engine alike.
+func TestAHostedConversationDrawsTheRungItsEngineAdmitsTo(t *testing.T) {
+	for _, known := range []bool{true, false} {
+		agent := &effortAgent{fakeAgent: &fakeAgent{model: "deepseek/deepseek-v4"}, installed: effort.High}
+		a := newTestApp(&hostedDial{effortAgent: agent, known: known})
+		a.width, a.height = 120, 24
+		a.model, a.title = "deepseek/deepseek-v4", "porting the parser"
+
+		line := seamLine(t, a)
+		if drew := strings.Contains(line, ":high"); drew != known {
+			t.Fatalf("an engine that says known=%v drew rung=%v: %q", known, drew, line)
+		}
+		drive(t, a, key(effortKey))
+		if wrote := len(agent.sets) > 0; wrote != known {
+			t.Fatalf("an engine that says known=%v took %d rungs from the chord", known, len(agent.sets))
+		}
+	}
+}
+
+// THE RIDER STANDS BETWEEN THE MODEL AND THE RUNG. Until 2026-09-17 the rung
+// was anchored to the model so that a rider coming and going on a sighting's
+// own clock could not slide it sideways; the owner ruled that day that the
+// model and its machine read as one cell — `deepseek-v4 (quicksilver)` —
+// so the rung stands past the pair and moves with it. What holds still is
+// the model's own column, and the recorded doors move with their cells
+// (foot.go's seamSpans).
+func TestTheRungKeepsItsColumnsWhenTheRiderComesAndGoes(t *testing.T) {
+	_, a := dialled(t)
+	bare := seamLine(t, a)
+	_ = frame(a)
+	bareDial := a.seamEffortSpan
+	at := a.now()
+	pinSighting(t, provider.Sighting{
+		Model: "deepseek/deepseek-v4", Provider: "quicksilver", At: at.Add(-time.Second),
+	}, true)
+	served := seamLine(t, a)
+	_ = frame(a)
+
+	if !strings.Contains(served, "deepseek-v4 (quicksilver):high") {
+		t.Fatalf("the rider does not stand between the model and the rung: %q", served)
+	}
+	if strings.Index(bare, "deepseek-v4") != strings.Index(served, "deepseek-v4") {
+		t.Fatalf("the model moved when the rider arrived:\n%q\n%q", bare, served)
+	}
+	// AND THE RUNG'S DOOR MOVED WITH ITS CELL: the span is measured past the
+	// rider, so a press on the rung's word is still a press on the rung.
+	if !a.seamEffortSpan.pressable() || a.seamEffortSpan.from <= bareDial.from {
+		t.Fatalf("the rung's door did not move past the rider: %+v then %+v", bareDial, a.seamEffortSpan)
+	}
+	if got := ansi.StringWidth(served[:strings.Index(served, "high")]); got != a.seamEffortSpan.from {
+		t.Fatalf("the rung's door is at %+v but its cell starts at cell %d:\n%q", a.seamEffortSpan, got, served)
+	}
+}
+
+// THE RUNG IS GIVEN UP WHOLE OR NOT AT ALL, and it is given up before the name
+// is cut: half a rung word is a word somebody reads as another rung.
+func TestANarrowSeamDropsTheRungRatherThanCuttingIt(t *testing.T) {
+	_, a := dialled(t)
+	for width := 120; width >= 40; width-- {
+		a.width = width
+		line := seamLine(t, a)
+		// The project label has its own colon even when the model has gone.
+		controls := strings.SplitN(line, targetProjectLead, 2)[0]
+		if !strings.Contains(controls, seamEffortJoin) {
+			continue
+		}
+		found := false
+		for _, rung := range effort.Rungs {
+			if strings.Contains(controls, seamEffortJoin+rung.String()) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("at %d columns the seam drew a cut rung: %q", width, line)
+		}
+	}
+}
+
+// ── 2. the chord ────────────────────────────────────────────────────────────
+
+// THE CHORD WALKS THE SIX STOPS AND COMES BACK TO auto, and every step goes
+// through the session's own setter — the chip is drawn from the resolver, so a
+// step the surface only remembered would be a step nothing else in the process
+// saw.
+//
+// THE SIXTH STOP IS THE POINT OF THE WHEEL. It had five until 2026-09-15 and the
+// state an install ships at was the one the walk could not reach, so a
+// conversation dialled up once had to be put back through `/effort` — a
+// different door for the one stop people most want back.
+func TestAltECyclesTheConversationRungAndComesBackToAuto(t *testing.T) {
+	agent, a := shipped(t)
+	a.slash("/effort high")
+	agent.sets = nil
+
+	// The walk starts at high, climbs to the top, clears, and begins again.
+	want := []string{"xhigh", "max", "", "low", "medium", "high"}
+	for at, rung := range want {
+		drive(t, a, key(effortKey))
+		if got := agent.ConversationEffort(); got != rung {
+			t.Fatalf("press %d left the conversation at %q, want %q", at+1, got, rung)
+		}
+		word := rung
+		if word == "" {
+			word = effortAutoWord
+		}
+		if line := seamLine(t, a); !strings.Contains(line, seamEffortJoin+word) {
+			t.Fatalf("press %d drew %q, want %q", at+1, line, word)
+		}
+	}
+	if len(agent.sets) != len(want) {
+		t.Fatalf("the chord wrote %d rungs for %d presses: %v", len(agent.sets), len(want), agent.sets)
+	}
+}
+
+// AND THE PRESS ON THE CELL REACHES THE SAME STOP, because the press and the
+// chord are one function: a wheel that cleared under the key and wrapped under
+// the pointer would be two wheels wearing one word.
+func TestPressingTheRungOnMaxHandsTheConversationBackToAuto(t *testing.T) {
+	agent, a := shipped(t)
+	a.slash("/effort max")
+
+	_ = frame(a)
+	drive(t, a, clickAt(a.seamEffortSpan.from+1, seamRowY(a)))
+
+	if got := agent.ConversationEffort(); got != "" {
+		t.Fatalf("the press off max left the conversation at %q, want absence", got)
+	}
+	if line := seamLine(t, a); !strings.Contains(line, seamEffortJoin+effortAutoWord) {
+		t.Fatalf("the press off max did not put the cell back to auto: %q", line)
+	}
+	// It says what decides now, because `auto` on the seam reads like the dial
+	// went away rather than like a state somebody walked onto.
+	if got := plain(frame(a)); !strings.Contains(got, "thinking · "+effortAutoWord+" · the model decides") {
+		t.Fatalf("clearing by the wheel said nothing about what decides now:\n%s", got)
+	}
+	// And the next press starts the walk again from the cheapest rung.
+	drive(t, a, clickAt(a.seamEffortSpan.from+1, seamRowY(a)))
+	if got := agent.ConversationEffort(); got != "low" {
+		t.Fatalf("the press off auto left the conversation at %q, want low", got)
+	}
+}
+
+// ON A MACHINE WHOSE OWN ROW IS SET, CLEARING LANDS ON THAT ROW AND SAYS SO.
+// The resolver hands a cleared conversation to the install's `thinking` row
+// (internal/effort's Resolve), so the seam keeps a word — and the note must name
+// the scope that caught it. It used to blame the model's own level and point at
+// `ctrl+t`, which moves a different scope entirely; that sentence was
+// unreachable while `/effort auto` was the only way back and is one press away
+// now.
+func TestClearingOnAnInstallWithItsOwnRungNamesThatRow(t *testing.T) {
+	agent, a := dialled(t) // the install's row is high
+	a.slash("/effort max")
+
+	drive(t, a, key(effortKey))
+	if got := agent.ConversationEffort(); got != "" {
+		t.Fatalf("the press off max left the conversation at %q, want absence", got)
+	}
+	if line := seamLine(t, a); !strings.Contains(line, ":high") {
+		t.Fatalf("the seam did not fall back to the install's rung: %q", line)
+	}
+	got := plain(frame(a))
+	if !strings.Contains(got, "thinking · "+effortAutoWord+" for this chat · high · "+effortInstallDecides) {
+		t.Fatalf("clearing did not name the row that decides now:\n%s", got)
+	}
+	if strings.Contains(got, "ctrl+t") {
+		t.Fatalf("clearing pointed at ctrl+t, which moves the model's level and not this:\n%s", got)
+	}
+}
+
+// THE CHORD RIDES THE CHORD NAMESPACE, so it reaches the ladder with a sentence
+// half typed — and leaves the sentence and the caret exactly where they were.
+// A letter still types: alt+e carries no text, and the router reads it in the
+// plain switch under everything that could have wanted it.
+func TestTheChordWorksMidDraftAndDisturbsNeitherTextNorCaret(t *testing.T) {
+	agent, a := dialled(t)
+	typeInto(t, a, "what changed in the relay")
+	drive(t, a, key("left"), key("left"), key("left"))
+
+	want, caret := a.input.String(), a.input.cursor
+	drive(t, a, key("ctrl+v"))
+	if len(agent.sets) != 0 {
+		t.Fatalf("the retired effort chord still changed thinking: %v", agent.sets)
+	}
+	drive(t, a, key("alt+e"))
+
+	if got := a.input.String(); got != want {
+		t.Fatalf("the chord changed the draft to %q, want %q", got, want)
+	}
+	if a.input.cursor != caret {
+		t.Fatalf("the chord moved the caret to %d, want %d", a.input.cursor, caret)
+	}
+	if got := agent.ConversationEffort(); got != "xhigh" {
+		t.Fatalf("the chord did not reach the ladder mid-draft: %q", got)
+	}
+	// And the letter after it is still a letter.
+	drive(t, a, key("y"))
+	if got := a.input.String(); got != want[:caret]+"y"+want[caret:] {
+		t.Fatalf("the key after the chord typed %q", got)
+	}
+}
+
+// THE MOMENT IT CHANGES IS THE ONE MOMENT THIS CELL IS ACCENT. Before the chord
+// and after the flash it is furniture, in the dim tier the rest of the seam
+// wears — THE ACCENT BUDGET is one lit element per screen and a rung that sat
+// lit forever would have spent it on a fact that changes once a week.
+func TestTheRungIsEmphasizedOnlyWhileItsChangeIsFresh(t *testing.T) {
+	_, a := dialled(t)
+
+	if a.effortFlashing() {
+		t.Fatal("the rung opened already lit")
+	}
+	rest := a.legend(a.width)
+	drive(t, a, key(effortKey))
+	if !a.effortFlashing() {
+		t.Fatal("the chord did not light the rung")
+	}
+	if lit := a.legend(a.width); lit == rest {
+		t.Fatal("the lit rung is painted exactly like the resting one")
+	}
+	if lit := a.legend(a.width); ansi.StringWidth(lit) != a.width {
+		t.Fatalf("flashing a badge-free effort changed the seam width: %q", plain(lit))
+	}
+	// The clock is the whole of the state: past the window it settles back with
+	// no second flag to disagree with.
+	a.clock = func() time.Time { return time.Now().Add(effortFlashFor + time.Second) }
+	if a.effortFlashing() {
+		t.Fatal("the chip stayed lit past its window")
+	}
+}
+
+// A DIAL THAT CANNOT MOVE SAYS SO. A level set on the model itself is the turn
+// scope and beats the conversation's, so the chord writes a rung the resolver
+// then ignores — which is a knob doing nothing, and the surface owes the person
+// the reason and the door.
+func TestTheChordSaysSoWhenTheModelsOwnLevelIsWinning(t *testing.T) {
+	agent, a := dialled(t)
+	agent.turn = effort.Low
+
+	drive(t, a, key(effortKey))
+	if got := agent.ConversationEffort(); got == "" {
+		t.Fatal("the chord did not write the conversation's rung")
+	}
+	got := plain(frame(a))
+	for _, want := range []string{"thinking stays low", "deepseek-v4", "ctrl+t"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("the note is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// AND WHERE THE MODEL'S OWN LEVEL IS WHAT CATCHES IT, THE NOTE STILL POINTS AT
+// ctrl+t. Clearing lands on whichever scope stands above this one, and the two
+// that can be there — the install's `thinking` row and a level dialled onto the
+// model — are answered by different doors. Naming the wrong one is a person
+// pressing a key that cannot move what they are looking at.
+func TestClearingUnderAModelsOwnLevelStillPointsAtCtrlT(t *testing.T) {
+	agent, a := shipped(t)
+	// The wheel steps from the RESOLVED word, so the one press that clears under a
+	// level on the model is the press off the top: the cell says `max` because the
+	// model is dialled to it.
+	agent.turn = effort.Max
+	agent.levels = map[string]string{"deepseek/deepseek-v4": "max"}
+	// And the surface has not been told about that level yet, which is the state
+	// this note must survive: the press asks the agent rather than reading a table
+	// that would answer "nobody dialled one" ([app.modelOwnLevel]).
+	clear(a.levels)
+
+	drive(t, a, key(effortKey))
+	if got := agent.ConversationEffort(); got != "" {
+		t.Fatalf("the press off max left the conversation at %q, want absence", got)
+	}
+	got := plain(frame(a))
+	for _, want := range []string{"thinking stays max", "deepseek-v4", "ctrl+t"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("the note is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, effortInstallDecides) {
+		t.Fatalf("clearing blamed the settings row for a level on the model:\n%s", got)
+	}
+}
+
+// ── 3. the press ────────────────────────────────────────────────────────────
+
+// PRESSING THE RUNG WALKS IT ONE STEP AND MOVES NO CARET — the same gesture the
+// room panel's thinking row makes on a task (roompanel.go), so one press means
+// one step wherever a person meets a rung. The seam sits directly above the box,
+// so a press that fell through would put the caret in the middle of a sentence
+// somebody was still writing (draftclick.go).
+func TestPressingTheRungWalksTheLadderOneStepAndLeavesTheCaretAlone(t *testing.T) {
+	agent, a := dialled(t)
+	typeInto(t, a, "what changed in the relay")
+	drive(t, a, key("left"), key("left"))
+	caret := a.input.cursor
+
+	_ = frame(a)
+	x, y := a.seamEffortSpan.from+1, seamRowY(a)
+	if !a.seamEffortSpan.pressable() {
+		t.Fatal("the rung recorded no columns to press")
+	}
+	drive(t, a, clickAt(x, y))
+
+	if got := agent.ConversationEffort(); got != "xhigh" {
+		t.Fatalf("the press left the conversation at %q, want xhigh", got)
+	}
+	if a.effPick.open {
+		t.Fatal("the press opened a list instead of walking the ladder")
+	}
+	if a.input.cursor != caret {
+		t.Fatalf("the press moved the caret to %d, want %d", a.input.cursor, caret)
+	}
+	// And the next press is the next step, which is what makes it a wheel.
+	drive(t, a, clickAt(a.seamEffortSpan.from+1, seamRowY(a)))
+	if got := agent.ConversationEffort(); got != "max" {
+		t.Fatalf("the second press left the conversation at %q, want max", got)
+	}
+}
+
+// THE SET THAT LIGHTS IS THE SET THE PRESS ACTS ON (hover.go). The rung lights
+// on exactly its own columns, and the model beside it lights as its own control
+// — two cells, two lights, two different things done to them.
+func TestTheRungLightsUnderThePointerOnItsOwnColumns(t *testing.T) {
+	_, a := dialled(t)
+	_ = frame(a)
+
+	a.setHover(a.seamEffortSpan.from+1, seamRowY(a))
+	if !a.hoveringEffort() {
+		t.Fatal("the rung does not light under the pointer")
+	}
+	if a.hoveringStatusModel() {
+		t.Fatal("the pointer on the rung lit the model as well")
+	}
+	hot := frame(a)
+	a.dropHover()
+	if cold := frame(a); hot == cold {
+		t.Fatal("hovering the rung changed nothing on the frame")
+	}
+	// One cell to the left of the span is the separator, which is not a control.
+	a.setHover(a.seamEffortSpan.from-1, seamRowY(a))
+	if a.hoveringEffort() {
+		t.Fatal("the rung lights from outside its own columns")
+	}
+	// And the model's own columns still open the picker rather than the ladder.
+	a.setHover(a.seamModelSpan.from+1, seamRowY(a))
+	if a.hoveringEffort() {
+		t.Fatal("the model's columns light the rung")
+	}
+}
+
+// ── 4. the ladder ───────────────────────────────────────────────────────────
+
+// `/effort` IS THE LADDER'S DOOR now that the pointer's gesture on the cell is
+// the wheel, and it TOGGLES: a door that opened a list and then ignored the same
+// word typed again would be one with no way back through the gesture that got
+// you there.
+func TestTheEffortCommandOpensTheLadderAndSetsARungOutright(t *testing.T) {
+	agent, a := dialled(t)
+
+	a.slash("/effort")
+	if !a.effPick.open {
+		t.Fatal("/effort did not open the ladder")
+	}
+	a.slash("/effort")
+	if a.effPick.open {
+		t.Fatal("/effort a second time did not put the ladder away")
+	}
+
+	// A rung after it is the rung, through the same path the chord and the list
+	// both take.
+	a.slash("/effort max")
+	if got := agent.ConversationEffort(); got != "max" {
+		t.Fatalf("/effort max left the conversation at %q", got)
+	}
+	if a.effPick.open {
+		t.Fatal("/effort with a rung opened the list as well")
+	}
+
+	// AND A WORD THAT IS NOT A LEVEL CHANGES NOTHING AND SAYS THE SIX — auto
+	// among them, because auto is a word this door takes.
+	before := agent.ConversationEffort()
+	a.slash("/effort harder")
+	if got := agent.ConversationEffort(); got != before {
+		t.Fatalf("/effort harder moved the rung to %q", got)
+	}
+	got := plain(frame(a))
+	for _, word := range effortMenuWords() {
+		if !strings.Contains(got, word) {
+			t.Fatalf("the refusal of /effort harder does not name %q:\n%s", word, got)
+		}
+	}
+}
+
+// AND ITS OTHER WORDS REACH IT. People say "thinking" because that is what the
+// settings row calls the same ladder, and terminal fingers type the short one.
+func TestTheOtherWordsForTheEffortCommandReachIt(t *testing.T) {
+	for _, word := range []string{"/think", "/thinking"} {
+		agent, a := dialled(t)
+		a.slash(word + " low")
+		if got := agent.ConversationEffort(); got != "low" {
+			t.Fatalf("%s low left the conversation at %q", word, got)
+		}
+	}
+}
+
+// THE LADDER IS SIX ROWS — auto AND THEN THE FIVE, cheapest first, with the row
+// in force marked by the ground ladder's chosen step, which is the same idiom
+// every other list on this surface marks the current thing with.
+func TestTheLadderDrawsAutoAndFiveRungsCheapestFirstWithTheCurrentOneChosen(t *testing.T) {
+	_, a := dialled(t)
+	a.openEffortMenu()
+
+	rows := a.effPick.rows(a.width, a.effPick.height(), a.pal, -1)
+	if len(rows) != len(effortMenuRungs)+effortFrameRows {
+		t.Fatalf("the ladder drew %d rows, want %d", len(rows), len(effortMenuRungs)+effortFrameRows)
+	}
+	// THE TOP ROW IS auto AND IT SAYS WHICH SETTING SHIPPED. `high` used to claim
+	// that and it was never true — [effort.Ship] is absence.
+	top := plain(rows[1])
+	if !strings.HasPrefix(strings.TrimSpace(top), effortAutoWord) {
+		t.Fatalf("the ladder's first row is not auto: %q", top)
+	}
+	if !strings.Contains(top, "the shipped setting") {
+		t.Fatalf("the auto row does not say it is the shipped setting: %q", top)
+	}
+	for _, row := range rows {
+		if strings.Contains(plain(row), "high") && strings.Contains(plain(row), "shipped") {
+			t.Fatalf("a rung row still claims to be the shipped one: %q", plain(row))
+		}
+	}
+	at := 0
+	for _, rung := range effort.Rungs {
+		found := -1
+		for i := at; i < len(rows); i++ {
+			if strings.Contains(plain(rows[i]), rung.String()) {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			t.Fatalf("the ladder is missing %q:\n%s", rung, strings.Join(rows, "\n"))
+		}
+		at = found + 1
+	}
+	// `high` is in force, so its row wears the selected ground and no other does.
+	ground := paintPrefix(a.pal.background("x", 0, a.pal.ramp.selected))
+	chosen := 0
+	for _, row := range rows {
+		if strings.Contains(row, ground) {
+			chosen++
+		}
+	}
+	if chosen != 1 {
+		t.Fatalf("%d rows wear the chosen step, want exactly one", chosen)
+	}
+	if !strings.Contains(plain(rows[a.effPick.cursor+1]), "high") {
+		t.Fatalf("the cursor did not open on the rung in force:\n%s", strings.Join(rows, "\n"))
+	}
+}
+
+// AND ON A SHIPPED CONVERSATION THE CURSOR RESTS ON auto, because that is the
+// row in force. A list that opened on `low` would say the conversation was at a
+// rung it is not, to the one person most likely to be opening it for the first
+// time.
+func TestTheLadderOpensOnAutoWhenNobodyHasDialledIt(t *testing.T) {
+	_, a := shipped(t)
+	a.openEffortMenu()
+
+	if a.effPick.cursor != 0 {
+		t.Fatalf("the ladder opened with the cursor on row %d, want the auto row", a.effPick.cursor)
+	}
+	rows := a.effPick.rows(a.width, a.effPick.height(), a.pal, -1)
+	if !strings.Contains(plain(rows[a.effPick.cursor+1]), effortAutoWord) {
+		t.Fatalf("the cursor did not open on auto:\n%s", strings.Join(rows, "\n"))
+	}
+	// And that row wears the chosen step, alone.
+	ground := paintPrefix(a.pal.background("x", 0, a.pal.ramp.selected))
+	if !strings.Contains(rows[1], ground) {
+		t.Fatalf("the auto row is not marked as the one in force:\n%s", strings.Join(rows, "\n"))
+	}
+}
+
+// PICKING THE TOP ROW CLEARS THE CONVERSATION'S RUNG. It is the ladder's half of
+// `/effort auto`, and the only way back to auto that is not typed.
+func TestPickingTheLaddersTopRowClearsTheRung(t *testing.T) {
+	agent, a := shipped(t)
+	a.slash("/effort max")
+	a.openEffortMenu()
+
+	drive(t, a, key("up"), key("up"), key("up"), key("up"), key("up"), key("enter"))
+	if got := agent.ConversationEffort(); got != "" {
+		t.Fatalf("the top row left the conversation at %q, want absence", got)
+	}
+	if line := seamLine(t, a); !strings.Contains(line, seamEffortJoin+effortAutoWord) {
+		t.Fatalf("the seam did not come back to auto: %q", line)
+	}
+}
+
+// ENTER PICKS, ESC CLOSES, AND A PLAIN LETTER DOES NOT TYPE. The ladder is a
+// fixed list with no filter under it, so a letter falling through to the box
+// would be a letter somebody has to find and delete afterwards.
+func TestTheLadderTakesEveryKeyAndPicksWithEnter(t *testing.T) {
+	agent, a := dialled(t)
+	typeInto(t, a, "steady")
+	a.openEffortMenu()
+
+	drive(t, a, key("x"))
+	if a.input.String() != "steady" {
+		t.Fatalf("a letter typed into the box under the ladder: %q", a.input.String())
+	}
+	// AND A SPACE IS A LETTER. It is called out beside the `x` because space is
+	// the one unanswered key that means something on the surfaces around this
+	// one, and a rung that let it through would put a character into a sentence
+	// nobody is looking at just as surely as the `x` would.
+	drive(t, a, key(" "))
+	if a.input.String() != "steady" {
+		t.Fatalf("a space fell through the ladder into the box: %q", a.input.String())
+	}
+	if !a.effPick.open {
+		t.Fatal("a key the ladder does not answer to closed it")
+	}
+	drive(t, a, key("down"), key("enter"))
+	if got := agent.ConversationEffort(); got != "xhigh" {
+		t.Fatalf("enter picked %q, want xhigh", got)
+	}
+	if a.effPick.open {
+		t.Fatal("the ladder stayed up after a pick")
+	}
+
+	a.openEffortMenu()
+	drive(t, a, key("esc"))
+	if a.effPick.open {
+		t.Fatal("esc did not close the ladder")
+	}
+	if a.input.String() != "steady" {
+		t.Fatalf("closing the ladder disturbed the draft: %q", a.input.String())
+	}
+}
+
+// A CLICK ON A ROW MEANS WHAT ENTER MEANS, and a click on the two sentences
+// around them means nothing at all.
+func TestClickingALadderRowPicksThatRung(t *testing.T) {
+	agent, a := dialled(t)
+	a.openEffortMenu()
+
+	// The header is the ladder's first row and carries no rung.
+	head := overlayRowY(a, 0)
+	drive(t, a, clickAt(2, head))
+	if !a.effPick.open {
+		t.Fatal("a press on the header closed the ladder")
+	}
+	if len(agent.sets) != 0 {
+		t.Fatalf("a press on the header set a rung: %v", agent.sets)
+	}
+	// auto is the row under it and the cheapest rung the row under that.
+	drive(t, a, clickAt(2, head+2))
+	if got := agent.ConversationEffort(); got != "low" {
+		t.Fatalf("the press picked %q, want low", got)
+	}
+	if a.effPick.open {
+		t.Fatal("the ladder stayed up after a press picked a rung")
+	}
+}
+
+// THE ROUTER REACHES THE CHORD WITH A DRAFT IN PROGRESS, asserted at the router
+// through a real modified key event, so none of the claims above the plain
+// switch may swallow it while somebody is typing.
+func TestTheRouterReachesTheChordWithADraftInProgress(t *testing.T) {
+	_, a := dialled(t)
+	typeInto(t, a, "/hel")
+	if !a.menu.open {
+		t.Fatal("the command list is not up, so this asserts nothing")
+	}
+	drive(t, a, key(effortKey))
+	if !a.effortFlashing() {
+		t.Fatal("the command list swallowed the chord")
+	}
+}

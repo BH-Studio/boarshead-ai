@@ -1,0 +1,2126 @@
+package tui3
+
+import (
+	"strings"
+	"unicode"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+	"github.com/Agent-Field/codeaf/internal/tui2/tokens"
+)
+
+// prompt is the input line's mark. Two cells, and the only furniture below the
+// conversation: a box around the input would be a box the reader has to look
+// past on every frame.
+const prompt = "› "
+
+// draftRows is how many rows of a draft the box shows at once. Six is where a
+// paste stops being a message and starts being a document: past it the block
+// scrolls under the caret rather than eating the conversation it is about.
+const draftRows = 6
+
+// editor is the draft, and it holds newlines.
+//
+// It was a single line for one wave, on the argument that a conversation is
+// typed a sentence at a time. That is true of what people TYPE and false of
+// what they PASTE — a stack trace, a diff, a paragraph out of a file — and a
+// box that silently flattened a paste into one run-on line was answering the
+// commonest input on this surface by destroying it. So: shift+enter, alt+enter and ctrl+j
+// open a line, a bracketed paste arrives whole, and enter still submits. The
+// value is a rune slice with '\n' in it and nothing else is special about it.
+type editor struct {
+	value  []rune
+	cursor int
+	// demoted tags are slash words made plain in this draft. Keeping them with
+	// the value makes every reset or whole-draft replacement clear the state
+	// automatically instead of letting a new sentence inherit old plainness.
+	demotedTags []segment
+	// picked is a run of the draft under selection: anchor is the offset the
+	// gesture began at and the caret is its other end, so the run is those two
+	// in reading order (editselect.go). picked is what tells the zero value —
+	// no selection at all — apart from a selection that happens to start at
+	// offset zero, which is why the anchor alone will not do.
+	picked bool
+	anchor int
+	// past and ahead are the undo and redo stacks, and run is what the last
+	// edit was doing so a run of ordinary typing folds into one step
+	// (editundo.go).
+	past, ahead []editSnap
+	run         editRun
+	runSpace    bool
+}
+
+func (e *editor) String() string { return string(e.value) }
+
+// empty reports whether the draft holds anything a person would call text. It
+// walks the runes rather than trimming a copy of them, because the frame asks
+// this question half a dozen times a paint — the welcome box, the placeholder,
+// the proposal's hint and the room's all read it — and building a string of a
+// four-thousand-line paste six times a frame is a hundred kilobytes of garbage
+// per frame to learn one bit.
+func (e *editor) empty() bool {
+	for _, r := range e.value {
+		if !unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// reset empties the draft. IT ALSO THROWS THE UNDO HISTORY AWAY, because the
+// commonest reset is a message being SENT: the words have left the box and the
+// recall history is where they live now (`↑` walks it), so a ctrl+z that pulled
+// a sent sentence back into the draft would be one chord with two unrelated
+// meanings (editundo.go).
+func (e *editor) reset() {
+	e.value, e.cursor, e.demotedTags = e.value[:0], 0, nil
+	e.picked = false
+	e.forgetUndo()
+}
+
+// setText replaces the whole draft and parks the caret at its end. It is what
+// history recall and the command list write through.
+func (e *editor) setText(text string) {
+	e.remember(runWhole, true)
+	e.value = append(e.value[:0], []rune(text)...)
+	e.cursor = len(e.value)
+	e.demotedTags = nil
+	e.picked = false
+}
+
+// rewrite replaces the whole draft and leaves the caret where it was, clamped to
+// the new end. It is [editor.setText] for an edit the person did not make with
+// the caret: renumbering the picture tokens after a chip comes off (imagepaste.go)
+// changes the line under somebody who is mid-sentence, and parking the caret at
+// the end of it would move them somewhere they did not ask to be.
+func (e *editor) rewrite(text string) {
+	e.remember(runWhole, true)
+	e.value = append(e.value[:0], []rune(text)...)
+	e.demotedTags = nil
+	e.picked = false
+	if e.cursor > len(e.value) {
+		e.cursor = len(e.value)
+	}
+}
+
+// insert types text in at the caret, over any selection there is: typing over
+// selected text replaces it, which is what every text field does and what
+// "acts like normal text" asks for (editselect.go).
+func (e *editor) insert(text string) {
+	runes := []rune(text)
+	if len(runes) == 0 {
+		return
+	}
+	e.cutPick()
+	// A STEP OF THE UNDO IS A WORD, NOT A KEYSTROKE, and it breaks at the first
+	// letter after a space (editundo.go). A paste is a step of its own: it is
+	// one thing a person did, and folding it into the sentence they were
+	// halfway through typing would make one ctrl+z take back both.
+	if len(runes) == 1 {
+		space := unicode.IsSpace(runes[0])
+		e.remember(runInsert, !space && e.runSpace)
+		e.runSpace = space
+	} else {
+		e.remember(runWhole, true)
+		e.runSpace = false
+	}
+	e.value = append(e.value[:e.cursor], append(runes, e.value[e.cursor:]...)...)
+	e.cursor += len(runes)
+}
+
+func (e *editor) deleteBackward() {
+	// A SELECTION IS WHAT BACKSPACE DELETES WHEN THERE IS ONE, whole, rather
+	// than one character off its end (editselect.go).
+	if e.cutPick() {
+		return
+	}
+	if e.cursor == 0 {
+		return
+	}
+	e.remember(runDelete, false)
+	e.value = append(e.value[:e.cursor-1], e.value[e.cursor:]...)
+	e.cursor--
+}
+
+func (e *editor) deleteForward() {
+	if e.cutPick() {
+		return
+	}
+	if e.cursor >= len(e.value) {
+		return
+	}
+	e.remember(runDelete, false)
+	e.value = append(e.value[:e.cursor], e.value[e.cursor+1:]...)
+}
+
+// deleteWord is ctrl+w: back over any spaces, then back over the word.
+func (e *editor) deleteWord() {
+	if e.cutPick() {
+		return
+	}
+	e.remember(runWhole, true)
+	at := e.cursor
+	for at > 0 && unicode.IsSpace(e.value[at-1]) {
+		at--
+	}
+	for at > 0 && !unicode.IsSpace(e.value[at-1]) {
+		at--
+	}
+	e.value = append(e.value[:at], e.value[e.cursor:]...)
+	e.cursor = at
+}
+
+// killToStart is ctrl+u, and it kills to the start of THIS line rather than of
+// the draft: on a one-line draft the two are the same, and on a six-line paste
+// only one of them is a gesture anybody wants.
+func (e *editor) killToStart() {
+	if e.cutPick() {
+		return
+	}
+	e.remember(runWhole, true)
+	at := e.lineStart()
+	e.value = append(e.value[:at], e.value[e.cursor:]...)
+	e.cursor = at
+}
+
+// killToEnd is ctrl+k, and it is [editor.killToStart] read the other way: to the
+// end of THIS line, never past the newline that ends it. That is the pair every
+// shell on this machine has, and the half that was missing here until the
+// switcher gave the letter back (hop.go's [hopOpenKey] states the trade).
+//
+// IT STOPS AT THE NEWLINE RATHER THAN EATING IT, which is where readline's own
+// ctrl+k and this one part company on purpose. In a shell the line IS the
+// buffer, so joining has nothing to join; here a draft is a paragraph somebody
+// is writing and an emptied line that silently swallowed its successor is a
+// gesture that took two lines while looking like it took one. A second press on
+// an already-empty line does nothing, and the way to join two lines is the
+// backspace that has always done it.
+func (e *editor) killToEnd() {
+	if e.cutPick() {
+		return
+	}
+	at := e.lineEnd()
+	if at == e.cursor {
+		// NOTHING TO TAKE, SO NOTHING IS REMEMBERED EITHER. An undo step recorded
+		// for an edit that changed no rune is a press of ctrl+z that appears to
+		// do nothing, which is the same defect one layer down.
+		return
+	}
+	e.remember(runWhole, true)
+	e.value = append(e.value[:e.cursor], e.value[at:]...)
+}
+
+// ── EVERY CARET MOTION DROPS THE SELECTION ─────────────────────────────────
+//
+// A highlight left standing while the caret walked out of it would be a box
+// drawing a claim about text nobody is pointing at any more. The two gestures
+// that MAKE a selection put it back straight after the motion they ran
+// (editselect.go's [editorPick] and the sweep), and every other caller — the
+// arrows, the word jumps, the line ends, history recall — gets the plain
+// behaviour without knowing this file exists.
+
+func (e *editor) left() {
+	e.dropPick()
+	if e.cursor > 0 {
+		e.cursor--
+	}
+}
+
+func (e *editor) right() {
+	e.dropPick()
+	if e.cursor < len(e.value) {
+		e.cursor++
+	}
+}
+
+// wordLeft and wordRight move the caret a word at a time, over the SAME
+// boundaries ctrl+w deletes by — spaces first, then the run of non-spaces — so
+// the distance a jump covers and the distance a kill covers are one distance,
+// learned once.
+func (e *editor) wordLeft() {
+	e.dropPick()
+	for e.cursor > 0 && unicode.IsSpace(e.value[e.cursor-1]) {
+		e.cursor--
+	}
+	for e.cursor > 0 && !unicode.IsSpace(e.value[e.cursor-1]) {
+		e.cursor--
+	}
+}
+
+func (e *editor) wordRight() {
+	e.dropPick()
+	for e.cursor < len(e.value) && unicode.IsSpace(e.value[e.cursor]) {
+		e.cursor++
+	}
+	for e.cursor < len(e.value) && !unicode.IsSpace(e.value[e.cursor]) {
+		e.cursor++
+	}
+}
+
+func (e *editor) home() { e.dropPick(); e.cursor = e.lineStart() }
+
+func (e *editor) end() { e.dropPick(); e.cursor = e.lineEnd() }
+
+// lineStart and lineEnd bound the LOGICAL line the caret is on — the run
+// between two newlines, not the soft-wrapped row the box happens to draw.
+func (e *editor) lineStart() int {
+	for at := e.cursor; at > 0; at-- {
+		if e.value[at-1] == '\n' {
+			return at
+		}
+	}
+	return 0
+}
+
+func (e *editor) lineEnd() int {
+	for at := e.cursor; at < len(e.value); at++ {
+		if e.value[at] == '\n' {
+			return at
+		}
+	}
+	return len(e.value)
+}
+
+// multiline reports whether the draft has more than one logical line.
+func (e *editor) multiline() bool {
+	for _, r := range e.value {
+		if r == '\n' {
+			return true
+		}
+	}
+	return false
+}
+
+// onFirstLine reports whether the caret is on the draft's first logical line.
+// It is the whole test for whether ↑ belongs to the draft or to history.
+func (e *editor) onFirstLine() bool { return e.lineStart() == 0 }
+
+func (e *editor) onLastLine() bool { return e.lineEnd() == len(e.value) }
+
+// up and down move the caret between logical lines, keeping the column.
+func (e *editor) up() {
+	e.dropPick()
+	start := e.lineStart()
+	if start == 0 {
+		return
+	}
+	column := e.cursor - start
+	previous := start - 1
+	for previous > 0 && e.value[previous-1] != '\n' {
+		previous--
+	}
+	if length := start - 1 - previous; column > length {
+		column = length
+	}
+	e.cursor = previous + column
+}
+
+func (e *editor) down() {
+	e.dropPick()
+	end := e.lineEnd()
+	if end >= len(e.value) {
+		return
+	}
+	column := e.cursor - e.lineStart()
+	next := end + 1
+	length := 0
+	for next+length < len(e.value) && e.value[next+length] != '\n' {
+		length++
+	}
+	if column > length {
+		column = length
+	}
+	e.cursor = next + column
+}
+
+// key routes one keypress. The order is the surface's law: the key that acts on
+// the SESSION (ctrl+c) is read before any key that acts on the draft, and the
+// two typed overlays are read before the editor, because while a list is up the
+// four keys that move and commit it are the list's.
+func (a *app) key(msg tea.KeyPressMsg) tea.Cmd {
+	// LEAVING IS NEVER MODAL, and these two rungs are read above the door, so
+	// each of them lets the door's key past: a page that is on its way and a
+	// page that is up both took it, and on an engine that never answered the
+	// only key that did anything was one nothing on screen named.
+	door := msg.String() == "ctrl+c"
+	if a.railPlanPending.id != "" && !door {
+		if msg.String() == "esc" {
+			a.railPlanPending = railPlanPending{}
+			return nil
+		}
+		a.railPlanPending.keys = append(a.railPlanPending.keys, msg)
+		return nil
+	}
+	// A key ends an opened tile's zoom, so what it types is drawn whole.
+	a.wallZoomDone()
+	// The team switcher is a menu, and a menu has the keyboard while it is up
+	// (teammenu.go).
+	if a.teamMenu.on && !door {
+		return a.teamMenuKey(msg)
+	}
+	// And so does the nav's fold menu (navmore.go).
+	if a.navMore.on && !door {
+		return a.navMoreKey(msg)
+	}
+	// The move picker, over everything, and then a team's card have the
+	// keyboard while they are up (teammove.go, teamsheet.go).
+	if a.tmove.on && !door {
+		return a.teamMoveKey(msg)
+	}
+	if a.tsheet.on && !door {
+		return a.teamSheetKey(msg)
+	}
+	if a.wall.on && !door {
+		return a.wallKey(msg)
+	}
+	if !door && wallOpenPressed(msg) {
+		return a.openWall()
+	}
+	if cmd, taken := a.pasteChipKey(msg); taken {
+		return cmd
+	}
+	// THE OPTION-AS-META CHECK READS EVERY KEY AND CLAIMS NONE OF THEM. It is
+	// here, above the pointer handover and above every modal, because both of the
+	// things it watches for can arrive anywhere: a real `alt+` chord settles the
+	// question for the life of the process wherever it lands, and the character a
+	// Mac produces instead of one is only worth a note while a place is standing
+	// (chords.go). It returns nothing and takes nothing, so the key below does
+	// exactly what it was always going to do.
+	a.chordWatch(msg)
+
+	// THE POINTER COMES BACK FIRST, ABOVE EVERYTHING, and then the key does
+	// whatever it was always going to do. A hand back on the keyboard is a hand
+	// that has finished selecting (copymode.go), so this is the whole of the exit
+	// — no key to learn, no state to be stuck in, and nothing swallowed. ctrl+s
+	// itself is excepted so it can act as the plain toggle it looks like: pressing
+	// it twice must undo it, not re-arm it.
+	if msg.String() != selectKey {
+		a.takeMouseBack()
+	}
+
+	// THE FIRST-RUN SETUP OUTRANKS EVERYTHING BUT ctrl+c, and it can afford to:
+	// it is up only on a launch where no turn has run, no question has been
+	// raised and nothing has been typed, so there is nothing under it a key
+	// could be aimed at (firstrun.go). ctrl+c is excepted as it is for every
+	// modal here — leaving is never modal.
+	if a.setup.open && msg.String() != "ctrl+c" {
+		cmd, _ := a.setupKeyPress(msg)
+		return cmd
+	}
+
+	// A pending question holds its work, not navigation. These chords never
+	// answer the question or edit a partly typed key. Every lane is one card on
+	// the unified block now (question.go), and the block's answer grammar must
+	// not take a chord before the navigation door below can read it.
+	if a.questioning() {
+		switch msg.String() {
+		case closeTabChord:
+			cmd, _ := a.closeTabKey(msg)
+			return cmd
+		case hopOpenKey:
+			cmd, _ := a.hopKey(msg)
+			return cmd
+		case newChatChord:
+			cmd, _ := a.newChatKey(msg)
+			return cmd
+		}
+	}
+
+	// THE CHIP'S CHORD IS READ ABOVE EVERY PLACE, because the chip is drawn on
+	// every page and a door that only opened from the conversation would be a
+	// door that is not there wherever a person is actually standing when the
+	// count changes. It answers false unless something is open and the key is
+	// its own, so on every other keystroke it costs one string comparison
+	// (question.go's [app.questionChipKeyPress]).
+	if cmd, taken := a.questionChipKeyPress(msg); taken {
+		return cmd
+	}
+
+	// THE QUESTION BLOCK IS READ FIRST AMONG THE QUESTIONS, and it is the one
+	// rung on this list that is NOT modal (question.go). It takes only the keys
+	// it has drawn — over an empty box, because a letter is the question's only
+	// there — and hands everything else straight back, so the eleven arms below
+	// it and the composer under all of them keep every key they had. What it
+	// buys by being here rather than lower is that `esc` means LATER on a
+	// question before it means anything else to anything underneath.
+	if cmd, taken := a.questionKey(msg); taken {
+		// AND WHATEVER THE ANSWER PARKED IS HANDED ON. `change it` on a finished
+		// design walks into that design's room (harnesscard.go), and a room whose
+		// lane was never started is a page that never updates. It is nothing at
+		// all on every other answer, which is every other key that reaches here.
+		return tea.Batch(cmd, a.takeRoomPump())
+	}
+
+	// AND THE ONE KEY THE PROPOSAL STILL OWNS, which is not an answer: ctrl+e
+	// unfolds the assignment in the transcript (task.go). It is below the block
+	// because the block is where the proposal is answered and a key it draws
+	// must reach it first.
+	if cmd, taken := a.taskKey(msg); taken {
+		return cmd
+	}
+
+	// THE SWITCHER IS READ HERE, ABOVE THE PLACES AND BELOW THE THREE QUESTIONS,
+	// and it is ONE arm for both roads (hop.go). It belongs above the places
+	// because it is drawn over them as well as over the conversation — a card
+	// that had to be claimed twice would be a card whose two claims drift — and
+	// below the questions because a session blocked on this keyboard outranks
+	// somewhere else to be.
+	//
+	// It answers false unless it is open or the key is its own, so on every other
+	// keystroke this line costs one string comparison.
+	if cmd, taken := a.hopKey(msg); taken {
+		return cmd
+	}
+
+	// AND WHATEVER PLACE IS STANDING IS MODAL AT THIS RUNG, in ONE arm and never
+	// five (pages.go). Each of the seven takes the whole frame, so there is
+	// nothing under it a key could mean anything to — and the six classes of the
+	// grammar are read before the place's own keys, on every place, which is what
+	// makes `tab`, `alt+1…8` and `→` mean one thing wherever a person is standing
+	// ([app.placeKeyPress]).
+	//
+	// IT USED TO BE FIVE ARMS AT THREE DIFFERENT RUNGS. The settings panel and
+	// home were read here; the memory place, the two teaching places and the
+	// standing place were read below the model picker, the resume picker and four
+	// command panels — so a letter pressed on the standing place with a picker
+	// somewhere underneath went to a list that is not on the screen. A place is
+	// modal at the highest rung of them all, because a place is the screen.
+	//
+	// ctrl+c is the one exception, for the reason it is everywhere on this file:
+	// leaving is never modal.
+	// WITH ONE CHORD READ ON HOME ABOVE THAT CLAIM, and it is the one gesture home
+	// is the LANDING for rather than a destination of: shutting the last tab leaves
+	// this window on home with the conversation still alive behind it
+	// (chattabs.go's [app.tabDismiss]), so `ctrl+shift+t` — the undo of exactly
+	// that press — has to be reachable from where the press put you. It is scoped
+	// to home alone and to a chord no place binds, so every other place keeps every
+	// key it had, and the rung below is untouched (tabreopen.go).
+	if a.at(pageHome) {
+		if cmd, taken := a.reopenTabKey(msg); taken {
+			return cmd
+		}
+	}
+
+	if a.pageShowing() && msg.String() != "ctrl+c" {
+		return a.placeKeyPress(msg)
+	}
+
+	// And the phone tier's status sheet is modal at the same rung and for the
+	// same reason: it is the whole screen, so there is nothing under it to send a
+	// key to (statusdeck.go).
+	if a.deckShowing() && msg.String() != "ctrl+c" {
+		a.deckSheetKey(msg)
+		return nil
+	}
+
+	// The phone's tool detail is the other fullscreen overlay, and it is modal
+	// at the same rung for the same two reasons: it is the whole screen, so
+	// there is nothing under it a key could mean anything to, and esc is how a
+	// person leaves it (expand.go). It is read AFTER the status sheet because
+	// the deck is raised over whatever the body was drawing, this one included.
+	if a.expandShowing() && msg.String() != "ctrl+c" {
+		return a.expandKey(msg)
+	}
+
+	// The model overlay is modal: while it is up every key belongs to it and
+	// the draft below is suspended untouched. ctrl+c is the one exception, for
+	// the same reason it is read first below — leaving is never modal.
+	if a.pick.open && msg.String() != "ctrl+c" {
+		return a.pickerKey(msg)
+	}
+	// AND THE THINKING CHOOSER IS MODAL ON THE CREW CHOOSER'S TERMS AND FOR ITS
+	// REASON (effortchip.go): it is five fixed words with no filter under them, so
+	// a plain letter falling through to the box would be a letter typed into a
+	// sentence the person is not looking at. ctrl+c is the one exception, as it is
+	// for every modal on this surface.
+	if a.effPick.open && msg.String() != "ctrl+c" {
+		return a.effortMenuKey(msg)
+	}
+	// And the session picker is modal at the same rung, for the same reasons: it
+	// takes the input line's place, it holds its own filter, and esc leaves the
+	// conversation exactly as it was (resume.go). The two are never up together —
+	// each is opened by a command typed into a box neither of them leaves open.
+	if a.roster.open && msg.String() != "ctrl+c" {
+		return a.resumeKey(msg)
+	}
+
+	// And the folder picker at the same rung, for the same reasons again: it
+	// takes the input line's place, it holds its own filter — which is also the
+	// path box a person browses with — and esc leaves everything exactly as it
+	// was (folderpick.go).
+	if a.folder.open && msg.String() != "ctrl+c" {
+		return a.folderKey(msg)
+	}
+
+	// And the deliverables picker at the same rung, for the same reasons again:
+	// it takes the input line's place, it holds its own filter — and its own
+	// destination box over that — and esc leaves the conversation exactly as it
+	// was (deliverables.go).
+	if a.shelf.open && msg.String() != "ctrl+c" {
+		return a.filesKey(msg)
+	}
+
+	// And the connections panel at the same rung again, for the same reasons:
+	// it opens on a COMMAND rather than by typing, so nothing is being written
+	// under it, and esc leaves everything exactly as it was (connectpanel.go).
+	if a.connPanel.open && msg.String() != "ctrl+c" {
+		return a.connectPanelKey(msg)
+	}
+
+	// And the add-provider panel, which is that panel's door raised from the
+	// model picker's last row: opened by a row, nothing being typed under it,
+	// and esc leaving the conversation exactly as it was (addprovider.go).
+	if a.addPanel.open && msg.String() != "ctrl+c" {
+		return a.addPanelKey(msg)
+	}
+
+	// And the harness panel, which is that panel's twin in every respect that
+	// matters here: opened by a command, nothing being typed under it, and esc
+	// leaving the conversation exactly as it was (harnesspanel.go).
+	if a.harnPanel.open && msg.String() != "ctrl+c" {
+		return a.harnessPanelKey(msg)
+	}
+
+	// And the crew panel, on those panels' terms exactly (crewpanel.go): opened
+	// by a command, nothing typed under it — its filters and holes are its own —
+	// and esc stepping back one level at a time until it closes.
+	if a.crewUI.open && msg.String() != "ctrl+c" {
+		return a.crewKey(msg)
+	}
+
+	// And the permissions panel, which is those panels' twin (permissions.go):
+	// opened by a command, nothing typed under it, esc leaves exactly as it was.
+	// Modal also frees a bare d to mean "drop this line" — no draft is under it
+	// for the letter to fall into.
+	//
+	// The draft ring's page rides the same modal posture (draftpage.go): the
+	// bare d below it says "let this one go".
+	if a.draftPage.open && msg.String() != "ctrl+c" {
+		return a.draftPageKey(msg)
+	}
+	if a.permPanel.open && msg.String() != "ctrl+c" {
+		return a.permPanelKey(msg)
+	}
+
+	// And /subharness, which is those panels' twin in every respect that matters
+	// here: opened by a command, nothing being typed under it, and esc leaving
+	// the conversation exactly as it was (subharness.go). Being modal is what
+	// frees every printable key for the filter box and, on the card, for the
+	// value somebody is typing into a field.
+	//
+	// WITH ONE CARD THAT IS NOT OPENED BY A COMMAND: the intake chat itself
+	// raised. It comes through this same door because it is the same overlay,
+	// and the only thing that differs is what esc means on it — a NO, answered
+	// back to the turn that is waiting on it, rather than a way out of a page
+	// somebody opened to read ([app.answerSubharnessOffer]).
+	if a.subPage.open && msg.String() != "ctrl+c" {
+		return a.subPageKey(msg)
+	}
+
+	if msg.String() == "ctrl+c" {
+		// INTERRUPT FIRST. While a turn runs ctrl+c is the same key esc is —
+		// a person hitting it mid-turn is reaching for the model, not for the
+		// door, and every terminal habit in the world says that keystroke stops
+		// the RUNNING thing.
+		//
+		// AND A PRESS THAT INTERRUPTED IS SPENT ON THE MODEL. It was aimed at
+		// the turn and it hit the turn; it never reaches the door, which is why
+		// this rung is read before the one below it.
+		if a.state == stateWorking {
+			a.interrupt()
+			return nil
+		}
+		// AND AT REST IT IS THE DOOR, ON THE FIRST PRESS (leaving.go). ctrl+c
+		// at rest means leave, in this program as in every other one a person
+		// has ever typed it into, and a surface that asked for it twice was
+		// asking somebody to press a key they had already pressed on purpose.
+		// What the second press used to buy — the draft and everything parked
+		// above it written down before the program ends — is bought by
+		// [app.quit] itself, on this press, and is owed to a real SIGINT too.
+		return a.quit()
+	}
+
+	// THE REWIND TIMELINE IS MODAL AT THIS RUNG AND FOR THE SETTINGS PANEL'S
+	// REASON: it takes the whole frame, so there is nothing under it a key could
+	// mean anything to, and every printable key belongs to its search
+	// (rewindsheet.go). It is read here rather than up beside the panel because
+	// ctrl+c is read directly above and stays the door — a page a person cannot
+	// quit out of is a page nobody should be able to open over a conversation they
+	// are about to cut.
+	if cmd, taken := a.rewindSheetKey(msg); taken {
+		return cmd
+	}
+
+	// THE TASK PAGE IS MODAL AT THIS RUNG AND FOR THE SETTINGS PANEL'S REASON: it
+	// is the whole screen, so there is nothing under it a key could mean anything
+	// to (taskview.go). It is read HERE rather than up beside the panel because
+	// this one handler carries both halves of the page — every key while it is up,
+	// and the single chord that OPENS it while it is down — and the opening half
+	// must not outrank ctrl+c, which is read directly above and stays the door.
+	if cmd, taken := a.taskSheetKeyPress(msg); taken {
+		return cmd
+	}
+
+	// COPY MODE is modal, and it is modal one rung below ctrl+c for the same
+	// reason everything else here is: leaving is never modal. While it is up the
+	// surface is a reader, and a key that fell through to the draft would type
+	// into a box whose effect is off screen (copymode.go).
+	if cmd, taken := a.copyKey(msg); taken {
+		return cmd
+	}
+
+	// REWIND MODE IS MODAL AT THE SAME RUNG AND FOR THE SAME REASON (rewind.go):
+	// while it is up the draft box is not on the frame at all — a mode bar stands
+	// in its position — so a key that fell through to the editor would type into a
+	// box nobody can see, and the arrows it takes are the arrows that move the cut.
+	// ctrl+c is read above it and stays the door.
+	if cmd, taken := a.rewindKey(msg); taken {
+		return cmd
+	}
+
+	// The welcome box reads two keys and gives every other one back (welcome.go):
+	// ↑/↓ walk the recent sessions, enter opens the one they picked, and
+	// anything else is the person starting work, which puts the box away for
+	// good before the key does whatever it always does.
+	// AND THE NEW-CHAT START PAGE IS THE SAME UNIT WITH THE OPPOSITE CONTRACT
+	// (chatstart.go): it is where the person IS starting work, so typing keeps it
+	// standing and its four keys are esc, ↑/↓ and enter. It is read at this rung
+	// rather than a separate one because it is drawn as this unit and there is
+	// exactly one of them on the frame.
+	if a.startingChat() {
+		if cmd, taken := a.startChatKey(msg.String()); taken {
+			return cmd
+		}
+	} else if a.welcome.open {
+		if cmd, taken := a.welcomeKey(msg.String()); taken {
+			// enter on a recent session opens it, and what comes back is that
+			// conversation's standing lanes (welcome.go's [app.resumeSession]).
+			return cmd
+		}
+		// AND THE FIRST CONVERSATION'S GREETING IS THE THIRD CONTRACT AT THIS
+		// RUNG. It stands through typing — the composer stays where the person
+		// aimed at it, and the three starting points stay readable — and it is
+		// spent by the send instead (welcome.go's [app.welcomeStandsThroughTyping]).
+		if !welcomeKeeps(msg.String()) && !a.welcomeStandsThroughTyping() {
+			a.dismissWelcome()
+		}
+	}
+
+	// AND `ctrl+t` IS A NEW TAB AT THIS RUNG (chatstart.go's [app.newChatKey]).
+	// It is read here — under every modal, panel and page above, and over the
+	// draft below — because that is exactly what a new tab is worth: it must not
+	// outrank a question the session is blocked on, a place that has taken the
+	// whole frame, or the model picker, whose own ctrl+t walks a row's thinking
+	// effort; and it must outrank the box, because a chord is never a letter of
+	// anybody's sentence. The start page it opens takes the key back on its own
+	// terms — pressing the chord again keeps what is typed there.
+	if cmd, taken := a.newChatKey(msg); taken {
+		return cmd
+	}
+
+	// AND `ctrl+w` SHUTS ONE AT THE SAME RUNG AND FOR THE SAME REASONS
+	// (tabclosekey.go's [app.closeTabKey]). The two chords are one gesture with two
+	// directions, so they are read side by side: under every modal, panel and page
+	// above — the switcher's own ctrl+w puts a row away and each filterable overlay
+	// edits its search with it, and all of them are looking at the person who
+	// pressed it — and over the box below, because a chord is never a letter of
+	// anybody's sentence. What it takes from the box is readline's spelling of the
+	// word kill; `alt+backspace` and `ctrl+backspace` are the two names a hand
+	// actually presses and both still reach the switch below.
+	if cmd, taken := a.closeTabKey(msg); taken {
+		return cmd
+	}
+
+	// AND `ctrl+shift+t` PUTS THE LAST ONE BACK, at the same rung and for the same
+	// reasons (tabreopen.go's [app.reopenTabKey]). The three keys are one grammar —
+	// open a tab, shut a tab, undo the shutting — so they are read side by side,
+	// and this one is deliberately never spelled `ctrl+t`: a terminal that cannot
+	// tell the two apart sends the plain chord and gets a new chat, which is what
+	// that key has always done here.
+	if cmd, taken := a.reopenTabKey(msg); taken {
+		return cmd
+	}
+
+	// Tab chooses an open command row first. Otherwise, "/attach " offers this
+	// directory's files, and tab again takes the one under the cursor
+	// (files.go). It is read before the lists below because everything above it
+	// has already had its say.
+	//
+	// AND WHEN THE COMPLETION TOOK NOTHING AND THE BOX IS EMPTY, IT IS THE WAY
+	// BACK TO THE LAST CONVERSATION (keeper.go). That is the seventeenth rung of
+	// this router, and its guard is stated positively rather than as an absence:
+	// the completion answered nil, the draft is empty, and none of the sixteen
+	// claims above is holding the keyboard — every one of which is already
+	// handled by having been read first.
+	//
+	// Two of those sixteen needed a change rather than an ordering, and both are
+	// upstream of here: the welcome box now takes tab and refuses to be
+	// dismissed by it (welcome.go), and the rail eats it while it holds the
+	// keyboard (task.go). Without those, one keystroke would do two unrelated
+	// things — one of them irreversible — and a person would arrive in another
+	// conversation with a rail focus they cannot see.
+	if msg.String() == "tab" {
+		if a.menu.open {
+			// Tab completes the chosen token without submitting a sentence or
+			// a live send tag. Bare commands still run through the menu's door.
+			if a.startingChat() {
+				return a.startMenuEnter()
+			}
+			return a.runMenu()
+		}
+		if cmd := a.completePath(); cmd != nil {
+			return cmd
+		}
+		if a.comp.open && a.comp.arg {
+			// The completion is up and simply had nothing to advance to. It is
+			// still the thing this key belongs to.
+			return nil
+		}
+		if !a.input.empty() {
+			return nil
+		}
+		back := a.parkChatStart()
+		return tea.Batch(back, a.lastConversation())
+	}
+	// And enter belongs to the LINE under that list, not to the list. A person
+	// who typed a path out in full would otherwise have it swapped for whatever
+	// the ranking put first, by the key they pressed to run the command.
+	if a.comp.open && a.comp.arg && (msg.String() == "enter" || msg.String() == "ctrl+enter" && !a.queueSendOffered()) {
+		a.comp.close()
+		return a.enter()
+	}
+
+	// The typed overlays — the command list, the @ file completion — hang UNDER
+	// the draft rather than over it. They are not modal: the person keeps typing
+	// into the same box and the list follows what they type. Only the keys that
+	// move and commit a list are taken from the editor.
+	if cmd, taken := a.listKey(msg); taken {
+		return cmd
+	}
+
+	// AND alt+1…8 IS READ HERE, ON THE CONVERSATION'S ROAD. It is the one class
+	// of the place grammar that belongs to no place — it is how a person GETS to
+	// a room — and every claim above has already had its say, so a modal overlay
+	// that wants the chord still gets it first and nothing below has taken a
+	// keystroke yet (placekeys.go's [app.placeJumpKey] holds the whole argument).
+	if cmd, taken := a.placeJumpKey(msg); taken {
+		return cmd
+	}
+
+	// SPELL IT OUT takes its three keys here, under the typed lists and over the
+	// plain switch (spellout.go): the chord while the hint offers it, and enter
+	// and esc only while its block is up. Which keys and when is decided in that
+	// file so this router has one line of it.
+	if cmd, taken := a.spellKey(msg); taken {
+		return cmd
+	}
+
+	// A WATCHER'S KEYBOARD DIFFERS IN TWO KEYS AND NOT IN A MODE (watching.go).
+	// It is read here, under every overlay and card above — all of which a
+	// watcher may still use — and over the plain switch, which is where the send
+	// keys and the character keys are.
+	if a.watching() {
+		if cmd, taken := a.watchKey(msg); taken {
+			return cmd
+		}
+	}
+
+	// AND THE ONE KEY A WAIT OFFERS (keys.go). It is read here, under every
+	// overlay and card above and over the plain switch below, because it is a
+	// LETTER: the guard is that a question is really standing over this model
+	// and the box is really empty, and with either of those false the `y` types
+	// exactly as it always did.
+	if a.offerKey(msg) {
+		return nil
+	}
+
+	// AND `?` OVER AN EMPTY BOX IS THE KEY SHEET (commands.go's [app.helpAsk]).
+	// It is read here for the offer letter's reason exactly: it is a CHARACTER,
+	// so its guard is that the box is empty, and every overlay, list and card
+	// that could want it has already been asked above this line. With anything
+	// typed it falls through to the switch below and lands in the sentence, which
+	// is the whole of what keeps this key from being worse than no key at all.
+	if cmd, taken := a.helpAsk(msg); taken {
+		return cmd
+	}
+
+	switch msg.String() {
+	case "esc":
+		if a.cancelBrowserSignIns() {
+			return nil
+		}
+		// esc during a recall is the recall's: it puts the person's own draft
+		// back. A modal-ish state that could not be left by the dismiss key
+		// would be a trap, and the turn is still interruptible the moment the
+		// walk ends.
+		if a.recalling() {
+			a.recallCancel()
+			return nil
+		}
+		// THE DOUBLE ESC IS THE REWIND'S DOOR, and it is read here rather than
+		// above the interrupt because the interrupt is not for sale (rewind.go):
+		// the first esc means exactly what it always meant and ARMS the mode on its
+		// way past, and only a second one inside the window is taken. A stray esc
+		// after the window has lapsed changes nothing.
+		cmd, taken := a.escRewind()
+		if taken {
+			return cmd
+		}
+		a.interrupt()
+		return cmd
+
+	case "enter", "ctrl+enter":
+		// THE QUEUE BELONGS TO THIS CONVERSATION'S RUNNING TURN. Everywhere
+		// else the chord takes enter's ordinary road, commands included. A
+		// decoded chord is honoured even without a keyboard-enhancement reply:
+		// modifyOtherKeys can deliver it too. Plain terminals send enter on
+		// many keyboards and ctrl+j on some, and those keep their own meanings.
+		if msg.String() == "ctrl+enter" && a.queueSendOffered() {
+			return a.followUp()
+		}
+		if a.steerAvailable() {
+			return a.steerIn()
+		}
+		return a.enter()
+
+	case steerKeySuper, steerKeyMeta:
+		// AND ALSO THIS, WITHOUT STOPPING ANYTHING (steer.go). It is read directly
+		// beside the queue above and the stop below because all three are the same
+		// hand shape — a modifier on the send — and each is a narrower claim than
+		// plain enter: hold it for after, put this into the answer, stop the
+		// answer and say this instead.
+		//
+		// TWO NAMES, ONE KEYSTROKE. cmd+enter arrives as `super+enter` off a
+		// kitty-protocol terminal and as `meta+enter` off one speaking
+		// modifyOtherKeys, because the two roads through ultraviolet read the ninth
+		// modifier against different tables — the split that left cmd+←/→ dead on
+		// every terminal there is until both of their names were bound (see the
+		// caret jumps below, and steer.go).
+		//
+		// It is above the newline pair below for standmark.go's reason exactly:
+		// those two are the other spellings of a different gesture, and a chord
+		// that fell through to them would open a line where somebody meant to
+		// correct an answer.
+		if a.state == stateWorking {
+			return a.enter()
+		}
+		return nil
+
+	case bargeKey:
+		// STOP THIS AND SAY THIS INSTEAD (bargein.go). It is read directly beside
+		// the two chords above because it is the third reading of one hand shape —
+		// a modifier on the send — and it sits UNDER the queue for the same reason
+		// that one sits under enter: each of the three is a narrower claim than
+		// the one before it, and the narrowest is read last.
+		//
+		// It is above the newline pair below for standmark.go's reason exactly:
+		// those two are the other spellings of a different gesture, and a chord
+		// that fell through to them would open a line where somebody meant to
+		// stop an answer.
+		return a.bargeIn()
+
+	case "shift+enter", "alt+enter", "ctrl+j":
+		// Shift+enter opens a line on every message box. The older spellings
+		// remain available for terminals that cannot distinguish that chord.
+		a.dropDraftPick()
+		at := a.input.cursor
+		a.input.insert("\n")
+		a.editTags(at, at, 1)
+		return a.edited()
+
+	// `ctrl+q` IS DELIBERATELY UNBOUND HERE (2026-09-30): queueing moved onto
+	// ctrl+enter, and a control key with no meaning left does nothing rather
+	// than acquiring a new one — the key sheet and the manual say so.
+
+	case "alt+o":
+		return a.openVisiblePicture()
+
+	case "alt+i":
+		a.toggleVisiblePictures()
+		return nil
+
+	case "ctrl+o":
+		// A SELECTED COMPLETION CARD OWNS THIS KEY, because that card is the one
+		// place on the surface that prints a key and says what it does with it —
+		// "ctrl+o output", on its own second row (taskdone.go). With nothing
+		// selected, which is every other moment, it is the tool cluster's fold it
+		// has always been — of whichever list the body is drawing (render.go's
+		// [app.bodyDeck]).
+		// A SELECTED PROPOSAL OWNS IT TOO, for the other half of the same reason:
+		// a click on that card opens the node's room now, so the brief keeps the
+		// key rather than losing both gestures (task.go's [app.openCard]).
+		if a.openDone(a.sel) || a.openCard(a.sel) {
+			return nil
+		}
+		// AND INSIDE A NODE'S PAGE IT OPENS THE INSTRUCTION, which is the one
+		// block a room folds (brieffold.go). The key keeps its meaning exactly —
+		// show me the rest of this — over the one thing on that page showing less
+		// than it has, and it is asked before the cluster fold below because a room
+		// hardly ever has one: a room's clusters carry a tail as tall as the view
+		// ([app.roomToolTail]), and the rare fold above it is opened by walking up
+		// into it ([app.roomUnfoldAtTop]). A page whose instruction is short enough
+		// to be drawn whole has no door at all and answers false, so out in the
+		// conversation — where no block is ever marked — this line changes nothing.
+		if a.toggleBriefFold() {
+			return nil
+		}
+		a.unfold(a.bodyTurn())
+		return nil
+
+	case "ctrl+g":
+		// SEND THE RUNNING COMMAND TO THE BACKGROUND (background.go). It is
+		// bound here, in the plain switch, and it takes the key ONLY while there
+		// is a foreground bash call to promote — with nothing running it falls
+		// through to the bottom of this router, where a key that carries no text
+		// does nothing, which is what ctrl+g has always done.
+		if a.backgroundRunning() {
+			return nil
+		}
+
+	case "ctrl+b":
+		// FREEZE AND READ (copymode.go). ctrl+b used to be the emacs `left` here,
+		// alongside the arrow key that everybody actually presses, and it is spent
+		// on this instead: the alt screen took the terminal's own selection away,
+		// and getting text out of the conversation is a thing this surface could
+		// not do at all. ← is untouched.
+		a.enterCopy()
+		return nil
+
+	case selectKey:
+		// DRAG THE WAY YOU DRAG EVERYWHERE ELSE (copymode.go). It is the mouse's
+		// half of ctrl+b and it sits beside it for that reason. With the pointer
+		// already the terminal's it does nothing, because the drag it offers is
+		// one the person can already make.
+		a.releaseMouse()
+		return nil
+
+	case "ctrl+,":
+		// The settings key every application on this machine already has. The
+		// slash is the other door onto the same panel (settings.go).
+		a.openSettings()
+		return nil
+
+	case effortKey:
+		// WALK THE THINKING LADDER (effortchip.go). It is bound here, in the plain
+		// switch, so it survives a draft: a chord is not a character, alt+e
+		// carries no text of its own, and everything above this line has already
+		// had its say — so a person mid-sentence can dial the conversation up and
+		// keep typing into the same words. It sits beside ctrl+, because the two
+		// are the surface's two dials and the rung on the seam is this one's
+		// visible door, exactly as the panel is that one's.
+		//
+		// The chord does nothing at all on a session that cannot say how hard it
+		// thinks — a `--host` connection to an engine with no dial among them,
+		// which says so at the door (internal/remote's effort.go). That is the
+		// design law about a capability with nothing behind it rather than a
+		// guard: there is no rung on that frame either.
+		return a.cycleEffort()
+
+	case approvalKey:
+		// WALK THE GATE'S WHEEL (approvalchip.go), bound here for the reason the
+		// chord above is: it survives a draft, and the chip on the seam is its
+		// visible door. On a session with no dial — a `--host` connection, whose
+		// gate is the far machine's — it says so rather than doing nothing.
+		return a.cycleApproval()
+
+	case "pgup":
+		return a.scroll(-a.scrollPage())
+	case "pgdown":
+		return a.scroll(a.scrollPage())
+
+	case jumpKey:
+		// BACK TO THE LIVE EDGE IN ONE KEY, from anywhere in the transcript and
+		// with anything in the box (jumpchip.go). It is bound here, in the plain
+		// switch, rather than beside a chord that means something else with an
+		// empty draft: every other route to the bottom of the conversation is
+		// spoken for the moment there is a sentence to move a caret through, and a
+		// chip that prints a key has to be able to promise the key does this.
+		a.toLatest()
+		return nil
+
+	case "up":
+		// ↑ has three meanings and they are read in the order a person's hand
+		// means them: inside a multi-line draft it moves the caret; at the top
+		// of the draft it walks history, after taking back a parked message;
+		// with nothing typed and calls on screen it selects one; and past all
+		// of those it scrolls.
+		if !a.input.onFirstLine() {
+			a.input.up()
+			a.touch()
+			return a.syncLists()
+		}
+		// A MESSAGE WAITING FOR THE ANSWER IS READ BEFORE THE HISTORY, and it has
+		// to be: enter remembers everything it parks, so the newest history line
+		// and the newest parked message are the same words — and a ↑ that walked
+		// the history would put those words in the box while ALSO leaving them
+		// parked, which is one message on screen twice and two turns spent on it.
+		// Read here, the block is taken back and the sentence is yours again
+		// (park.go).
+		//
+		// AND THE SESSION'S QUEUE IS NOT READ AT ALL. A queued follow-up is in
+		// the session's hands, not the surface's: the one gesture that takes one
+		// back out is a CLICK on its row (followup.go's [app.followPress]), and
+		// ↑ naming it would take down a message the person only meant to scroll
+		// past.
+		if a.input.empty() && !a.recalling() && a.recallParked() {
+			return a.edited()
+		}
+		if a.recallBack() {
+			return nil
+		}
+		if a.input.empty() && a.selectTool(-1) {
+			return nil
+		}
+		return a.scroll(-1)
+
+	case "down":
+		if !a.input.onLastLine() {
+			a.input.down()
+			a.touch()
+			return a.syncLists()
+		}
+		if a.recallForward() {
+			return nil
+		}
+		if a.input.empty() && a.selectTool(1) {
+			return nil
+		}
+		return a.scroll(1)
+
+	case "backspace":
+		// BACKSPACE AFTER A LIVE TAG MAKES IT PLAIN BEFORE IT EDITS IT. The
+		// first press withdraws the chip's promise and leaves every rune in
+		// place; the next press is the ordinary character deletion below.
+		if a.demoteTagBehindCaret() {
+			return a.edited()
+		}
+		// With nothing typed, the thing behind the caret is the attachment tray:
+		// backspace takes the last picture off it (attach.go). It is the same
+		// gesture as deleting a character, applied to the only thing left to
+		// delete, so nothing new has to be learned to undo an attachment.
+		// A PICKED HARNESS IS THE LAST THING BEHIND THE CARET, after the
+		// pictures: the tray is read right to left, which is the direction this
+		// key deletes in and the order the row is drawn in (harnesspick.go).
+		if len(a.input.value) == 0 && (a.dropChip() || a.dropHarnessChip()) {
+			return a.edited()
+		}
+		// A SELECTED RUN IS WHAT THIS KEY DELETES WHEN THERE IS ONE, whole
+		// (editselect.go). It is answered here rather than left to the editor
+		// so the tags move with it.
+		if a.dropDraftPick() {
+			return a.edited()
+		}
+		at := a.input.cursor
+		a.input.deleteBackward()
+		if at > 0 {
+			a.editTags(at-1, at, 0)
+		}
+		return a.edited()
+	case "delete":
+		if len(a.input.value) == 0 && !a.roomOpen() && a.dismissDone(a.sel) {
+			return nil
+		}
+		if a.dropDraftPick() {
+			return a.edited()
+		}
+		at := a.input.cursor
+		deleted := at < len(a.input.value)
+		a.input.deleteForward()
+		if deleted {
+			a.editTags(at, at+1, 0)
+		}
+		return a.edited()
+	case "ctrl+u", "super+backspace":
+		// KILL TO THE START OF THE LINE, under both of its names. ctrl+u is the
+		// readline one every shell on this machine has; super+backspace is the
+		// same gesture on a Mac keyboard, where cmd+delete is what a person's
+		// hand does without being told. It reaches this switch only on a
+		// terminal that reports the super modifier at all (kitty's protocol,
+		// win32-input) — everywhere else it is simply never sent, which costs
+		// nothing and is why it is bound rather than detected.
+		//
+		// A FLUSH OF THE WHOLE BOX GOES ON THE KILL RING FIRST (draftring.go):
+		// caret at the end of a one-line draft is the one shape of this key
+		// after which nothing is left, and nothing-left is the mistake the
+		// ring exists for. A kill that takes only the head of one line leaves
+		// the rest of the draft standing — and a walk's box holds a RECALLED
+		// line, not a draft, so killing it kills nothing that is not already
+		// kept.
+		if !a.recalling() && a.input.lineStart() == 0 && a.input.cursor == len(a.input.value) {
+			a.noteKilled()
+		}
+		from, to := a.input.lineStart(), a.input.cursor
+		a.input.killToStart()
+		a.editTags(from, to, 0)
+		return a.edited()
+	case "ctrl+k":
+		// AND KILL TO THE END OF THE LINE, the other half of readline's pair. It
+		// is bound here rather than on the switcher because the switcher moved to
+		// `alt+k` to give this letter back (hop.go's [hopOpenKey]) — so this case
+		// is the whole point of that move and not a convenience added beside it.
+		//
+		// THE SAME FLUSH GOES ON THE KILL RING FIRST, under ctrl+u's reasoning
+		// read from the other end (draftring.go): caret at the START of a
+		// one-line draft is the one shape of THIS key after which nothing is
+		// left, and nothing-left is the mistake the ring exists for. A kill from
+		// the middle of a line, or on any line of a longer draft, leaves words
+		// standing and is not a loss the ring is for. A walk's box holds a
+		// RECALLED line rather than a draft, so killing it kills nothing that is
+		// not already kept.
+		if !a.recalling() && a.input.cursor == 0 && a.input.lineEnd() == len(a.input.value) {
+			a.noteKilled()
+		}
+		from, to := a.input.cursor, a.input.lineEnd()
+		a.input.killToEnd()
+		a.editTags(from, to, 0)
+		return a.edited()
+	case "alt+backspace", "ctrl+backspace":
+		// DELETE THE WORD BEHIND THE CARET, under both of the names that reach
+		// this box. alt+backspace is the one both macOS and every GTK/Qt text
+		// field agree on, and it is the one people actually press; ctrl+backspace
+		// is Windows' and the terminals that speak the kitty protocol send it
+		// faithfully.
+		//
+		// ctrl+w IS READLINE'S THIRD NAME FOR THIS EDIT AND IT NO LONGER ARRIVES
+		// HERE. It is the chord that shuts the tab in front now, read far above
+		// this switch (tabclosekey.go's [app.closeTabKey]) — the key every browser
+		// closes a tab with, on a strip that is drawn as tabs, beside the ctrl+t
+		// that opens one. Listing it here as well would be a case that can never
+		// run and a comment that says the opposite of what the surface does. It
+		// still edits the FILTER of every overlay that has one, because those boxes
+		// are modal above that rung and read their own keys (editkeys.go).
+		//
+		// ctrl+h is deliberately NOT here. A terminal in backspace-sends-BS mode
+		// delivers a plain backspace as ctrl+h (ultraviolet's key table maps
+		// 0x08 that way), so binding it to a word kill would make one keyboard's
+		// ordinary backspace eat a word at a time.
+		to := a.input.cursor
+		from := to
+		for from > 0 && unicode.IsSpace(a.input.value[from-1]) {
+			from--
+		}
+		for from > 0 && !unicode.IsSpace(a.input.value[from-1]) {
+			from--
+		}
+		a.input.deleteWord()
+		a.editTags(from, to, 0)
+		return a.edited()
+	case "ctrl+z", "ctrl+shift+z":
+		// TAKE BACK WHAT YOU JUST TYPED, and put it forward again (editundo.go
+		// holds the whole argument — why ctrl+z reaches this program at all, why
+		// a step is a word rather than a keystroke, and why ctrl+shift+z is the
+		// one of the two that depends on the terminal).
+		if editorUndo(&a.input, msg.String()) {
+			return a.edited()
+		}
+		return nil
+	case "shift+left", "shift+right", "shift+up", "shift+down",
+		"shift+home", "shift+end",
+		"alt+shift+left", "alt+shift+right", "ctrl+shift+left", "ctrl+shift+right",
+		"super+shift+left", "super+shift+right", "meta+shift+left", "meta+shift+right":
+		// SHIFT WITH A MOTION KEY SELECTS, which is what shift has meant in every
+		// text field a person has ever used (editselect.go). It is read in the
+		// message box and not in the places' composers because three of the
+		// places already spend `shift+←→↑↓` on their time window — a shared map
+		// that seized them would take a working key off those screens.
+		//
+		// AN EMPTY BOX KEEPS ITS NAVIGATION, exactly as the word jumps above do:
+		// there is nothing to select, and a modifier held by accident must not
+		// move anybody to another page.
+		if !a.input.empty() && editorPick(&a.input, msg.String()) {
+			a.touch()
+		}
+		return nil
+	case "super+a", "meta+a":
+		// SELECT THE WHOLE DRAFT. `ctrl+a` cannot be this: it is the start of the
+		// line on every box on this surface and the byte ⌘← actually sends on the
+		// most common Mac profile there is (editkeys.go), so taking it would
+		// break a jump people use to fix a chord they mostly reach for with the
+		// pointer. cmd+a arrives only from a terminal that reports the modifier
+		// at all, which costs nothing where none does.
+		if !a.input.empty() {
+			a.input.pickAll()
+			a.touch()
+		}
+		return nil
+	case "alt+left", "alt+b", "ctrl+left":
+		// JUMP A WORD BACK, under every name a terminal spells it with.
+		// alt+left is what option+← arrives as on macOS terminals that keep the
+		// option key a modifier (Ghostty, kitty, WezTerm, iTerm's default);
+		// alt+b is the same gesture from a profile that sends esc-b instead, and
+		// it is readline's own word-back; ctrl+left is Windows' and Linux's, and
+		// the kitty-protocol terminals send it faithfully. Over an empty box the
+		// chord does nothing at all — the plain arrows own the empty-box
+		// navigation, and a modifier held by accident must not move a person to
+		// another page.
+		if !a.input.empty() {
+			a.input.wordLeft()
+			a.touch()
+			return a.syncLists()
+		}
+		return nil
+	case "alt+right", "alt+f", "ctrl+right":
+		// And a word forward, under the same three names.
+		if !a.input.empty() {
+			a.input.wordRight()
+			a.touch()
+			return a.syncLists()
+		}
+		return nil
+	case "super+left", "super+right", "meta+left", "meta+right":
+		// cmd+←/→ ARE THE LINE'S ENDS, which is what a Mac hand means by them in
+		// every text field it has ever used. They reach this switch only on a
+		// terminal that reports the cmd modifier at all — everywhere else the
+		// chord never arrives, which costs nothing and is why they are bound
+		// rather than detected. The super+backspace kill above made the same
+		// bargain first.
+		//
+		// AND THE CHORD ARRIVES UNDER TWO NAMES, because a modified ARROW and a
+		// modified letter travel by different roads. cmd+delete comes in as
+		// `CSI 127;9u` and the CSI-u reader spells modifier 9 `super`; cmd+←
+		// comes in as `CSI 1;9D` and the CSI-arrow reader is the static xterm
+		// table, where the ninth column is `meta`. Same key, same hand, two
+		// names — so both are bound, and the wire test below is what keeps that
+		// claim honest rather than this comment.
+		if strings.HasSuffix(msg.String(), "left") {
+			a.input.home()
+		} else {
+			a.input.end()
+		}
+		a.touch()
+		return a.syncLists()
+	case "left":
+		// ← ON AN EMPTY BOX IS NAVIGATION. There is no caret to move in an empty
+		// draft, which is the same argument the proposal's row makes for taking
+		// ←/→ over its options (task.go) — and it is the only argument that
+		// matters, because the key keeps its ordinary meaning the instant there
+		// is a sentence to move through. See [app.navBack].
+		if a.input.empty() {
+			a.navBack()
+			return nil
+		}
+		a.input.left()
+		a.touch()
+		return a.syncLists()
+	case "right":
+		// → is the other half of it: forward, into the work (room.go).
+		if a.input.empty() {
+			// AND A MESSAGE WAITING FOR THIS ANSWER GOES INTO IT FIRST (steer.go).
+			// It outranks the step into the work for the reason this whole switch is
+			// ordered the way it is: the strip directly above the box is printing
+			// `→ steers it in` while this is true, and a key a line on screen has
+			// just named has to be the key that acts. The state is narrow — a turn
+			// running, a message parked, an empty box — and outside it → is the
+			// navigation it has always been.
+			if cmd, took := a.steerWaiting(); took {
+				return cmd
+			}
+			return a.navForward()
+		}
+		a.input.right()
+		a.touch()
+		return a.syncLists()
+	case "ctrl+f":
+		// The emacs forward-char keeps its plain meaning at both ends. It is the
+		// caret key and nothing else, so nothing about the navigation above can
+		// be reached by a chord somebody pressed to move one character.
+		a.input.right()
+		a.touch()
+		return a.syncLists()
+	case "home", "ctrl+a":
+		a.input.home()
+		a.touch()
+		return a.syncLists()
+	case "end", "ctrl+e":
+		// ctrl+e has two meanings and they are read the way ↑'s four are: with
+		// nothing typed it opens the running turn's compact steps first
+		// ([app.toggleLatestWorkfold]) and falls through to the model's thinking
+		// ([app.toggleLatestThought]); with a sentence in the box it is end-of-line,
+		// where the caret is what the hand meant. `end` is always end-of-line, so
+		// nothing is unreachable.
+		if msg.String() == "ctrl+e" && a.input.empty() {
+			if a.toggleLatestWorkfold() || a.toggleLatestThought() {
+				return nil
+			}
+		}
+		a.input.end()
+		a.touch()
+		return a.syncLists()
+	}
+
+	// TWO SPACES IN AN EMPTY BOX ARE THE DOOR HOME (home.go). It is read here,
+	// at the very bottom of the router, because it must lose to every other
+	// meaning a space could have on this surface — inside a paste bracket, in a
+	// filter box, in copy mode, in any overlay — and because the first of the
+	// two spaces has already typed itself perfectly ordinarily one keystroke
+	// ago, through the line below.
+	if a.homeGesture(msg) {
+		a.input.reset()
+		return tea.Batch(a.edited(), a.homeByTwoSpaces())
+	}
+	if text := msg.Key().Text; text != "" {
+		// The ordinary case: a key that carries text types it.
+		//
+		// This line used to claim it also caught a paste that arrived as
+		// keystrokes, and it could not: a pasted newline arrives as a key named
+		// "enter", which the switch above matches and SUBMITS on, so a paste on a
+		// terminal whose brackets leaked was sent to the model a line at a time.
+		// The bracket is what catches that now, before this router is reached at
+		// all (app.go's [app.pasteKey]).
+		// A CHARACTER TYPED OVER A SELECTED RUN REPLACES IT, which is what every
+		// text field does and what the pointer's own gesture promises
+		// (editselect.go). The tags are moved for the removal first, so the
+		// insertion below is measured against the text that is actually there.
+		a.dropDraftPick()
+		at := a.input.cursor
+		a.input.insert(text)
+		a.editTags(at, at, len([]rune(text)))
+		// THE FIRST RUNE HOLDS AN OPEN TASK PROPOSAL. This is the typed-character
+		// door; app.paste applies the same hold after the clipboard changes this
+		// box, so both roads share the engine-owned clock policy. The question
+		// block holds it too, off any key it reads (question.go's
+		// [app.holdQuestionClocks]) — this is the half that fires for a rune the
+		// question never sees, which is every rune once the box has words in it.
+		if a.task != nil {
+			a.holdTask(a.task.id)
+		}
+		// AND THE ENGINE IS TOLD SOMEBODY IS WRITING (internal/session's Typing).
+		// It is here, on the one line every typed character passes through,
+		// because that is exactly what it is for: seconds before a request is
+		// made we know one is coming and roughly where it will go, and a
+		// one-token measurement of the two machines it would go to costs about
+		// two hundredths of a cent and takes a stale half-hour aggregate out of
+		// the wait a person is about to sit through.
+		//
+		// EVERY CHARACTER CALLS IT AND ALMOST NONE OF THEM BUY ANYTHING. The
+		// debounce is the engine's — at most one pair every twenty seconds per
+		// model, none at all when the speed guard is off or nobody is waiting —
+		// so a composer has no first-keystroke state to keep and cannot get it
+		// wrong. Nothing waits for it: it returns before anything is sent.
+		a.laneTyping()
+		cmd := a.edited()
+		// AND A DROP TYPED IN CHARACTER BY CHARACTER IS WATCHED FOR HERE, which
+		// is the one line every typed character in this program passes through
+		// (dropkeys.go). Some terminals deliver a dragged file as KEYSTROKES
+		// rather than as the bracketed paste [app.paste] already understands, and
+		// nothing above this line is looking at keys. Ordinary typing pays two
+		// integer comparisons for it and nothing else — no clock, no syscall, no
+		// frame — and a run that could not be a path closes the fold at once.
+		if wake := a.dropWatch(&a.input, &a.chips, at, text); wake != nil {
+			return tea.Batch(cmd, wake)
+		}
+		return cmd
+	}
+	return nil
+}
+
+// enter is the submit key, and it has one first meaning: send the draft.
+func (a *app) enter() tea.Cmd { return a.enterLine() }
+
+// enterLine is the send key's whole road. The chord that used to add a marked
+// reading to it — ctrl+enter, "keep this true" — is queueing's now
+// (followup.go), and the marked door is the typed command alone
+// (standmark.go's [app.standingSay]); everything a message does to this surface
+// — the transcript line, the turn number, the recall history, the draft file —
+// is the same whichever way the sentence was handed over.
+func (a *app) enterLine() tea.Cmd {
+	if a.startingChat() {
+		return a.startChatEnter()
+	}
+	// A WATCHER'S SEND KEY IS THE TAKE-BACK, and nothing below it runs
+	// (watching.go). The router already turns enter into this, so reaching here
+	// means some other road did — the path completion's own enter, a paste that
+	// arrived as a keystroke — and every one of them means the same thing on a
+	// window that is not holding the keyboard. The draft is untouched: not
+	// cleared, not sent, exactly where it was.
+	if a.watching() {
+		return a.takeKeyboard()
+	}
+	if a.openSelectedPaste() {
+		return nil
+	}
+	// A DROP THE FOLD IS STILL HOLDING IS SPENT BEFORE THE LINE IS READ, for
+	// the pointer fold's reason exactly (coalesce.go's press arm): a gesture
+	// this surface has not finished answering must not be read as the text it
+	// happens to have left on the screen. Somebody who dropped a file and
+	// pressed enter inside two frames meant the drop, and the line they send is
+	// the one with the chip in it (dropkeys.go).
+	a.spendDrop()
+	line := strings.TrimSpace(a.input.String())
+	// A FULL TRAY IS A MESSAGE. An empty box with a picture attached is not an
+	// empty message — "what is this?" is often the picture itself — so the two
+	// tests below both ask about the tray as well as about the words.
+	held := len(a.chips) > 0
+	if !strings.HasPrefix(line, "/") && (line != "" || held) && a.updateStopsTurn() {
+		return nil
+	}
+	// An empty draft with a call selected is a reader, not a typist: enter
+	// opens what ↑/↓ picked out. A draft of any length is a sentence, and a
+	// sentence wins.
+	if line == "" && !held && a.sel != -1 {
+		if key, ok := selectedCaption(a.sel); ok {
+			a.toggleCap(key)
+			return nil
+		}
+		a.openTool(a.sel)
+		return nil
+	}
+	// A WINDOWS DROP DOES NOT BEGIN WITH THE SLASH THAT REACHES THE OLDER ENTER
+	// NET. Once enter says the gesture is finished, a complete drive or WSL UNC
+	// path takes that same door: a real file lands on the tray and a missing one
+	// keeps its text and says so, with neither becoming a model message.
+	if windowsDroppedLineShape(line) && a.inputDroppedLine(line) {
+		return a.edited()
+	}
+	if _, bash := session.BashCommand(a.pastesUnfolded(line)); bash {
+		return a.enterBash(line)
+	}
+	// A MODEL MESSAGE THAT STILL NEEDS THE DEFAULT PROVIDER OPENS ITS CONNECTION
+	// BEFORE THE DRAFT IS CLEARED. This is the returning half of the key gate: a
+	// person who pressed esc to read an existing conversation can still type
+	// naturally, and enter gives them the browser door rather than spending their
+	// words on the provider's "no API key" refusal. Slash commands stay local and
+	// keep working — /help and /settings do not need a model — and a connected
+	// service carrying this model has its own working credential path.
+	if !strings.HasPrefix(line, "/") && (line != "" || held) &&
+		a.defaultProviderNeeded() {
+		a.openSetup(false)
+		return nil
+	}
+	// A TAG IS READ BEFORE THE DRAFT IS CLEARED. More than one cannot choose a
+	// winner safely: falling back to an ordinary send is precisely the failure
+	// these alternate doors exist to prevent, so the words stay in the box.
+	tags := a.liveTags()
+	if !strings.HasPrefix(line, "/") && len(tags) > 1 {
+		a.note(slashTagRefusal)
+		return nil
+	}
+	// AND A COMPACT TAG WITH NOTHING BEHIND IT STOPS THE SEND, by the same law and
+	// for a sharper reason: the tag is not the words (draftkeep.go's
+	// [app.missingPaste]). The whole line stays in the box.
+	if !strings.HasPrefix(line, "/") {
+		if tag := a.missingPaste(line); tag != "" {
+			a.note(draftOrphanSendWord + " · " + tag)
+			return nil
+		}
+	}
+	var tagDoor sendDoor
+	var tagWords string
+	var tagPlain []segment
+	tagShown := line
+	// A DEMOTION MUST SURVIVE THE RESET. [editor.reset] nils demotedTags, and
+	// the transcript is painted long after that, so the ranges are snapshotted
+	// here and threaded to the entry (app.go's [app.submittingShown]).
+	plain := a.input.plainTags()
+	if !strings.HasPrefix(line, "/") && len(tags) == 1 {
+		tag := tags[0]
+		tagDoor = commandDoor(string(a.input.value[tag.from+1 : tag.to]))
+		tagWords = removeSlashTag(a.input.value, tag)
+		tagPlain = plainWithoutTag(a.input.value, tag, plain)
+	}
+	a.input.reset()
+	a.endRecall()
+	a.closeLists()
+	if line == "" && !held {
+		return a.edited()
+	}
+	a.stick = true
+	// AND THE FIRST CONVERSATION'S GREETING IS SPENT HERE, at the send and not at
+	// the first keystroke. Every other greeting goes on the first key, which drops
+	// the composer to the foot of the frame; the first one stands through typing
+	// so the box a person aimed at does not move out from under them mid-word
+	// (welcome.go's [app.spendWelcome]).
+	a.spendWelcome()
+	// Everything the person pressed enter on is remembered, commands included:
+	// "/model anthropic/…" is exactly the kind of line nobody wants to type
+	// twice, and a recall list that held only the sentences would be a shell
+	// history that dropped the commands.
+	if line != "" {
+		a.remember(line)
+	}
+	a.dropDraft()
+	if strings.HasPrefix(line, "/") {
+		// A command with a tray full is still a command: /image adds a second
+		// picture rather than sending the first (attach.go). A picked harness
+		// waits through it for the same reason — a slash is a thing said to this
+		// surface, and the request is a thing said to the harness.
+		return a.slash(line)
+	}
+	// Send-door tags use the command's existing bare and argument forms. Both
+	// roads stop at a visible card or chooser, so this act cannot become silent
+	// work merely because the token arrived in pasted prose.
+	switch tagDoor {
+	case sendDoorStanding:
+		if tagWords == "" {
+			return a.openStanding()
+		}
+		return a.standingSayShown(tagWords, tagShown, plain, tagPlain)
+	case sendDoorTask:
+		return a.runTaskCommand(tagWords)
+	}
+	// A PICKED HARNESS TAKES THE SENTENCE, and it takes it whole: the person
+	// chose the shape of the work off a list and then said what the work is, so
+	// this runs that harness on exactly those words and nothing detects anything
+	// (harnesspick.go). An empty box with a chip in the tray never reaches here —
+	// the tray's own hint says to type the request, and enter on nothing is the
+	// no-op it always was.
+	if a.harnChip != "" {
+		return a.runPickedHarness(line, plain)
+	}
+	// EVERY "@task" IN THE SENTENCE GROWS ITS FOOTNOTE HERE, and here is after
+	// the line has been remembered: what ↑ brings back is what the person typed,
+	// and what goes to the model — and into the transcript, so they are the same
+	// thing — is the sentence with its pointer blocks under it (taskmention.go).
+	// A line with no mentions in it comes back untouched.
+	line = a.expandTaskMentions(line)
+	// AND A MESSAGE TYPED WHILE AN ANSWER IS STILL COMING WAITS FOR IT (park.go).
+	// It is not sent, it is not spliced into the reply that is streaming, and it
+	// is not lost: it is held in its own block above the box until the answer is
+	// finished, where ↑ or a click can pull it back to
+	// be edited. Everything above this line — a slash command, a picked harness —
+	// still happens at once, because those are things said to THIS SURFACE rather
+	// than to the model.
+	if a.parking() {
+		return a.park(line, false, plain)
+	}
+	shownLine := line
+	line = a.expandPastes(line)
+	if held {
+		return a.submitImagesShown(line, shownLine, plain)
+	}
+	return a.submitShown(line, shownLine, plain)
+}
+
+// completePath is tab: the file list over a command's path argument, opened if
+// it is not up and committed if it is (files.go).
+func (a *app) completePath() tea.Cmd {
+	if a.comp.open && a.comp.arg {
+		if _, ok := a.comp.choice(); ok {
+			a.completeFile()
+			return a.edited()
+		}
+	}
+	if !a.comp.openArg(&a.input) {
+		return nil
+	}
+	a.touch()
+	return a.loadFiles()
+}
+
+// inputBlock renders the draft — or the picker's filter box in its place — and
+// says where the caret sits inside it, held open to the composer's floor.
+//
+// THE FLOOR IS APPLIED HERE AND NOWHERE ELSE, because this is the one function
+// every geometric question below the conversation goes through
+// ([app.inputHeight] asks it for the rows it will subtract, and view.go asks it
+// for the rows it will draw). A floor applied at the drawing would be a floor
+// the height did not know about, and rows the geometry did not subtract are
+// rows [app.frameOut] loses off the TOP of the window, which is where the
+// room's header is.
+//
+// AND IT IS APPLIED TO EVERY BOX THAT STANDS IN THE DRAFT'S POSITION, not only
+// to the draft: a picker's filter, the rewind bar, the watch line and the
+// secret row each take this row while something else has the keyboard, and a
+// one-row stand-in under a three-row draft would move the whole foot the moment
+// the overlay opened — which is the defect below, one size smaller.
+func (a *app) inputBlock(width int) ([]string, int, int) {
+	rows, caretX, caretRow := a.inputBlockUnfloored(width)
+	_, height := a.size()
+	// The rows are added BELOW what is there, for [placeFrameWithBar]'s reason:
+	// the caret's row is counted from the head of this block, so a pad at the
+	// bottom leaves every row above it — and the caret on it — where it was.
+	for floor := boxFloor(height); len(rows) > 0 && len(rows) < floor; {
+		rows = append(rows, "")
+	}
+	return rows, caretX, caretRow
+}
+
+func (a *app) inputBlockUnfloored(width int) ([]string, int, int) {
+	// The box may not take the frame. Two rows are spoken for whatever happens
+	// — the status line and the blank under it — and what is left over, up to
+	// the ceiling, is the box's: a six-line paste into a four-line window shows
+	// two rows and scrolls, rather than pushing off the line that says where
+	// you are.
+	_, height := a.size()
+	rows := min(draftRows, height-2)
+	if rows < 1 {
+		rows = 1
+	}
+	// THE REWIND'S MODE BAR STANDS IN THE BOX'S OWN POSITION (rewind.go), for the
+	// reason the two filter boxes below take it: the keyboard is pointed somewhere
+	// else, and a draft drawn under a mode that has taken its keys is a box that
+	// cannot be typed into. The caret rests at the bar's first cell — the mode has
+	// no sentence to put one inside of.
+	if a.rew.on {
+		return a.rewindBar(width), 0, 0
+	}
+	if a.pick.open {
+		// THE HINT IS FITTED BY THE FITTER AND NOT BY THE ELLIPSIS. The room is
+		// what [draftBlockWithTags] will compute for it — the width less the
+		// prompt, since the picker's box takes no lead — so the keys go whole,
+		// from the right, on a frame too narrow for all of them (rowfit.go).
+		// THE COMMAND THAT OPENED THIS STAYS ON THE LINE ([draftBlockTacked] argues
+		// it), and the placeholder is fitted in what it leaves.
+		tack := slashPickerTack
+		return draftBlockTacked(&a.pick.filter, a.pal, width, 1,
+			a.pick.hintAt(width-ansi.StringWidth(prompt)-ansi.StringWidth(tack)-1), "", tack)
+	}
+	if a.at(pageMemory) {
+		if a.mem.edit != nil {
+			return draftBlock(a.mem.edit, a.pal, width, 1, memoryEditHint, "")
+		}
+		// THE PLACE'S OWN SENTENCE, WHICH IS ABOUT THE ROW UNDER THE CURSOR. It
+		// used to be one constant for every row here, so on a line it named a key
+		// and described something else ([placeMemory.hint]).
+		return draftBlock(&a.mem.filter, a.pal, width, 1, placeMemory{}.hint(a), "")
+	}
+	if a.roster.open {
+		return draftBlock(&a.roster.filter, a.pal, width, 1, resumeHint, "")
+	}
+	// AND /subharness TAKES IT ON THE SAME TERMS, for whichever of its two boxes
+	// is open: the filter over the list, and the box over one field of the intake
+	// card (subharness.go). Neither is a widget of its own — both are this
+	// surface's one-line box, in the position it gives every box that has taken
+	// the keyboard.
+	if a.subPage.open {
+		if card := a.subPage.card; card != nil {
+			if card.edit != nil {
+				return draftBlock(card.edit, a.pal, width, 1, subEditHint, "")
+			}
+		} else {
+			return draftBlock(&a.subPage.filter, a.pal, width, 1, subListHint, "")
+		}
+	}
+	// AND THE DELIVERABLES PICKER TAKES IT ON THE SAME TERMS, for whichever of
+	// its two boxes is open: the filter, and the destination box over a row that
+	// is being copied out (deliverables.go). Neither is a widget of its own —
+	// both are this surface's one-line box, in the position it gives every box
+	// that has taken the keyboard.
+	if a.shelf.open {
+		if dest := a.shelf.dest; dest != nil {
+			return draftBlock(&dest.box, a.pal, width, 1, filesCopyHint, "")
+		}
+		return draftBlock(&a.shelf.filter, a.pal, width, 1, filesHint, "")
+	}
+	// AND THE CONNECTIONS PANEL TAKES IT ON THE SAME TERMS, for whichever of its
+	// two boxes is open: the filter, once the catalog is long enough to be
+	// searched rather than read, and the key box over a row that wants one
+	// (connectpanel.go). Neither is a widget of its own — the filter is the
+	// picker's box and the key box is the offer's row, in the position this
+	// surface gives every box that has taken the keyboard.
+	if a.connPanel.open {
+		if entry := a.connPanel.entry; entry != nil {
+			lines, caretX, caretRow := keyBoxLines(entry, a.pal, width, 0, rows)
+			if caretRow < 0 {
+				// A CHOICE HAS NO BOX, so there is nowhere for the caret to live and
+				// it is hidden rather than parked on the first name — the same law
+				// home-at-rest and the job page follow (pages.go, view.go).
+				a.caret = false
+				return lines, 0, 0
+			}
+			return lines, caretX, caretRow
+		}
+		if a.connPanel.filtering {
+			return draftBlock(&a.connPanel.filter, a.pal, width, 1, connectFilterHint, "")
+		}
+	}
+	// AND THE CREW PANEL'S TWO LISTS TAKE IT ON THE SAME TERMS: the seat list's
+	// filter and the checklist's are this surface's one-line box, in the place
+	// /model's filter stands (crewpanel.go). A hole on one of its rows is typed
+	// on the row itself, and the caret then has no box to live in and is hidden,
+	// on the law the /connect panel's choice follows above.
+	if a.crewUI.open {
+		if box := a.crewBox(); box != nil {
+			return draftBlock(box, a.pal, width, 1, crewPickHint, "")
+		}
+		if a.crewUI.edit != nil {
+			a.caret = false
+		}
+	}
+	// AND WHERE THE DRAFT ITSELF WOULD BE, ONE DIM LINE WHEN ANOTHER WINDOW HAS
+	// THE KEYBOARD (watching.go). It is read HERE, under every overlay above and
+	// over the draft below, because that is exactly what it is: a stand-in for
+	// the main box and for nothing that has taken the box's position — a picker's
+	// filter still belongs to the person sitting here, whoever is typing into the
+	// conversation.
+	if a.watching() {
+		return a.watchBar(width), 0, 0
+	}
+	// AND THE BOX SAYS WHICH ROOM IT IS TYPING INTO, as a segment in front of its
+	// own prompt (room.go's [app.roomLead]). It is the main draft's alone: the
+	// filter boxes above stand in this position while an overlay has the keyboard,
+	// and none of them sends a word anywhere.
+	block, caretX, caretRow := a.secretDraftBlock(width)
+	if block == nil {
+		block, caretX, caretRow = a.pasteDraftBlock(width, rows)
+	}
+	// THE TRAY IS PART OF THE BOX, not a fifth thing the frame has to know about
+	// (attach.go). It is one row above the draft, so it is one row of this
+	// block: every geometric question below the conversation already goes
+	// through here, and a strip drawn anywhere else would be a row the
+	// hit-testing and the height had to be told about separately.
+	if strip := a.chipStrip(width); strip != "" {
+		block = append([]string{strip}, block...)
+		caretRow++
+	}
+	return block, caretX, caretRow
+}
+
+// secretDraftBlock is the message box while the question above it asked for a
+// CREDENTIAL, and nil on every other frame.
+//
+// THE SECRET IS NEVER DRAWN BACK. Not once, not while it is being typed, not
+// behind a "show" toggle: what is on the row is a bullet per character and how
+// many of them there are ([keyLine] draws exactly that, and the /connect panel
+// and the settings sheet's row draw it the same way — one way of entering a key
+// on this surface, and a second one that looked almost like it would be a second
+// thing to trust).
+//
+// THE COUNT IS THE ONLY TELEMETRY, and it is there for the paste. A key is forty
+// or two hundred characters, the bullets run off the end of the row long before
+// that, and the count is what tells a person the whole thing arrived.
+//
+// It is ONE ROW and never the draft's six: a credential is not a paragraph, and
+// a masked box that grew would be a row of bullets nobody can read moving the
+// conversation up the screen. The box is still [app.input] — the same box, with
+// the same keys, answered by the same `enter` ([app.questionEnter]) — so nothing
+// about how the answer is given changes with how it is drawn.
+func (a *app) secretDraftBlock(width int) ([]string, int, int) {
+	head, ok := a.questionHead()
+	if !ok || !head.question.Input.Secret || head.question.Input.Kind != session.InputText {
+		return nil, 0, 0
+	}
+	// The hint is EMPTY because the card above the box is already saying what to
+	// type ([app.questionCardBody] draws the prompt as its last row), and the one
+	// instruction said twice is the two-renderings defect one size smaller.
+	line, caretX := keyLine(&a.input, "", true, a.pal, width)
+	return []string{line}, caretX, 0
+}
+
+// inputHeight is how many rows the input block is taking. Every geometric
+// question below the conversation goes through it, so a draft that grew to six
+// rows takes those rows from the transcript and from nothing else.
+func (a *app) inputHeight() int {
+	width, _ := a.size()
+	// THE BOX IS ASKED AT THE WIDTH THE FRAME LAYS IT OUT AT, which is the frame
+	// less the one cell it is inset by (view.go's [inputPad]). Measured a cell
+	// wider, a draft that wraps to three rows on screen could be counted as two —
+	// and rows the geometry did not subtract are rows [app.frameOut] then loses
+	// off the TOP of the window, which is where the room's header is.
+	rows, _, _ := a.inputBlock(width - len(inputPad))
+	return len(rows)
+}
+
+// draftBlock lays one editor out as a block: the prompt on its first row, every
+// continuation aligned under the TEXT, soft-wrapped to the box's width, and at
+// most maxRows of it on screen. It returns the rows, the caret's column, and
+// the row the caret is on.
+//
+// A draft taller than maxRows scrolls INSIDE the box, keeping the caret in
+// view, and marks the rows above with the same ellipsis the rest of the surface
+// truncates with. Nothing about a long paste is allowed to move the
+// conversation: the box grows to six rows and stops.
+//
+// The window is TOP-ANCHORED — the first line of the draft is the first row of
+// the block until the caret walks past the cap — and the law is stated at the
+// arithmetic below.
+//
+// hint is the placeholder shown while the editor is empty, and the picker's
+// filter box is why it exists — the overlay explains itself in the box a person
+// is already looking at instead of spending a row on a legend.
+//
+// lead is an already-painted segment drawn in FRONT of the prompt, and "" for
+// every box but the main draft standing in a room (room.go's [app.roomLead]).
+// Its width is charged to the box the way the prompt's is — the wrap, the
+// continuation indent and the caret's column all count through the same number —
+// because a lead the layout drew and the caret arithmetic did not know about
+// would put the terminal's cursor several cells left of the letter it is on.
+func draftBlock(e *editor, pal palette, width, maxRows int, hint, lead string) ([]string, int, int) {
+	return draftBlockTacked(e, pal, width, maxRows, hint, lead, "")
+}
+
+// draftBlockTacked is that box with a TACK: a chip standing after the prompt and
+// before whatever is typed, which does not belong to the text and cannot be
+// edited.
+//
+// IT IS THE COMMAND THAT OPENED AN OVERLAY, LEFT WHERE IT WAS TYPED. `/model`
+// opens a list and the box under it becomes a filter — a different editor, empty
+// — so the words a person typed to get there vanished from the one line they were
+// looking at, and what was left was a `›` and a grey placeholder that could have
+// belonged to anything on this surface. The chip is the answer to "what am I
+// filtering?" without a sentence saying it.
+//
+// ITS WIDTH IS PAID BY THE HEAD, which is what makes everything else follow: the
+// room the text wraps in, the column the caret is reported at, and the indent of
+// every continuation row are all derived from head, so a tack costs the text its
+// cells once and nothing downstream has to know about it.
+func draftBlockTacked(e *editor, pal palette, width, maxRows int, hint, lead, tack string) ([]string, int, int) {
+	return draftBlockFull(e, pal, width, maxRows, hint, lead, tack, nil, pal.ink)
+}
+
+// ink is the paint the words get: pal.ink everywhere but the main draft while
+// the recall walk sits on a killed, never-sent entry (recall.go's
+// [app.draftInk]) — a dim box is how the walk says these words were never
+// sent.
+func draftBlockWithTags(e *editor, pal palette, width, maxRows int, hint, lead string, demoted []segment, ink func(string) string) ([]string, int, int) {
+	return draftBlockFull(e, pal, width, maxRows, hint, lead, "", demoted, ink, lead == "")
+}
+
+// draftBlockFull is the whole of it, and the only one of these four that takes
+// every knob. The three above are the shapes that are actually asked for.
+func draftBlockFull(e *editor, pal palette, width, maxRows int, hint, lead, tack string, demoted []segment, ink func(string) string, shell ...bool) ([]string, int, int) {
+	mark := pal.dim(prompt)
+	if len(shell) > 0 && shell[0] && len(e.value) > 0 && e.value[0] == '!' {
+		mark = pal.warn(pal.glyph(tokens.GPromptShell) + " ")
+	}
+	chip := ""
+	if tack != "" {
+		chip = pal.chip(tack) + " "
+	}
+	head := ansi.StringWidth(lead) + ansi.StringWidth(prompt) + ansi.StringWidth(ansi.Strip(chip))
+	room := width - head
+	if room < 4 {
+		room = 4
+	}
+	if maxRows < 1 {
+		maxRows = 1
+	}
+	if len(e.value) == 0 && hint != "" {
+		// AND THE PLACEHOLDER DROPS WHOLE CLAUSES. Every one of these is a key
+		// sheet in the surface's own idiom — `filter · ↑↓ · enter connect · esc
+		// close` — drawn in the one row an overlay has instead of a legend, and a
+		// character ruler ended it `· esc cl…` at sixty columns: a box that named
+		// the way out and then ate it. [hintFit] drops the clause nearest the way
+		// out and keeps the way out itself, which is the same ladder the foot of
+		// every place is fitted by; on a hint with nothing to drop it is exactly
+		// [fit], so the boxes whose placeholder is a plain phrase lose nothing.
+		return []string{lead + mark + chip + pal.dim(hintFit(hint, room))}, head, 0
+	}
+
+	// THE BLOCK IS ANCHORED AT THE TOP AND TEXT FLOWS DOWN. The first row of the
+	// draft is the first row of the box — prompt and all — and a second line
+	// appears UNDER it, which is what every text field a person has ever typed
+	// into does and what this one did not: the window used to be pinned to the
+	// BOTTOM of the draft the moment it outgrew the cap, so a long paste showed
+	// its tail and the "›" was the first thing to go.
+	//
+	// Scrolling starts only when the caret leaves the cap, and it follows the
+	// caret by exactly as much as it must. The offset is DERIVED from the caret
+	// rather than remembered, which is what makes it agree with itself: the
+	// caret's row is returned to [app.View] as the terminal's cursor position
+	// (view.go), and a stored top would be one frame's answer applied to another
+	// frame's draft. [draftWindow] is where that arithmetic now lives.
+	segments, caretRow, top, opening := draftWindow(e.value, e.cursor, room, maxRows)
+	caretColumn := caretColumnIn(e, segments[caretRow])
+	end := min(top+maxRows, len(segments))
+
+	// The block is allocated at its CAP and not at the rows it happens to hold,
+	// so the floor [app.inputBlock] holds it to is padding into room that is
+	// already there. Allocated at `end-top` instead, every frame of a scroll
+	// paid a fresh slice for two empty strings — which the allocation law in
+	// inputsmooth_test.go priced at five allocations a screen.
+	out := make([]string, 0, maxRows)
+	// Every row after the first is indented to where the text starts, segment
+	// included: a continuation that began under the segment would be a wrapped
+	// sentence with a step in its left margin.
+	under := strings.Repeat(" ", head)
+	for i := top; i < end; i++ {
+		row0 := under
+		switch {
+		case i == 0 && opening:
+			row0 = lead + mark + chip
+		case i == top:
+			// The block is scrolled: say so where the prompt would be, in the
+			// same two cells, so the rows do not shift under the caret.
+			row0 = under[:head-ansi.StringWidth(prompt)] + pal.dim(glyphMore+" ")
+		}
+		// A RECOGNIZED SLASH COMMAND IS CHIPPED AS IT IS TYPED (slashchip.go).
+		// The boundary question is asked of the DRAFT and not of the row,
+		// because a row is a soft-wrapped slice of it: [wrapLine] breaks after a
+		// space where it can, but a word longer than the box breaks mid-word, and
+		// a row that opens in the middle of "cmd/codeaf" does not open a token.
+		at := segments[i].from
+		boundary := at == 0 || e.value[at-1] == ' ' || e.value[at-1] == '\n'
+		row := string(e.value[at:segments[i].to])
+		painted := paintDraftCommands(row, pal, ink, at, boundary, demoted)
+		// AND A SELECTED RUN WEARS THE MARK, over whatever paint the row already
+		// carries — the same step the transcript's own sweep lights its cells
+		// with, so one gesture has one look wherever it is made (editselect.go).
+		if lo, hi, ok := e.selection(); ok {
+			painted = markDraftRow(painted, e.value, segments[i], lo, hi, pal)
+		}
+		out = append(out, row0+painted)
+	}
+	return out, head + caretColumn, caretRow - top
+}
+
+// segment is one soft-wrapped display row of the draft, as rune offsets into
+// the editor's value.
+type segment struct{ from, to int }
+
+// draftWindow soft-wraps the rows the box can SHOW rather than the whole draft,
+// and it is the reason a four-thousand-line paste does not make this surface
+// crawl.
+//
+// THE WRAP OF A DRAFT IS THE WRAP OF ITS LOGICAL LINES, ONE AT A TIME. Every
+// newline breaks a row unconditionally, so how a line wraps depends on that line
+// and on nothing before it — which means the six rows around the caret can be
+// laid out without touching the four thousand that are not on screen. The old
+// arithmetic wrapped the entire value on the way to picking six of it, and it
+// did so from [app.inputHeight] as well as from the render, so a big paste in
+// the box cost a full re-wrap several times per FRAME and once per pointer cell.
+// A person who pasted a stack trace and then moved the mouse was paying half a
+// millisecond a step for rows nobody was going to see.
+//
+// It returns the rows it laid out, the caret's row within them, the first row
+// the box draws, and whether that list OPENS the draft — the last one is what
+// tells the caller to draw the "›" rather than the scrolled-past ellipsis, and
+// it is a fact the caller can no longer get from an index, because index zero of
+// a window is only row zero of the draft when the walk reached the top.
+//
+// The one draft this does not help is a single logical line with no newline in
+// it at all — a minified blob out of a browser — where finding the caret means
+// wrapping the line it is in. That is the same work the whole draft used to
+// cost, on the one shape where it cannot be avoided.
+func draftWindow(value []rune, cursor, room, maxRows int) ([]segment, int, int, bool) {
+	cursor = min(max(cursor, 0), len(value))
+	head, tail := lineHead(value, cursor), lineTail(value, cursor)
+	// The caret's own line first: it is the only one that has to be wrapped to
+	// answer where the caret is.
+	segments := wrapLine(value, head, tail, room)
+	caretRow := caretIn(value, segments, cursor, room, tail < len(value))
+	// THEN BACKWARD, a line at a time, until the rows above the caret could fill
+	// the box. A line is wrapped whole because that is the unit the wrap is
+	// defined on — one of them can be worth twenty rows, and taking twenty is
+	// cheaper than deciding not to.
+	for caretRow < maxRows-1 && head > 0 {
+		start := lineHead(value, head-1)
+		above := wrapLine(value, start, head-1, room)
+		segments = append(above, segments...)
+		caretRow += len(above)
+		head = start
+	}
+	top := max(0, caretRow-maxRows+1)
+	// AND FORWARD ONLY WHERE THE BOX HAS ROOM LEFT. A caret at the end of a long
+	// paste leaves none — the window ends on the caret's row — so this walks
+	// nothing at all in the case that used to be the expensive one.
+	for len(segments) < top+maxRows && tail < len(value) {
+		start := tail + 1
+		tail = lineTail(value, start)
+		segments = append(segments, wrapLine(value, start, tail, room)...)
+	}
+	return segments, caretRow, top, head == 0
+}
+
+// lineHead and lineTail bound the LOGICAL line a rune offset sits on — the run
+// between two newlines, which is [editor.lineStart] and [editor.lineEnd] asked
+// about a position rather than about the caret.
+func lineHead(value []rune, at int) int {
+	for ; at > 0; at-- {
+		if value[at-1] == '\n' {
+			return at
+		}
+	}
+	return 0
+}
+
+func lineTail(value []rune, at int) int {
+	for ; at < len(value); at++ {
+		if value[at] == '\n' {
+			return at
+		}
+	}
+	return len(value)
+}
+
+// wrapLine breaks ONE logical line into display rows: it fits what it can, and
+// breaks at the last space before the edge or mid-word when the line offers no
+// space to break at. An empty line still produces a row — the caret has to be
+// able to stand on it.
+//
+// ROOM IS A COUNT OF CELLS, NOT OF RUNES, and the fit is measured in the same
+// unit the terminal draws in ([cells]). It used to count runes, which is the
+// same number for the ascii nearly every draft is made of and half the number
+// for anything else: a Japanese sentence in a box ten cells wide was laid out
+// ten runes to the row and painted twenty cells wide, so the draft ran out of
+// the box and over whatever the frame had put beside it. The caret's own column
+// was already measured in cells ([caretColumnIn]) and so was the click that
+// places it (draftclick.go), so the wrap was the one half of the arithmetic
+// still counting the wrong thing — and the two halves disagreeing is what put
+// the caret on a neighbouring letter.
+func wrapLine(value []rune, from, to, room int) []segment {
+	var out []segment
+	for from < to {
+		cut, width := from, 0
+		for cut < to {
+			w := cells(value[cut])
+			if width+w > room {
+				break
+			}
+			width += w
+			cut++
+		}
+		if cut >= to {
+			return append(out, segment{from: from, to: to})
+		}
+		// A rune too wide for the whole box still takes a row of its own: a cut
+		// that advanced nothing would loop forever, and a box four cells wide is
+		// wide enough for every rune there is.
+		if cut == from {
+			cut = from + 1
+		}
+		for at := cut; at > from; at-- {
+			if value[at-1] == ' ' {
+				cut = at
+				break
+			}
+		}
+		out = append(out, segment{from: from, to: cut})
+		from = cut
+	}
+	return append(out, segment{from: to, to: to})
+}
+
+// cells is how many columns one rune of a draft occupies. It is asked rune by
+// rune rather than of the string, because that is how the wrap, the caret and
+// the click all walk a row — and an answer given in three different units is
+// three answers.
+func cells(r rune) int { return ansi.StringWidth(string(r)) }
+
+// caretIn resolves the caret's row within a laid-out run of rows. A caret
+// sitting exactly on a soft break belongs to the row that FOLLOWS it, which is
+// where the next character it types will appear — and "follows" is asked of the
+// draft rather than of the run, which is what more says: there are rows after
+// this window that were not laid out because nobody is going to see them.
+//
+// A row is FULL when the caret's column has reached the box's width, and that is
+// asked in cells for the reason the wrap above is: on a wide-rune draft the rune
+// count reaches the edge at half the text, and a caret sent down a row early
+// sits under the wrong letter.
+func caretIn(value []rune, segments []segment, cursor, room int, more bool) int {
+	row := 0
+	for i, s := range segments {
+		if cursor >= s.from && cursor <= s.to {
+			row = i
+			full := ansi.StringWidth(string(value[s.from:cursor])) >= room
+			if cursor == s.to && full && (i+1 < len(segments) || more) {
+				continue
+			}
+			break
+		}
+	}
+	return row
+}
+
+// caretColumnIn is how far into its row the caret sits, in cells rather than in
+// runes: a draft holds whatever a person pasted into it, and a caret placed by
+// counting runes would stand in the wrong column the moment one of them is wide.
+func caretColumnIn(e *editor, s segment) int {
+	from := s.from
+	if e.cursor < from {
+		from = e.cursor
+	}
+	return ansi.StringWidth(string(e.value[from:e.cursor]))
+}

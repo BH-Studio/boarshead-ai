@@ -1,0 +1,74 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/Agent-Field/codeaf/internal/config"
+	"github.com/Agent-Field/codeaf/internal/home"
+)
+
+// THE SEAMS THE BIG MACHINES ARE BUILT FROM.
+//
+// build_harness, list_harnesses and propose_task are absent from the belt rather
+// than broken when their machinery is missing (internal/session's tools.go),
+// which is the right posture and a silent one: a door that forgot to fill a seam
+// ships a model that simply never has the verb, and nothing anywhere says so.
+// internal/session's belt_wiring_test.go pins what filling the seams buys; this
+// pins that THIS DOOR fills them.
+//
+// THE ADAPTIVE SEAM IS HERE WITHOUT A HAND ABOVE IT. `run_adaptive` was the
+// fourth of these and is off the belt outright now (internal/session's
+// tools.go), so OrchestrateRunner no longer buys the model a verb — it buys the
+// engine a caller, for the one door left onto a planned run: a person naming one
+// in so many words (internal/session's orchestrate.go). An unfilled seam there
+// is a cue that answers nothing, which is exactly as silent a failure.
+//
+// The gates, and what fills each here:
+//
+//	build_harness, list_harnesses   HarnessStore + RunHarness + AskConsent
+//	propose_task                    a conversation rather than a task node
+//	the anchored adaptive cue       OrchestrateRunner + AskConsent
+func TestTheV3DoorFillsEverySeamTheBigHandsNeed(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// EVERY ROOT THAT DECIDES WHERE A WRITE GOES, because the door this test
+	// walks through loads the process's profile: openV3Process builds one launch,
+	// and that launch fetches the model catalog (catalog.LoadLazy, Dir =
+	// settings.ProfileDir) and starts the pool's index refresh, both of which
+	// write through config.ProfilePath with the directory the environment named —
+	// the live profile the harness exports, when neither of these is pinned.
+	t.Setenv(home.EnvVar, t.TempDir())
+	t.Setenv(config.ProfileDirEnv, "")
+	t.Setenv("OPENROUTER_API_KEY", "test-key")
+
+	proc, err := openV3Process("chat")
+	if err != nil {
+		t.Fatalf("the process every v3 door builds once did not open: %v", err)
+	}
+	t.Cleanup(proc.closeAll)
+	launch, err := openV3Launch(proc, v3Options{Model: "test/model", Workspace: t.TempDir()})
+	if err != nil {
+		t.Fatalf("the launch every v3 door assembles through did not open: %v", err)
+	}
+	cfg := launch.Config
+	if cfg.HarnessStore == nil {
+		t.Fatal("no registry reached the session: build_harness has nowhere to write")
+	}
+	if cfg.RunHarness == nil {
+		t.Fatal("no harness runner reached the session: designing one is off")
+	}
+	// The interactive path is the ONLY one that says somebody is watching
+	// (chatv3.go sets it after the launch, because a --once run answers no
+	// questions), so this is the posture a conversation runs under.
+	cfg.AskConsent = true
+	// And the adaptive seam, wired where every door that builds a conversation
+	// goes through (chatv3_orchestrate.go).
+	cfg, runs := v3Adaptive(cfg)
+	if cfg.OrchestrateRunner == nil || runs == nil {
+		t.Fatal("no adaptive runner reached the session: naming a run does nothing")
+	}
+	// propose_task's own gate: a conversation has the hand and a task node does
+	// not, because there is nobody in a node's world to show a proposal to.
+	if cfg.InTask {
+		t.Fatal("the door opened a conversation as a task node: propose_task is off")
+	}
+}

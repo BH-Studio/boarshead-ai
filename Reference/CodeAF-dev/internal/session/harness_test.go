@@ -1,0 +1,540 @@
+package session
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/subharness"
+)
+
+// The registry these tests offer from, and a turn that clears the threshold
+// against it (internal/subharness's own tests own the scoring).
+var researchEntry = subharness.Entry{
+	Name:        "research",
+	Description: "Research a question across sources and write a report",
+	Cues:        []string{"research", "find out", "dig into"},
+	Revision:    1,
+}
+
+const harnessTurn = "research this and find out what our sources say"
+
+// harnessAgent builds an agent with a registry, a runner that records what it
+// was asked, and a surface that says it is watching.
+func harnessAgent(t *testing.T, completer Completer, run func(name, text, model string) (string, error)) (*Agent, *int32) {
+	t.Helper()
+	var ran int32
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.AskConsent = true
+		config.Harnesses = []subharness.Entry{researchEntry}
+		// A catalog, so the model a turn names is resolved against something —
+		// the session's own seam for it, exactly as a task's `model` is
+		// (taskmodel.go).
+		config.TaskModels = func() []string { return testModels }
+		config.RunHarness = func(_ context.Context, name, text, model string, _ func(subharness.Trail)) (string, subharness.Usage, error) {
+			atomic.AddInt32(&ran, 1)
+			report, err := run(name, text, model)
+			// These runs report no spend: what a run costs has its own test
+			// below ([TestAHarnessRunsSpendFoldsIntoTheSessionTotal]), and a
+			// stub that quietly billed every other case in this file would
+			// make the money look like a side effect of asking.
+			return report, subharness.Usage{}, err
+		}
+	})
+	return agent, &ran
+}
+
+// drainAnsweringHarness drains one turn, answering every offer as it arrives.
+func drainAnsweringHarness(t *testing.T, agent *Agent, events <-chan Event, run bool) []Event {
+	t.Helper()
+	var collected []Event
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case event, open := <-events:
+			if !open {
+				return collected
+			}
+			collected = append(collected, event)
+			if event.Kind == EventHarnessOffer {
+				agent.ResolveHarness(event.ID, run, "")
+			}
+		case <-deadline:
+			t.Fatalf("the turn never finished; events so far: %v", kinds(collected))
+			return nil
+		}
+	}
+}
+
+// A YES: the harness takes the turn, the model is never asked, and the report
+// is the turn's answer.
+func TestHarnessOfferAccepted(t *testing.T) {
+	completer := &scriptedCompleter{}
+	var gotName, gotText string
+	agent, ran := harnessAgent(t, completer, func(name, text, _ string) (string, error) {
+		gotName, gotText = name, text
+		return "the report", nil
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	collected := drainAnsweringHarness(t, agent, events, true)
+
+	offer, ok := firstOfKind(collected, EventHarnessOffer)
+	if !ok {
+		t.Fatalf("no offer was raised; events: %v", kinds(collected))
+	}
+	if offer.Text != "research" || offer.Hint != researchEntry.Description {
+		t.Fatalf("the offer named %q / %q", offer.Text, offer.Hint)
+	}
+	if _, ok := firstOfKind(collected, EventHarnessRun); !ok {
+		t.Fatalf("the run was never announced; events: %v", kinds(collected))
+	}
+	if atomic.LoadInt32(ran) != 1 {
+		t.Fatalf("the harness ran %d times", atomic.LoadInt32(ran))
+	}
+	if gotName != "research" || gotText != harnessTurn {
+		t.Fatalf("the runner was handed (%q, %q)", gotName, gotText)
+	}
+	// THE MODEL WAS NEVER ASKED. That is what "the harness took the turn" means,
+	// and a provider request here would be the person paying for both.
+	if completer.requests() != 0 {
+		t.Fatalf("the provider was called %d times", completer.requests())
+	}
+	// The report is the turn's answer: on screen, and in the transcript, so the
+	// next turn knows what was said.
+	text, ok := firstOfKind(collected, EventTextDelta)
+	if !ok || text.Text != "the report" {
+		t.Fatalf("the report did not reach the surface: %v", kinds(collected))
+	}
+	last := lastMessage(agent)
+	if last.Role != "assistant" || messageText(last) != "the report" {
+		t.Fatalf("the transcript ends %q / %q", last.Role, messageText(last))
+	}
+	if _, ok := firstOfKind(collected, EventTurnDone); !ok {
+		t.Fatalf("the turn never ended: %v", kinds(collected))
+	}
+}
+
+// A NO: the ordinary turn, unchanged. Nothing ran, nothing extra was recorded,
+// and the model was sent exactly what it would have been sent.
+func TestHarnessOfferDeclinedLeavesTheTurnAlone(t *testing.T) {
+	completer := &scriptedCompleter{steps: []step{
+		func(context.Context, []ai.Message) (*ai.Response, error) {
+			return textResponse("the ordinary answer"), nil
+		},
+	}}
+	agent, ran := harnessAgent(t, completer, func(string, string, string) (string, error) {
+		t.Error("the harness ran on a no")
+		return "", nil
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	collected := drainAnsweringHarness(t, agent, events, false)
+
+	if _, ok := firstOfKind(collected, EventHarnessOffer); !ok {
+		t.Fatalf("no offer was raised; events: %v", kinds(collected))
+	}
+	if _, ok := firstOfKind(collected, EventHarnessRun); ok {
+		t.Fatal("a declined offer announced a run")
+	}
+	if atomic.LoadInt32(ran) != 0 {
+		t.Fatal("a declined offer ran the harness")
+	}
+	if ordinaryRequests(completer) != 1 {
+		t.Fatalf("the provider was called %d times, want the one ordinary turn", ordinaryRequests(completer))
+	}
+	// The transcript is the ordinary turn's: the person's message, the model's
+	// answer, and nothing about a question that was answered no.
+	last := lastMessage(agent)
+	if messageText(last) != "the ordinary answer" {
+		t.Fatalf("the transcript ends %q", messageText(last))
+	}
+	for _, message := range agent.snapshot() {
+		if strings.Contains(messageText(message), "harness") {
+			t.Fatalf("the refusal left a mark in the transcript: %q", messageText(message))
+		}
+	}
+}
+
+// THE PURE LOOP: no registry, no runner, nobody watching. Every existing caller
+// is this case, and the turn is byte for byte the turn it was before detection
+// existed — no offer, one request, the model's answer.
+func TestHarnessSilentWhenUnwired(t *testing.T) {
+	cases := []struct {
+		name  string
+		wire  func(*Config)
+		asked bool
+	}{
+		{"nothing wired", func(*Config) {}, false},
+		{"registry but no runner", func(c *Config) {
+			c.AskConsent = true
+			c.Harnesses = []subharness.Entry{researchEntry}
+		}, false},
+		{"runner but no registry", func(c *Config) {
+			c.AskConsent = true
+			c.RunHarness = func(context.Context, string, string, string, func(subharness.Trail)) (string, subharness.Usage, error) {
+				return "", subharness.Usage{}, nil
+			}
+		}, false},
+		{"wired, but nobody is watching", func(c *Config) {
+			c.Harnesses = []subharness.Entry{researchEntry}
+			c.RunHarness = func(context.Context, string, string, string, func(subharness.Trail)) (string, subharness.Usage, error) {
+				return "", subharness.Usage{}, errors.New("a headless run must never be asked")
+			}
+		}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			completer := &scriptedCompleter{steps: []step{
+				func(context.Context, []ai.Message) (*ai.Response, error) {
+					return textResponse("the ordinary answer"), nil
+				},
+			}}
+			agent, _ := newTestAgent(t, completer, c.wire)
+			events, err := agent.Submit(context.Background(), harnessTurn)
+			if err != nil {
+				t.Fatalf("submit: %v", err)
+			}
+			collected := collect(t, events)
+			if _, ok := firstOfKind(collected, EventHarnessOffer); ok != c.asked {
+				t.Fatalf("offer raised=%v, want %v; events: %v", ok, c.asked, kinds(collected))
+			}
+			if ordinaryRequests(completer) != 1 {
+				t.Fatalf("the provider was called %d times", ordinaryRequests(completer))
+			}
+			if messageText(lastMessage(agent)) != "the ordinary answer" {
+				t.Fatalf("the transcript ends %q", messageText(lastMessage(agent)))
+			}
+		})
+	}
+}
+
+// A turn that is nobody's harness is never asked about, however wired the
+// session is. The threshold is internal/subharness's; this is that it is the
+// thing consulted.
+func TestHarnessQuietUnderTheThreshold(t *testing.T) {
+	completer := &scriptedCompleter{steps: []step{
+		func(context.Context, []ai.Message) (*ai.Response, error) {
+			return textResponse("the ordinary answer"), nil
+		},
+	}}
+	agent, ran := harnessAgent(t, completer, func(string, string, string) (string, error) {
+		t.Error("an ordinary turn ran a harness")
+		return "", nil
+	})
+
+	events, err := agent.Submit(context.Background(), "rename the config loader and run the tests")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	collected := collect(t, events)
+	if _, ok := firstOfKind(collected, EventHarnessOffer); ok {
+		t.Fatalf("an ordinary turn was asked about; events: %v", kinds(collected))
+	}
+	if atomic.LoadInt32(ran) != 0 {
+		t.Fatal("an ordinary turn ran a harness")
+	}
+	if ordinaryRequests(completer) != 1 {
+		t.Fatalf("the provider was called %d times", ordinaryRequests(completer))
+	}
+}
+
+// ONLY WHAT A PERSON TYPED. A woken turn opens with an empty message and reads
+// its note off the steering queue; a note the session authored is not somebody
+// asking for a harness, whatever words it happens to contain.
+func TestHarnessMatchesOnlyThePersonsOwnWords(t *testing.T) {
+	agent, _ := harnessAgent(t, &scriptedCompleter{}, func(string, string, string) (string, error) {
+		return "", nil
+	})
+	cases := []struct {
+		name  string
+		user  userMessage
+		match bool
+	}{
+		{"typed", userText(harnessTurn), true},
+		{"a wake note", wakeNote(harnessTurn), false},
+		{"a note the session wrote", userMessage{
+			message: textMessage("user", harnessTurn), authored: true,
+		}, false},
+		{"the woken turn's empty opening", userMessage{}, false},
+	}
+	for _, c := range cases {
+		if _, ok := agent.harnessMatch(c.user); ok != c.match {
+			t.Errorf("%s matched=%v, want %v", c.name, ok, c.match)
+		}
+	}
+}
+
+// A run that fails ends the turn with the reason, and records no answer: the
+// person sees the error rather than a turn that quietly said nothing.
+func TestHarnessRunFailure(t *testing.T) {
+	completer := &scriptedCompleter{}
+	agent, _ := harnessAgent(t, completer, func(string, string, string) (string, error) {
+		return "", errors.New("the program has no v2")
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	collected := drainAnsweringHarness(t, agent, events, true)
+
+	failed, ok := firstOfKind(collected, EventError)
+	if !ok {
+		t.Fatalf("the failure never reached the surface: %v", kinds(collected))
+	}
+	if failed.Err == nil || !strings.Contains(failed.Err.Error(), "no v2") {
+		t.Fatalf("the error was %v", failed.Err)
+	}
+	if last := lastMessage(agent); last.Role != "user" {
+		t.Fatalf("a failed run recorded %q", last.Role)
+	}
+}
+
+// An interrupt while the card is up ends the turn rather than leaving it
+// waiting on an answer nobody is coming back to give.
+func TestHarnessOfferInterrupted(t *testing.T) {
+	completer := &scriptedCompleter{}
+	agent, ran := harnessAgent(t, completer, func(string, string, string) (string, error) {
+		t.Error("an interrupted offer ran the harness")
+		return "", nil
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	var collected []Event
+	deadline := time.After(2 * time.Second)
+	for open := true; open; {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				open = false
+				break
+			}
+			collected = append(collected, event)
+			if event.Kind == EventHarnessOffer {
+				agent.Interrupt()
+			}
+		case <-deadline:
+			t.Fatalf("the turn never finished; events so far: %v", kinds(collected))
+		}
+	}
+	if _, ok := firstOfKind(collected, EventTurnDone); !ok {
+		t.Fatalf("the interrupted turn never ended: %v", kinds(collected))
+	}
+	if atomic.LoadInt32(ran) != 0 {
+		t.Fatal("the harness ran after an interrupt")
+	}
+	if completer.requests() != 0 {
+		t.Fatalf("the provider was called %d times", completer.requests())
+	}
+	// And the pending question is gone rather than left in the map forever.
+	agent.mu.Lock()
+	waiting := len(agent.harnessAsks)
+	agent.mu.Unlock()
+	if waiting != 0 {
+		t.Fatalf("%d offers left waiting", waiting)
+	}
+}
+
+// A RUN IS WATCHED WHILE IT HAPPENS. Between the announcement and the report is
+// the whole of a run that takes minutes, and until the step lane existed a
+// person watching had the harness's name and then silence.
+func TestHarnessRunReportsEachStepAsItLands(t *testing.T) {
+	completer := &scriptedCompleter{}
+	steps := []subharness.Trail{
+		{Step: 1, Id: "gather", Kind: subharness.KindAgentLoop, Out: "read the changelog", Elapsed: time.Second},
+		{Step: 2, Id: "check", Kind: subharness.KindVerify, Err: "the diff did not apply"},
+	}
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.AskConsent = true
+		config.Harnesses = []subharness.Entry{researchEntry}
+		config.TaskModels = func() []string { return testModels }
+		config.RunHarness = func(_ context.Context, _, _, _ string, step func(subharness.Trail)) (string, subharness.Usage, error) {
+			for _, one := range steps {
+				step(one)
+			}
+			return "the report", subharness.Usage{}, nil
+		}
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	collected := drainAnsweringHarness(t, agent, events, true)
+
+	announced, ok := firstOfKind(collected, EventHarnessRun)
+	if !ok {
+		t.Fatalf("the run was never announced; events: %v", kinds(collected))
+	}
+	var got []subharness.Trail
+	for _, event := range collected {
+		if event.Kind != EventHarnessStep {
+			continue
+		}
+		if event.Step == nil {
+			t.Fatalf("a step arrived carrying nothing: %+v", event)
+		}
+		// THE STEP NAMES ITS RUN, which is what lets a surface tell one run's
+		// rows from another's and what [Agent.Cancel] names the same run by.
+		if event.ID != announced.ID {
+			t.Fatalf("step %d belongs to run %d, the announcement was %d", event.Step.Step, event.ID, announced.ID)
+		}
+		got = append(got, *event.Step)
+	}
+	if len(got) != len(steps) {
+		t.Fatalf("%d steps reached the surface, the run took %d", len(got), len(steps))
+	}
+	for i, step := range got {
+		if step != steps[i] {
+			t.Fatalf("step %d arrived as %+v, the walk reported %+v", i, step, steps[i])
+		}
+	}
+	// AND EVERY STEP ARRIVES BEFORE THE REPORT DOES. A row that landed after the
+	// card would be the surface saying "now doing this" about work that is over.
+	firstStep, report := -1, -1
+	for i, event := range collected {
+		if event.Kind == EventHarnessStep && firstStep < 0 {
+			firstStep = i
+		}
+		if event.Kind == EventTextDelta && report < 0 {
+			report = i
+		}
+	}
+	if firstStep < 0 || report < 0 || firstStep > report {
+		t.Fatalf("the steps did not precede the report; events: %v", kinds(collected))
+	}
+}
+
+// NOTHING A STEP SAYS IS WRITTEN DOWN. The report carries the whole trail, so a
+// step recorded beside it would be that trail in the transcript twice — and it
+// would ride in every later request forever.
+func TestHarnessRunStepsAreNeverRecorded(t *testing.T) {
+	completer := &scriptedCompleter{}
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.AskConsent = true
+		config.Harnesses = []subharness.Entry{researchEntry}
+		config.TaskModels = func() []string { return testModels }
+		config.RunHarness = func(_ context.Context, _, _, _ string, step func(subharness.Trail)) (string, subharness.Usage, error) {
+			step(subharness.Trail{Step: 1, Id: "gather", Kind: subharness.KindAgentLoop, Out: "a step nobody keeps"})
+			return "the report", subharness.Usage{}, nil
+		}
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	drainAnsweringHarness(t, agent, events, true)
+
+	for _, message := range agent.messages {
+		for _, part := range message.Content {
+			if strings.Contains(part.Text, "a step nobody keeps") {
+				t.Fatalf("a live step was recorded into the transcript: %q", part.Text)
+			}
+		}
+	}
+}
+
+// ── WHAT A RUN COST ─────────────────────────────────────────────────────────
+
+// A RUN IS THE PERSON'S MONEY AND IT REACHES THE SESSION'S OWN TOTAL. Designing
+// a harness has always been billed to the conversation that asked for it
+// (harness_build.go); until the runner's ledger came back beside its report,
+// RUNNING one — dozens of calls, minutes of work — was free to /cost, to the
+// status line and to the spend rail. It folds through the auxiliary door, so
+// the turn's own seal stays zero-token: the run's context was never this
+// conversation's, and Turns counts steps of the conversation.
+func TestAHarnessRunsSpendFoldsIntoTheSessionTotal(t *testing.T) {
+	completer := &scriptedCompleter{}
+	agent, _ := newTestAgent(t, completer, func(config *Config) {
+		config.AskConsent = true
+		config.Harnesses = []subharness.Entry{researchEntry}
+		config.RunHarness = func(context.Context, string, string, string, func(subharness.Trail)) (string, subharness.Usage, error) {
+			return "the report", subharness.Usage{
+				Model:      "run/model",
+				Calls:      7,
+				Input:      900,
+				Output:     120,
+				CacheRead:  400,
+				CacheWrite: 50,
+				CostUSD:    0.42,
+			}, nil
+		}
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	var done Usage
+	for _, event := range drainAnsweringHarness(t, agent, events, true) {
+		if event.Kind == EventTurnDone {
+			done = event.Usage
+		}
+	}
+
+	session := agent.Usage()
+	if session.Input != 900 || session.Output != 120 || session.CacheRead != 400 || session.CacheWrite != 50 {
+		t.Fatalf("session usage = %+v, want the run's own tokens", session)
+	}
+	if session.CostUSD != 0.42 {
+		t.Fatalf("session cost = %v, want the run's $0.42", session.CostUSD)
+	}
+	// Calls is the honest denominator for "how many requests did this cost me",
+	// and a run is many.
+	if session.Calls != 7 {
+		t.Fatalf("session Calls = %d, want the run's seven requests", session.Calls)
+	}
+	if session.Turns != 0 {
+		t.Fatalf("session Turns = %d; a harness run is not a step of the conversation", session.Turns)
+	}
+	if done.Input != 0 || done.Output != 0 || done.CostUSD != 0 {
+		t.Fatalf("the turn reported %+v, want nothing — the run billed through the auxiliary door", done)
+	}
+	if done.Turns != 1 {
+		t.Fatalf("the turn reported %d turns, want the one the person took", done.Turns)
+	}
+	if completer.requests() != 0 {
+		t.Fatalf("the provider was called %d times; the harness took the turn", completer.requests())
+	}
+}
+
+// A RUN NOBODY PRICED IS NOT A RUN THAT WAS FREE. An endpoint that publishes no
+// accounting leaves every figure zero, and folding that would have this build
+// claim a price nobody gave it — the emptiness law, kept at the door rather
+// than at the surface that draws it.
+func TestAHarnessRunNobodyPricedAddsNothingToTheSessionTotal(t *testing.T) {
+	agent, _ := newTestAgent(t, &scriptedCompleter{}, func(config *Config) {
+		config.AskConsent = true
+		config.Harnesses = []subharness.Entry{researchEntry}
+		config.RunHarness = func(context.Context, string, string, string, func(subharness.Trail)) (string, subharness.Usage, error) {
+			// Calls without figures is exactly what a quiet provider looks like
+			// from here: the requests happened and nobody said what they cost.
+			return "the report", subharness.Usage{Calls: 4}, nil
+		}
+	})
+
+	events, err := agent.Submit(context.Background(), harnessTurn)
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	drainAnsweringHarness(t, agent, events, true)
+
+	if session := agent.Usage(); session.CostUSD != 0 || session.Input != 0 || session.Calls != 0 {
+		t.Fatalf("session usage = %+v, want nothing from a run nobody priced", session)
+	}
+}

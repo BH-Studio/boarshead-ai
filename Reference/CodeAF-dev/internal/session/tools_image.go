@@ -1,0 +1,288 @@
+package session
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	stdimage "image"
+	// The decoders are imported for their side effect alone: they register
+	// themselves with image.DecodeConfig, which is how a saved picture's
+	// dimensions are read back out of the bytes we just wrote. Only these three
+	// are in the standard library; a webp comes back without a size rather than
+	// with a guessed one (see [describeGeneratedImage]).
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/Agent-Field/agentfield/sdk/go/ai"
+	"github.com/Agent-Field/codeaf/internal/exec/bare"
+	"github.com/Agent-Field/codeaf/internal/provider"
+)
+
+// The session's one hand for MAKING a picture, as opposed to reading one.
+//
+// It obeys image.go's law from the other side. A picture the person attaches is
+// journaled by reference and never as bytes, because a transcript full of base64
+// is a transcript that is re-sent on every step of every turn afterwards. A
+// picture the MODEL makes is exactly the same object with the same cost, so it
+// leaves this tool the same way: written to a file, named by its path. The tool
+// result is one line of text — where it is, how big it is — and the bytes go to
+// disk and nowhere else. A model that wants to look at what it made attaches the
+// file like anybody else.
+//
+// The wire it rides is the media contract (media_contract.go): one client for
+// every generation endpoint and one use-time resolver for which model serves
+// which modality (docs/MULTIMODAL.md, Decisions 5-7). The pre-revision pair —
+// a client and a model slug of this tool's own — is gone, and with it the pin
+// ladder this file used to carry: the resolver owns the whole ladder now, all
+// four rungs of it, capability-checked against the catalog before it answers.
+
+// And the claim the contract makes, checked by the compiler rather than by a
+// reader: the media client goes into [Config.Media] with no adapter between.
+var _ MediaGenerator = (*provider.MediaClient)(nil)
+
+// imageDirectory is where a generated picture lands when the model does not say
+// and the session has no folder of its own. It sits under the workspace, in the
+// surface's own dot directory, so a session that paints twenty drafts leaves
+// twenty files in one place a person can delete in one gesture rather than
+// twenty files in the root of their repository.
+//
+// A session WITH a folder answers differently and [ImagesDir] holds the whole
+// rule: the workspace itself when the session owns it, the session's own
+// artifacts/ when the workspace is somebody's repository.
+const imageDirectory = ".codeaf/images"
+
+// The tool's own words name no directory, because the answer is not one
+// directory any more ([ImagesDir]) and a description that named the wrong one
+// would be teaching the model a path it cannot use. What the model needs is
+// that the picture is saved and that the result says where — both of which the
+// result actually does.
+//
+// What the middle sentences do is TEACH (docs/MULTIMODAL.md, Decision 8). A
+// model that knows only "prompt in, png out" writes a fresh prompt every time
+// and cannot fix what it just drew; a model that knows the path it was handed is
+// itself a valid reference can edit, restyle, combine, and iterate on its own
+// last render until the thing is right. That is the whole difference between one
+// picture and a working loop, and it costs three clauses to say.
+const generateImageDescription = "Generate an image from a text prompt and save it. Returns the path it was written to and the picture's dimensions — never the image itself, which stays on disk: this conversation carries the path, and the file is what you and the user both refer to afterwards. Give reference_paths to work from pictures instead of from words alone — one reference edits or restyles it, several combine them — and remember that the path this tool just returned is itself a valid reference, so you can pass your own last render back in and iterate on it until the diagram, the character or the layout is right. A first render is a draft: look at the file before you build on it or hand it over, judge it against what was asked, and iterate when it fell short. Give a path to choose the name and the folder; leave it out and the image is saved under a timestamped name derived from the prompt, and the result says where it went."
+
+const generateImageSchemaJSON = `{"type":"object","properties":{` +
+	`"prompt":{"type":"string","description":"What to draw, as a full description: subject, composition, style, lighting. The whole prompt reaches the image model, so detail is worth writing — every dimension the prompt leaves open, the model fills with its statistical average, and that average is what generic AI imagery looks like. Decide the medium, the light, the palette and the mood yourself and write them down; specificity is the difference between the picture you meant and a generic one. A prompt assembled from the genre's usual clichés lands on that same average by choice — escape a genre by naming a real medium (a print process, a photographic setup, a drafting tradition), not by recoloring it. And specify positively: image models barely read negation, so describe the surface, material and light that ARE there until the default has no room. With reference_paths it is the instruction — what to change about the pictures you gave."},` +
+	`"reference_paths":{"type":"array","items":{"type":"string"},"description":"Pictures to work from, as paths in the workspace (png, jpeg, webp or gif, each up to 10MB). One is an edit or a restyle of it; several are combined. A path this tool returned earlier is a valid reference, which is how you iterate on your own output."},` +
+	`"aspect_ratio":{"type":"string","description":"Shape of the frame, as the image model spells it (for example 16:9 or 1:1). Passed through untouched; leave it out for the model's own default."},` +
+	`"size":{"type":"string","description":"Exact pixel size as WIDTHxHEIGHT (for example 1024x1024). Passed through untouched; leave it out for the model's own default."},` +
+	`"path":{"type":"string","description":"Where to save it, relative to the workspace. Leave it out for a timestamped name derived from the prompt, saved where this session keeps its pictures. An existing file at this path is overwritten, as with the write tool."}` +
+	`},"required":["prompt"],"additionalProperties":false}`
+
+// imageTools is the picture-making half of the belt, and it is CONDITIONAL by
+// the same law tools_search.go states at length: a tool with nothing behind it
+// is left OFF rather than added and made to refuse.
+//
+// Two things must both be present, and [Agent.mediaHand] asks for both at once:
+// the client is the hand, and the resolver's answer is what it asks for. A
+// client with no model would send a request naming nothing, and a model with no
+// client is a name with nowhere to send it.
+func (a *Agent) imageTools() []bare.Tool {
+	client, model, ready := a.mediaHand(modalityImage)
+	if !ready {
+		return nil
+	}
+	return []bare.Tool{a.generateImageTool(client, model)}
+}
+
+// GenerateImageArgs is the wire form, and the road's argument shape in one:
+// the belt decodes into it, and the command line's image door fills it
+// directly, so the two doors cannot disagree about what one call carries.
+type GenerateImageArgs struct {
+	Prompt         string   `json:"prompt"`
+	ReferencePaths []string `json:"reference_paths"`
+	AspectRatio    string   `json:"aspect_ratio"`
+	Size           string   `json:"size"`
+	Path           string   `json:"path"`
+	Model          string   `json:"model"`
+}
+
+// ImageGen is everything one generation needs from the surface it runs in:
+// the client, the default model its resolver answers, the picker for a call's
+// own word, where unnamed pictures land, and the two hooks the belt adds —
+// the bill and the artifacts row. Account and Record are optional: a caller
+// with no session passes neither, and the picture still lands.
+type ImageGen struct {
+	Client       MediaGenerator
+	DefaultModel string
+	Pick         func(modality, word string) (string, error)
+	Workspace    string
+	Directory    string
+	Account      func(model string, usage *ai.Usage)
+	Record       func(path, prompt string)
+}
+
+// generateImageTool wraps the shared road ([generateImage]) in the belt's
+// argument decode and its own two hooks.
+func (a *Agent) generateImageTool(client MediaGenerator, defaultModel string) bare.Tool {
+	return bare.Tool{
+		Name:        "generate_image",
+		Description: generateImageDescription,
+		Schema:      a.mediaSchema(generateImageSchemaJSON, "image"),
+		Execute: func(ctx context.Context, args json.RawMessage) (string, bool, error) {
+			var parsed GenerateImageArgs
+			if err := decodeToolArguments(args, &parsed); err != nil {
+				return "Invalid arguments: " + err.Error(), true, nil
+			}
+			text, failed := GenerateImage(ctx, ImageGen{
+				Client:       client,
+				DefaultModel: defaultModel,
+				Pick:         a.config.MediaPick,
+				Workspace:    a.config.Workspace,
+				Directory:    ImagesDir(a.config.Place, a.config.Workspace),
+				Account:      a.accountImageRung,
+				Record:       a.recordImageArtifact,
+			}, parsed)
+			return text, failed, nil
+		},
+	}
+}
+
+// accountImageRung is the road's bill door: the picture is paid for whether or
+// not it is any good, so the accounting lands before the write can fail, and
+// it folds into the SESSION total and not the turn's, exactly as the title
+// call does — no turn asked for a picture at this price, and charging one turn
+// for it would make an ordinary question read as the cost of a rendering (see
+// [Agent.addAuxiliaryUsage]).
+func (a *Agent) accountImageRung(model string, usage *ai.Usage) {
+	a.addAuxiliaryUsage(&ai.Response{Usage: usage}, model, 1)
+}
+
+// recordImageArtifact is the road's artifacts hook: a picture the harness made
+// is a DELIVERABLE, so it earns a row in the index a person finds their work
+// again by (artifacts.go). The recording is silent in both directions: it
+// happens after the bytes are safely down, and a failure to write the lookup
+// file is not news the model can act on.
+func (a *Agent) recordImageArtifact(path, prompt string) {
+	RecordArtifact(a.config.ArtifactsIndex, Artifact{
+		Path:    path,
+		Session: a.journalID(),
+		Title:   mediaTitle(prompt, path),
+		Kind:    "image",
+		Created: time.Now(),
+	})
+}
+
+// GenerateImage is the whole road behind generate_image, as a plain function
+// the command line's image door runs too: pick the model, read the
+// references, send the request, decode, account, write, describe. It exists
+// so the belt's tool and the command line's door cannot drift.
+//
+// Every failure is the tool error the belt returns and the command line
+// prints, never a Go error: a refused prompt, an expired key, a model having
+// a bad minute are all things a caller can act on, and none of them is a
+// reason to crash anything.
+func GenerateImage(ctx context.Context, gen ImageGen, parsed GenerateImageArgs) (string, bool) {
+	// AN EMPTY PROMPT IS REFUSED BEFORE ANYTHING IS PAID FOR, the way the video
+	// and music doors refuse theirs (tools_video.go, tools_music.go). A provider
+	// asked to draw nothing still bills the call, and the answer it sends back
+	// reads as its own fault rather than the caller's.
+	//
+	// THE GUARD LIVES HERE AND NOT ON THE BELT, so the command line's picture
+	// door refuses the same call the same way (cmd/codeaf's image.go calls this
+	// function too). It was here until the web pair and the picture hand were
+	// made plain functions a command line could share: the block around it moved
+	// and the check did not come with it, which left the one paid door of the
+	// three with no argument check at all.
+	prompt := strings.TrimSpace(parsed.Prompt)
+	if prompt == "" {
+		return "Invalid arguments: prompt is required", true
+	}
+	// The call's own choice, resolved before anything is paid for, so a word
+	// that matches nothing costs nothing. From here down `model` is the model
+	// that actually draws, wherever it is named — the request, the failure
+	// strings, the accounting, the result line.
+	model, refusal := mediaPickWith(gen.Pick, modalityImage, parsed.Model, gen.DefaultModel)
+	if refusal != "" {
+		return "Invalid arguments: " + refusal, true
+	}
+	// The references are read BEFORE the request is sent, so a picture that
+	// cannot be read costs nothing: a refusal here is a typo the model can
+	// fix, and paying for a generation that was going to be wrong about its
+	// own inputs helps nobody.
+	references, refusal := mediaReferencesFrom(gen.Workspace, parsed.ReferencePaths)
+	if refusal != "" {
+		return "Invalid arguments: reference " + refusal, true
+	}
+
+	response, err := gen.Client.GenerateImage(ctx, provider.ImageRequest{
+		Model: model, Prompt: prompt, N: 1, OutputFormat: "png",
+		AspectRatio:     strings.TrimSpace(parsed.AspectRatio),
+		Size:            strings.TrimSpace(parsed.Size),
+		InputReferences: references,
+	})
+	if err != nil {
+		return "Image generation failed (" + model + "): " + err.Error(), true
+	}
+	if response == nil || len(response.Data) == 0 {
+		return "Image generation returned no image (" + model + ")", true
+	}
+	data, decodeErr := base64.StdEncoding.DecodeString(response.Data[0].Base64)
+	if decodeErr != nil || len(data) == 0 {
+		return "Image generation returned an unreadable image (" + model + ")", true
+	}
+	// The picture is paid for whether or not it is any good, so the accounting
+	// lands before the write can fail (see [imageGen.Account]).
+	if gen.Account != nil {
+		gen.Account(model, response.Usage)
+	}
+
+	path, err := imageDestinationFrom(gen.Workspace, parsed.Path, parsed.Prompt, data,
+		response.Data[0].MediaType, gen.Directory)
+	if err != nil {
+		return "Could not save the generated image: " + err.Error(), true
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "Could not save the generated image: " + err.Error(), true
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "Could not save the generated image: " + err.Error(), true
+	}
+	if gen.Record != nil {
+		gen.Record(path, parsed.Prompt)
+	}
+	return describeGeneratedImage(path, data, model), false
+}
+
+func imageDestinationFrom(workspace, asked, prompt string, data []byte, declared, directory string) (string, error) {
+	extension := provider.ImageExtension(data, declared)
+	if trimmed := strings.TrimSpace(asked); trimmed != "" {
+		if ext := filepath.Ext(trimmed); ext != "" && ext != "." {
+			asked = strings.TrimSuffix(trimmed, ext) + extension
+		}
+	}
+	return mediaDestinationFrom(workspace, asked, prompt, extension, directory)
+}
+
+// describeGeneratedImage is the whole result the model reads: WHERE and HOW BIG,
+// and nothing else.
+//
+// The dimensions are read back out of the bytes rather than echoed from the
+// request, because the request did not ask for any: a model that has to plan a
+// layout around what it just made needs the number the file actually has. A
+// format the standard library cannot decode — webp — reports its size in bytes
+// alone rather than a guessed geometry, which is [design-law §EMPTINESS] applied
+// to a number: better absent than invented.
+//
+// The path is WHOLE ([picturePathInResult]), because this line is what a
+// terminal that cannot draw the picture shows in its place, and a path with a
+// directory missing off the front is a path nobody can open.
+func describeGeneratedImage(path string, data []byte, model string) string {
+	shown := picturePathInResult(path)
+	if config, format, err := stdimage.DecodeConfig(bytes.NewReader(data)); err == nil {
+		return fmt.Sprintf("%s — %d×%d %s, %s, generated on %s",
+			shown, config.Width, config.Height, format, mediaByteSize(len(data)), model)
+	}
+	return fmt.Sprintf("%s — %s, generated on %s", shown, mediaByteSize(len(data)), model)
+}

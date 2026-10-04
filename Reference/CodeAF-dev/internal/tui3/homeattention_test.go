@@ -1,0 +1,536 @@
+package tui3
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+	"github.com/Agent-Field/codeaf/internal/standing"
+	"github.com/Agent-Field/codeaf/internal/tui2/tokens"
+)
+
+// ── THE ATTENTION RULES, WHICH ARE THE SORT ORDER NOW ───────────────────────
+//
+// This file used to be about TWO STRIPS standing over the list — `needs you`
+// and `moving` — and about the four things that made them worth their rows:
+// everything blocked gathered in one place whatever kind of thing it was, the
+// order being how long each had been standing still, a busy machine folding
+// rather than filling the screen, and a row in a strip being the same live
+// object as the row under its project.
+//
+// THE STRIPS ARE GONE AND EVERY ONE OF THOSE FOUR IS STILL TRUE — of the one
+// flat ranked list itself (homeattention.go states the change). So each test
+// here asks the same question of the new screen: the longest wait is the FIRST
+// ROW rather than the first row of a strip, one thing has ONE row rather than
+// two, the cap and its door belong to the whole list rather than to a zone, and
+// a row of the list answers a digit and walks a door exactly as a strip row did.
+
+// switchRowLine is the drawn frame row that carries a name, which is what turns
+// "the word is somewhere on the screen" into "the row for that thing looks like
+// this". It answers the empty string when nothing on the frame names it.
+func switchRowLine(a *app, name string) string {
+	for _, line := range homeLines(a) {
+		if strings.Contains(line, name) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
+}
+
+// switchNames is every conversation and standing item on the built column, in
+// the order the list draws them — the flat list's answer to what the two strips
+// used to be asked for.
+func switchNames(a *app) []string {
+	var out []string
+	for _, line := range a.home.lines {
+		var row *switcherRow
+		switch {
+		case line.cell != nil && line.cell.row != nil:
+			row = line.cell.row
+		default:
+			continue
+		}
+		switch row.kind {
+		case switcherConversation, switcherStanding:
+			out = append(out, row.title)
+		}
+	}
+	return out
+}
+
+// EVERY BLOCKED THING, ANY PROJECT, ANY KIND, AND THE LONGEST WAIT FIRST — and
+// now it is the TOP OF THE LIST rather than the top of a strip.
+//
+// The strip earned its rows because a project tree could not answer "what needs
+// me"; a list already sorted by that answers it by existing, so what this test
+// pins is the sort itself: the thing that has been stopped longest has cost the
+// most already, so it is row one, and a watch that is asking counts as the same
+// kind of blocked as a conversation that is asking.
+func TestSessionsStayChronologicalWhenAConversationNeedsAnAnswer(t *testing.T) {
+	lab := newHomeLab(t)
+	now := time.Now()
+	alpha, beta := lab.workspace("alpha"), lab.workspace("beta")
+	mine := lab.session("-alpha", "aaaa000000000001", "the newest chat", alpha, now)
+	lab.session("-beta", "bbbb000000000001", "pricing research", beta, now.Add(-4*time.Hour))
+	// Another window, stopped on a card three hours ago — the oldest wait here.
+	question := consentQuestion(7, "needs your ok to run bash")
+	question.Asked = now.Add(-3 * time.Hour)
+	lab.asking("-beta", "bbbb000000000001", question, now)
+
+	// And a standing order that has been asking for an hour, which is the second
+	// KIND of blocked thing and belongs in the same ranking rather than beside it.
+	band := &standBand{}
+	band.items = []standing.Item{bandItem("ask", "keep main green", alpha, standing.WhenProbe, "when CI goes red")}
+	band.items[0].NeedsPerson = "the fix touches migrations"
+	band.items[0].Updated = now.Add(-time.Hour)
+
+	a := lab.app(mine)
+	band.wire(a)
+	a.width, a.height = 120, 30
+	a.openHome()
+
+	names := switchNames(a)
+	if len(names) < 2 || names[0] != "The Newest Chat" || names[1] != "Pricing Research" {
+		t.Fatalf("the list reads %v, want conversations in newest-first order:\n%s", names, homeText(a))
+	}
+	// A question changes its bullet, not the conversation's recency order.
+	if at := switchNameAt(names, "The Newest Chat"); at != 0 {
+		t.Fatalf("the newest conversation did not stay first: %v", names)
+	}
+	// AND A STAMP NOBODY RECORDED GOES LAST rather than to the top of a list
+	// ordered by how long something has been standing still ([attentionOlder] is
+	// the one comparison this rank sorts with, and the unknown is the one case a
+	// screen cannot show because a lab cannot write a row without an age).
+	if !attentionOlder(now.Add(-time.Hour), time.Time{}) || attentionOlder(time.Time{}, now) {
+		t.Fatal("an unrecorded stamp claims to be the oldest wait on the machine")
+	}
+}
+
+// switchNameAt is where a name stands in the list, and -1 when it is not drawn.
+func switchNameAt(names []string, want string) int {
+	for i, name := range names {
+		if name == want {
+			return i
+		}
+	}
+	return -1
+}
+
+// ONE THING HAS ONE ROW. A conversation used to be a strip row AND a row under
+// its project at the same moment, which is what forced the cursor restore to
+// prefer one of them. On the grid a conversation has one row that stands for it
+// as a whole; a task it has out is a row of `running` about that piece of work
+// ([homeLine.cellKey]), and a rescan three seconds later must leave the cursor
+// exactly where a person put it.
+func TestOneConversationHasOneRowAndARescanLeavesTheCursorOnIt(t *testing.T) {
+	lab := newSwitchLab(t)
+	a := lab.open(120, 40)
+	row := ""
+	for _, line := range a.home.lines {
+		if line.kind == homeSession && strings.Contains(homeName(line.row), "Bounty") {
+			row = line.row.Transcript
+		}
+	}
+	if row == "" {
+		t.Fatalf("the moving conversation has no row at all:\n%s", homeText(a))
+	}
+	rows := 0
+	for _, line := range a.home.lines {
+		if line.kind == homeSession && line.row.Transcript == row {
+			rows++
+		}
+	}
+	if rows != 1 {
+		t.Fatalf("one conversation has %d rows standing for it on the grid:\n%s", rows, homeText(a))
+	}
+	a.home.point(row)
+	stood := a.home.cursor
+	a.refreshHome()
+	if a.home.cursor != stood {
+		t.Fatalf("a rescan moved the cursor from line %d to %d", stood, a.home.cursor)
+	}
+	if line, ok := a.home.focusedLine(); !ok || line.row.Transcript != row {
+		t.Fatalf("a rescan left the cursor on something else:\n%s", homeText(a))
+	}
+}
+
+// NOTHING IS DRAWN FOR A STATE THE MACHINE IS NOT IN, AT EVERY WIDTH.
+//
+// The panels are the map now and they keep their headings over nothing — a map
+// that redraws itself is not a map — with one dim whisper naming what arrives
+// (docs/design/home-mission-control/DESIGN.md §4). What stays banned is a
+// sentence about something that has happened: the old list's claim over it,
+// and a fold over rows that do not exist.
+func TestAQuietMachineDrawsNothingForAStateItIsNotIn(t *testing.T) {
+	lab := newHomeLab(t)
+	now := time.Now()
+	alpha := lab.workspace("alpha")
+	mine := lab.session("-alpha", "aaaa000000000001", "porting the picker", alpha, now.Add(-time.Hour))
+	lab.session("-beta", "bbbb000000000001", "pricing research", lab.workspace("beta"), now.Add(-3*time.Hour))
+	a := lab.app(mine)
+	a.height = 30
+	a.openHome()
+	// The look stamp is now, so nothing at all happened while nobody was looking.
+	a.home.seen = now
+	a.home.build()
+
+	// Both rungs of the ladder, because the exception this replaces lived at the
+	// wide one (homebridge.go).
+	for _, width := range []int{80, 120, homeCardMin, 200} {
+		a.width = width
+		text := homeText(a)
+		for _, claim := range []string{"what wants you first", "more, quiet", "more · type to find one"} {
+			if strings.Contains(text, claim) {
+				t.Fatalf("a %d-column quiet machine claimed %q:\n%s", width, claim, text)
+			}
+		}
+		// AND THE ROWS ARE STILL THERE. What emptiness takes off the screen is a
+		// claim about a state, never a thing that exists.
+		if !strings.Contains(text, "Porting the Picker") || !strings.Contains(text, "Pricing Research") {
+			t.Fatalf("a %d-column quiet machine dropped its conversations:\n%s", width, text)
+		}
+	}
+}
+
+// A LINE THAT NAMES ROWS IS NOT A ROW. The teaching line under an empty zone
+// was the first of these; the grid's are a panel's heading and its whisper. No
+// key may leave the cursor standing on one, in either direction, which is the
+// whole of what "not a stop" means to a person's hands.
+func TestNoArrowLeavesTheCursorOnAHeadingOrABlank(t *testing.T) {
+	lab := newSwitchLab(t)
+	a := lab.open(120, 40)
+	// A ledger, so that every kind of heading this grid has is on it while the
+	// walk goes over it.
+	a.home.seen = lab.now.Add(-30 * time.Minute)
+	a.home.build()
+	if (homeLine{kind: homeSwitchHead}).stop() {
+		t.Fatal("a heading of the list says a cursor may rest on it")
+	}
+	for _, step := range []struct {
+		word string
+		by   int
+	}{{"↓", 1}, {"↑", -1}} {
+		a.home.cursor = homeNoLine
+		for i := 0; i < len(a.home.lines)+4; i++ {
+			a.home.move(step.by)
+			at := a.home.cursor
+			if at < 0 {
+				continue
+			}
+			if !a.home.lines[at].stop() {
+				t.Fatalf("%s %d times left the cursor on line %d, which names rows rather than being one:\n%s",
+					step.word, i+1, at, homeText(a))
+			}
+		}
+	}
+}
+
+// THE WORDS THE GRID STANDS ON SAY WHAT IS THERE AND NEVER WHAT IS NOT.
+//
+// The teaching lines under the empty zones were held to this and they are gone;
+// the law is not. `no tasks yet` and every sentence like it were taken off this
+// surface on purpose, and the words a panel's fold is spelled with — the count,
+// the quiet clause, the way to the rest — may not smuggle one back in a quieter
+// voice.
+func TestTheGridsOwnWordsNeverAnnounceAbsence(t *testing.T) {
+	for _, word := range []string{foldLine(15, "quiet since aug 21"), groupedInt(15) + " " + homeFoldMoreWord} {
+		for _, banned := range []string{"nothing", "empty", " yet", "no "} {
+			if strings.Contains(word, banned) {
+				t.Fatalf("%q announces absence with %q", word, banned)
+			}
+		}
+	}
+}
+
+// ONE BLANK ROW BETWEEN TWO BLOCKS, NEVER TWO AND NEVER ONE AT THE TOP.
+//
+// The two strips were two blocks and THE SPACING LADDER gave their boundary
+// exactly one blank row. The grid's blocks are its panels, and they are all
+// separated by the same one row, so the ladder is asked of every column rather
+// than of one seam in it.
+func TestOneBlankRowSeparatesTheBlocksOfTheList(t *testing.T) {
+	lab := newSwitchLab(t)
+	a := lab.open(120, 40)
+	a.home.seen = lab.now.Add(-30 * time.Minute)
+	a.home.build()
+	// ON THE GRID THE BLOCKS ARE PANELS, and the rule is asked of each column:
+	// its lines are one run of [homeView.lines], column after column.
+	h := &a.home
+	blanks := 0
+	for at, line := range h.lines {
+		if line.kind != homeBlank {
+			continue
+		}
+		blanks++
+		if at == 0 || h.columnOf(at-1) != h.columnOf(at) {
+			t.Fatalf("a column opened with a blank row:\n%s", homeText(a))
+		}
+		// THE RAIL'S ONE GROUP GAP IS THE EXCEPTION AND THE ONLY ONE. A second
+		// blank row is allowed where the rail stops being the panels that live
+		// there and starts being the panels that are quiet today
+		// ([markRailGap]) — the grid draws no rules, so air is the only thing it
+		// has to tell two groups apart with. Anywhere else two blanks are still
+		// a bug.
+		if h.lines[at-1].kind == homeBlank && !railGapAt(h, at) {
+			t.Fatalf("two blank rows stand between two blocks at line %d:\n%s", at, homeText(a))
+		}
+		if at+1 >= len(h.lines) || h.columnOf(at+1) != h.columnOf(at) {
+			t.Fatalf("a column ends on a blank row:\n%s", homeText(a))
+		}
+	}
+	if blanks == 0 {
+		t.Fatalf("this column has no block boundary in it at all, so it proves nothing:\n%s", homeText(a))
+	}
+}
+
+// railGapAt reports the second blank of the rail's own group gap: the rail's
+// column, and the next line a cursor may see is the heading of a panel that is
+// in the rail because it is quiet rather than because it is pinned.
+func railGapAt(h *homeView, at int) bool {
+	if h.cols < 2 || h.columnOf(at) != homeRailCol(h.cols) {
+		return false
+	}
+	for next := at + 1; next < len(h.lines); next++ {
+		if h.columnOf(next) != h.columnOf(at) {
+			return false
+		}
+		line := h.lines[next]
+		if line.kind == homeBlank {
+			continue
+		}
+		return line.cell != nil && line.cell.kind == cellHead && !homeSlotOf(line.cell.panel).pinned
+	}
+	return false
+}
+
+// A ROW OF THE LIST IS A DOOR OF THE KIND IT ALWAYS WAS. The card beside it is
+// that conversation's, a digit over it answers the window it belongs to through
+// the road the answer band already rides, and enter walks the conversation's own
+// door — which in this lab offers to MOVE the conversation, because the one it
+// names is the one another window is sitting on ([app.homeOpenLine]'s third
+// check, takeover.go). That offer is the proof: a row that was not a
+// conversation's door would have folded something, or done nothing at all.
+func TestARowThatIsWaitingIsADoorOfTheKindItAlwaysWas(t *testing.T) {
+	lab := newAnswerLab(t, consentQuestion(7, "needs your ok to run bash"), time.Now())
+	a := lab.a
+	// The card only exists where the width is genuinely spare (homebridge.go), and
+	// the question's own chips are on it.
+	a.width = 200
+	a.openHome()
+	a.home.point(lab.row)
+	line, ok := a.home.focusedLine()
+	if !ok || line.kind != homeSession {
+		t.Fatalf("the waiting conversation has no row of its own:\n%s", homeText(a))
+	}
+	if !strings.Contains(homeText(a), "1 allow once") {
+		t.Fatalf("the card beside the row is not the question's:\n%s", homeText(a))
+	}
+	a.homeKey(key("3"))
+	if len(*lab.sent) != 1 {
+		t.Fatalf("a digit over the row sent %d answers, want 1", len(*lab.sent))
+	}
+	if answer := (*lab.sent)[0]; answer.kind != session.QuestionConsent || answer.id != 7 || answer.key != "3" {
+		t.Fatalf("the row answered %+v", answer)
+	}
+	a.homeEnter()
+	if _, up := a.homeAsking(); !up {
+		t.Fatalf("enter on the row did not walk the conversation's door: %q", a.home.msg)
+	}
+}
+
+// WAITING OUTRANKS WORKING, once more: a conversation stopped on a question is
+// a needs-you row and nothing else, however much work it has out. The two states
+// used to be two strips and are two RANKS now ([switcherRank]), so the fact that
+// a thing can only be in one of them shows up as the mark on its one row.
+func TestAWaitingConversationIsNotAlsoAMovingOne(t *testing.T) {
+	lab := newHomeLab(t)
+	now := time.Now()
+	mine := lab.session("-alpha", "aaaa000000000001", "the newest chat", lab.workspace("alpha"), now)
+	lab.session("-beta", "bbbb000000000001", "pricing research", lab.workspace("beta"), now.Add(-time.Hour))
+	lab.asking("-beta", "bbbb000000000001", consentQuestion(7, "needs your ok to run bash"), now)
+	lab.task("-beta", session.TaskIndexEntry{
+		ID: "1", SessionID: "bbbb000000000001", Title: "port the parser",
+		Status: string(session.TaskRunning),
+	})
+
+	a := lab.app(mine)
+	a.width, a.height = 120, 30
+	a.openHome()
+
+	rows := 0
+	for _, line := range a.home.lines {
+		if line.kind == homeSession && strings.Contains(homeName(line.row), "Pricing") {
+			rows++
+		}
+	}
+	if rows != 1 {
+		t.Fatalf("a conversation that is both waiting and working has %d rows:\n%s", rows, homeText(a))
+	}
+	row := switchRowLine(a, "Pricing Research")
+	if !strings.HasPrefix(row, tokens.GlyphNeedsHuman) {
+		t.Fatalf("the row wears %q, want the needs-you mark %q:\n%s", row, tokens.GlyphNeedsHuman, homeText(a))
+	}
+	if strings.Contains(row, tokens.GlyphWorking) {
+		t.Fatalf("one row claims both states at once: %q", row)
+	}
+}
+
+// movingMark reports that a row's first cell says "this is happening right now":
+// the still `◐` that every live row holds, or the turning cell the ONE row this
+// frame animates wears instead (homespinner.go).
+func movingMark(a *app, row string) bool {
+	return strings.HasPrefix(row, tokens.GlyphWorking) || strings.HasPrefix(row, a.homeSpinGlyph())
+}
+
+// A LINE ABOUT A PIECE OF WORK LANDS ON THAT WORK'S PLACE.
+//
+// This is the defect the old door was fixed for, asked of the screen that
+// replaced it. A `needs you` row named after a landing used to open the bare
+// conversation, which put a person on the live edge of a transcript with no
+// trace of the thing they had pressed. There is no such row now — work that
+// landed is a LINE OF THE LEDGER — and the same law holds over it: the line
+// names the task that landed, and enter goes to the place that holds it rather
+// than to a conversation that happens to have run it.
+func TestTheLedgerLineAboutLandedWorkOpensTheTasksPlace(t *testing.T) {
+	lab := newSwitchLab(t)
+	now := lab.now
+	lab.task("-alpha", session.TaskIndexEntry{ID: "t9", SessionID: "aaaa000000000001",
+		Title: "toy-scale validation", Label: "toy-scale validation",
+		Status: string(session.TaskDone), EndedAt: now.Add(-time.Minute), FilesChanged: 1})
+	a := lab.open(120, 40)
+	// A look stamp is what makes anything "since you left" at all.
+	a.home.seen = now.Add(-30 * time.Minute)
+	a.home.build()
+
+	at := homeNoLine
+	for i, line := range a.home.lines {
+		if line.kind == homeLedger && line.project == pageTasks.word() {
+			at = i
+		}
+	}
+	if at == homeNoLine {
+		t.Fatalf("nothing on the ledger is about work that landed:\n%s", homeText(a))
+	}
+	// AND IT NAMES THE WORK, one line per task (homepanel_left.go).
+	if !strings.Contains(homeText(a), "toy-scale validation") {
+		t.Fatalf("the ledger does not say what landed:\n%s", homeText(a))
+	}
+	// THE WORD IN THE MARGIN IS THE DOOR, which is why the two are one field
+	// ([app.homeLedgerEnter]).
+	if id, ok := parsePageWord(a.home.lines[at].project); !ok || id != pageTasks {
+		t.Fatalf("the line about landed work names %q, which is not the place that holds it",
+			a.home.lines[at].project)
+	}
+	a.home.cursor = at
+	runCmd(a.homeEnter())
+	// AND ENTER ASKS THAT PLACE. The conversation this window is holding has run
+	// nothing of its own, and the tasks place opens all the same — which is the
+	// proof the door went THERE, rather than opening a conversation that happened
+	// to have run one of the tasks the line counted.
+	//
+	// THE REFUSAL IS SAID ON THE FRAME AND NO LONGER IN THE TRANSCRIPT. It used
+	// to be a note under a screen drawn over the top of it, which is a sentence
+	// written where nobody can read it (pages.go's [app.refusePage]); the law
+	// this line has always pinned — the door reached the place, and the place
+	// answered — is unchanged.
+	if a.page != pageTasks {
+		t.Fatalf("enter on the line left page %v with nothing said: %q", a.page, a.pageMsg)
+	}
+}
+
+// ONE DOOR, BOTH HANDS. A click on a row arrives exactly where enter did,
+// because the press is [app.homeEnter] and not a second spelling of it — ONE
+// press puts the cursor on the row and opens it ([app.homePress]), as it does
+// on every place.
+func TestAClickOnARowArrivesWhereEnterDoes(t *testing.T) {
+	lab := newHomeLab(t)
+	now := time.Now()
+	mine := lab.session("-alpha", "aaaa000000000001", "the one I am in", lab.workspace("alpha"), now)
+	other := lab.session("-beta", "bbbb000000000001", "anthropic ipo insights",
+		lab.workspace("beta"), now.Add(-5*24*time.Hour))
+
+	a := lab.app(mine)
+	a.width, a.height = 120, 30
+	a.agent = &switchAgent{fakeAgent: &fakeAgent{model: "m"}}
+	a.openHome()
+
+	at := homeNoLine
+	for i, line := range a.home.lines {
+		if line.kind == homeSession && line.row.Transcript == other {
+			at = i
+		}
+	}
+	if at == homeNoLine {
+		t.Fatalf("the other conversation has no row to press:\n%s", homeText(a))
+	}
+	homeClickAt(t, a, at)
+	if a.at(pageHome) {
+		t.Fatalf("a press left home up saying %q", a.home.msg)
+	}
+	if a.file != other {
+		t.Fatalf("a click opened %q, want the row's own conversation %q", a.file, other)
+	}
+}
+
+// AND THE ROW OPENS ITS CONVERSATION WITH NOTHING RAISED OVER IT. A row of this
+// list stands for a whole conversation and never for one piece of work inside
+// it, so there is no record page to put in front of the transcript.
+func TestARowOpensItsConversationAndRaisesNothingOverIt(t *testing.T) {
+	lab := newHomeLab(t)
+	now := time.Now()
+	mine := lab.session("-alpha", "aaaa000000000001", "the one I am in", lab.workspace("alpha"), now)
+	quiet := lab.session("-gamma", "cccc000000000001", "the quiet one", lab.workspace("gamma"), now.Add(-2*time.Hour))
+	lab.task("-gamma", session.TaskIndexEntry{
+		ID: "7", SessionID: "cccc000000000001", Title: "illustrate chapter two",
+		Status: string(session.TaskUnverified), EndedAt: now.Add(-4 * 24 * time.Hour),
+	})
+
+	a := lab.app(mine)
+	a.width, a.height = 120, 30
+	a.agent = &switchAgent{fakeAgent: &fakeAgent{model: "m"}}
+	a.openHome()
+	a.home.point(quiet)
+	spend(t, a, a.homeEnter())
+
+	if a.file != quiet {
+		t.Fatalf("the row opened %q, want %q (%q)", a.file, quiet, a.home.msg)
+	}
+	if a.at(pageTasks) {
+		t.Fatal("a row that stands for a whole conversation raised a record page over it")
+	}
+}
+
+// A SEARCH HAS NO SWITCHER. The drop-up is the matches and the two action rows,
+// and a ranked reading of the whole machine standing over a filter would be
+// answering a question the person had stopped asking — which is also why the two
+// views the switcher offers refuse to toggle while something is typed
+// ([app.homeSwitchAlt]: a key that silently changed a list nobody can see is the
+// worst kind of chord).
+func TestTypingTakesTheSwitcherAway(t *testing.T) {
+	lab := newSwitchLab(t)
+	a := lab.open(120, 40)
+	a.home.seen = lab.now.Add(-30 * time.Minute)
+	a.home.build()
+	if !strings.Contains(homeText(a), sessionsWord) {
+		t.Fatalf("the panels were not there to begin with:\n%s", homeText(a))
+	}
+	typeHome(a, "quiet")
+	if !a.home.searching() {
+		t.Fatal("typing into the box did not put home into a search")
+	}
+	text := homeText(a)
+	for _, gone := range []string{"since you left", " " + homeFoldMoreWord} {
+		if strings.Contains(text, gone) {
+			t.Fatalf("a search kept the switcher's %q:\n%s", gone, text)
+		}
+	}
+	for _, line := range a.home.lines {
+		if line.cell != nil {
+			t.Fatalf("a search kept a line of the reading:\n%s", text)
+		}
+	}
+	if a.placeAlt('g') {
+		t.Fatal("alt+g regrouped a list that is not on the screen")
+	}
+}

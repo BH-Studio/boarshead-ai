@@ -1,0 +1,1595 @@
+package provider
+
+import (
+	"bytes"
+	"compress/zlib"
+	"context"
+	"fmt"
+	"io"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	lanes "github.com/Agent-Field/codeaf/internal/lane"
+)
+
+// THE GUARD OVER ONE MODEL STREAM.
+//
+// Two things go wrong with a request that the retry loop in retry.go cannot see,
+// because both of them happen AFTER the response headers have arrived and a
+// perfectly healthy-looking stream is open:
+//
+//   - SILENCE. The endpoint accepts the request and then says nothing, or says
+//     so little that the answer will never arrive. The body watchdog in
+//     transport.go counts ANY BYTE as progress, keepalive comments included, so
+//     an endpoint that trickles colons down the wire forever is invisible to it.
+//     What this counts instead is the model WRITING: a token of answer, a token
+//     of reasoning, a fragment of a tool call. Nothing else moves the clock.
+//
+//     BUT AN ENDPOINT SPEAKING IS NOT AN ENDPOINT GONE. Keepalive comments do
+//     not move the clock — they BUY PATIENCE instead, up to a hard cap. The
+//     distinction was measured on 2026-08-24: five of the sixteen endpoints
+//     serving one production model assemble a whole tool call server-side and
+//     deliver it as a lump, keepalives flowing the entire time; the largest gap
+//     seen was fifty seconds on a fourteen-kilobyte call that then FINISHED.
+//     Cutting those streams at the plain bound turned every big write into a
+//     guaranteed failure, three retries deep, while the answer was seconds from
+//     landing. So a quiet stream whose endpoint is still speaking is given
+//     [bufferedQuietBound] in total, and a quiet stream whose endpoint has
+//     stopped speaking too is cut at the plain bounds — that one really is a
+//     connection that is not coming back. The cap is what keeps the colon
+//     trickler from owning this loop forever: patience is bounded, and the
+//     bound is stated once, below.
+//
+//   - OVERRUN. The endpoint keeps writing and never stops. Every bound above
+//     and every bound below is a SILENCE bound — the gap between two tokens,
+//     the wait for the first one, the total quiet a buffering endpoint may
+//     accumulate — and none of them has anything to say about a stream that
+//     drips a token every second for half an hour. The streaming client's own
+//     total deadline is switched off on purpose (retry.go's clientFor: a total
+//     timeout killed every healthy long stream at the completion budget), so
+//     until [streamWallFactor] there was NOTHING in this process that ended
+//     such a request.
+//
+//     THIS IS INFERENCE FROM ABSENCE and it is worth saying plainly. In
+//     SWE-Marathon run s10 the journal went thirty minutes with no row of any
+//     kind — no call line, no error line (one is written per attempt now:
+//     internal/session's journalFailedCall), and the last tool call had
+//     returned in four tenths of a second. Nothing was proven to be dripping
+//     tokens, because nothing recorded it. What IS a fact is that the only
+//     unbounded thing left in the request path was a streamed reply, and that
+//     the missing bound is missing whether or not it is what cost that run.
+//
+//   - DEGENERATION. The model loses the thread and writes soup — a run of one
+//     letter, a paragraph repeated until the token budget is gone, words with
+//     three alphabets inside them. It is a real thing that happened to this
+//     session on 2026-08-20 against a 150k-token context, twice in one
+//     conversation, and the second time was worse than the first BECAUSE THE
+//     FIRST ONE WAS STILL IN THE CONTEXT. Junk in the transcript breeds junk.
+//
+// Both answers are the same shape: cut the request, say so, ask again. The
+// asking again is [Agent.completeWithRetry]'s in internal/session, which already
+// throws away the dead attempt's partial text, its warm tool batch and its
+// half-arrived calls — this layer only detects, cuts, and names what happened.
+//
+// WHAT THIS LAYER NEVER DOES is decide the person's words. A cut leaves through
+// [StreamCut], which internal/session turns into the sentence a person reads,
+// for the reason patience.go gives about its own two seams: the words live where
+// the words live.
+
+const (
+	// firstDeltaBound is how long a request may be open with the model having
+	// written NOTHING — no answer token, no reasoning token, no tool-call
+	// fragment.
+	//
+	// It is generous on purpose. A reasoning model at a long context legitimately
+	// thinks for a minute before its first token, and cutting a call that was
+	// about to answer is worse than waiting: the retry pays the whole prompt
+	// again. Ninety seconds is past every healthy first token this adapter has
+	// measured (velocity.go's ledger) and short of the two-minute header
+	// deadline, so a stall is named here rather than surfacing as a torn
+	// connection.
+	firstDeltaBound = 90 * time.Second
+	// midStreamGapBound is how long an ESTABLISHED stream may go quiet. It is
+	// half the first bound because the question is different: a model that has
+	// started writing has finished deciding, and forty-five seconds between two
+	// tokens of one sentence is a connection that is not coming back.
+	midStreamGapBound = 45 * time.Second
+	// streamGapLumpTokens is what the mid-stream bound BECOMES on a lane whose
+	// rate this process has measured, expressed as work rather than as time:
+	// a stream that has gone quiet for as long as this lane would take to write
+	// three and a half thousand tokens has stopped writing.
+	//
+	// It is the buffered lump of 2026-08-24 in the header, in tokens. That
+	// measurement is the largest legitimate quiet stretch this adapter has ever
+	// seen — fourteen kilobytes of tool call assembled server-side, delivered
+	// whole, and finished — and fourteen kilobytes at the estimator's four
+	// bytes to the token is three and a half thousand of them. So the bound
+	// says the same thing at every speed: an endpoint that has not produced the
+	// biggest lump we have ever measured, in the time IT takes to produce one,
+	// is not producing anything.
+	//
+	// The arithmetic is the whole point of the change. A lane measured at 250
+	// tokens a second is given fourteen seconds; one at 83, forty-two; one
+	// slower than about 78 is given [midStreamGapBound] and nothing more,
+	// because below that the derived figure is longer than the flat one it
+	// replaces and the flat one already stood. See [gapFor].
+	streamGapLumpTokens = 3_500
+	// bufferedQuietBound is the TOTAL quiet a stream may accumulate while its
+	// endpoint is still sending keepalives — the buffering case the header
+	// describes, where the answer is being assembled server-side and will land
+	// whole. Two and a half minutes covers every buffered delivery measured on
+	// 2026-08-24 (the slowest healthy one took eighty-six seconds end to end)
+	// with room for the bigger writes production makes, and it is still a
+	// bound: an endpoint that speaks forever and answers never is cut here.
+	bufferedQuietBound = 150 * time.Second
+)
+
+// ── THE WALL ────────────────────────────────────────────────────────────────
+//
+// THE LAW: EVERY REQUEST CARRIES A WALL AS WELL AS A SILENCE BOUND. The three
+// constants above bound how long a stream may say NOTHING. These three bound
+// how long it may go on saying something, and they are a different question
+// with a different answer: a reply that is still arriving is not a connection
+// that has died, so the wall cannot be a small number and cannot be a fixed
+// one.
+//
+// IT IS DERIVED FROM WHAT THE LANE ITSELF HAS SERVED, and never from a table of
+// model sizes. A size table is a claim this process cannot check — the catalog
+// row that said one model held 1.3M tokens is why compaction believes an
+// endpoint's refusal over a card's figure (internal/session's TrustedWindowFor)
+// — whereas "the longest reply this endpoint has actually finished for us, this
+// hour" is a measurement, and velocity.go is already keeping it. The wall is that figure times [streamWallFactor], clamped between
+// [streamWallFloor] and [streamWallCeiling].
+const (
+	// streamWallFactor is how many times the longest reply a lane has COMPLETED
+	// the next one may run before it is cut.
+	//
+	// FIVE, because the spread between two healthy replies from one endpoint is
+	// dominated by how much the model chose to write, and that ratio is
+	// routinely three or four to one inside a single session — a one-line
+	// confirmation against a whole-file rewrite is exactly that. Five is past
+	// the widest honest ratio and short of an order of magnitude, which is the
+	// range a reply that is never going to end lives in. Two would cut real
+	// answers; fifty would be no wall at all.
+	streamWallFactor = 5
+	// streamWallFloor is the wall a lane WITH NO HISTORY gets, and it is the
+	// outer bound of this whole file: the answer to "how long may a request run
+	// when this process has measured nothing at all about who is serving it".
+	//
+	// It is five minutes because that is already this adapter's argued answer to
+	// the same question asked about the same work delivered in one piece:
+	// adaptiveCompletionTimeout's floor. A non-streamed call gets at least five
+	// minutes in total, so a streamed one gets at least five minutes of
+	// generation — and it gets that on the very first request of a cold process,
+	// where there is nothing measured to multiply.
+	//
+	// IT IS NO LONGER THE FLOOR UNDER A MEASURED LANE, and that is the fix. A
+	// floor that outranked the measurement made the measurement pointless: a
+	// lane whose longest finished reply was twenty-four seconds still got five
+	// whole minutes, so "derived from the lane's own history" was true of the
+	// arithmetic and false of every fast endpoint in practice. Two streams in
+	// the dogfood run of 2026-08-31 hung for exactly this figure, on lanes that
+	// were demonstrably sustaining between 83 and 270 tokens a second. A lane
+	// this process HAS measured is bounded by [streamWallMeasuredFloor] instead.
+	streamWallFloor = 5 * time.Minute
+	// streamWallMeasuredFloor is the least a lane whose history we hold may be
+	// given, and it is [bufferedQuietBound] rather than a number of its own.
+	//
+	// The two bound the same thing from opposite sides and must not disagree.
+	// A stream may legitimately go quiet for the buffered cap while its endpoint
+	// assembles an answer server-side; a wall shorter than that cap would cut a
+	// stream the silence bounds were still being patient with, which is a
+	// guaranteed failure on exactly the deliveries the buffered cap was measured
+	// to protect. So the shortest honest wall is the longest honest silence, and
+	// it is written as that constant rather than as a second copy of its value.
+	streamWallMeasuredFloor = bufferedQuietBound
+	// streamWallCeiling is where a request ends whatever its lane's history
+	// claims.
+	//
+	// Twenty minutes. The measured failure it exists for ran for thirty and was
+	// still running when the run was killed, so a ceiling that could reach
+	// thirty would not have caught it. Past twenty minutes on one request the
+	// arithmetic has flipped anyway: re-asking a different endpoint pays the
+	// prompt again, which is minutes at worst, against a wait that has already
+	// cost more than that and has produced no evidence it will ever end.
+	//
+	// It is also what keeps one pathological completion from poisoning the
+	// ledger. A lane that once took nineteen minutes and finished cannot use
+	// that to buy itself an hour.
+	//
+	// AND IT IS THE ONE BOUND NO EVIDENCE MOVES. A wall re-armed on a stream
+	// that kept pace ([stallWatch.keptPace]) is re-armed up to here and never
+	// past it: twenty minutes at forty tokens a second is forty-eight thousand
+	// tokens, past any honest single reply this program asks for, so a stream
+	// still writing at the ceiling is not a long answer, it is one that is not
+	// going to end.
+	streamWallCeiling = 20 * time.Minute
+)
+
+// ── THE WALL BOUNDS A REPLY THAT IS NOT WORKING, NEVER A REPLY THAT IS LONG ─
+//
+// THE WALL USED TO BE BLIND TO PROGRESS, and on 2026-09-10 it cost a whole
+// task. A lane that had only ever finished five-to-nine-second tool-call turns
+// earned the measured floor, two and a half minutes, which at forty tokens a
+// second is a hard cap of about six thousand tokens of output. The task asked
+// for one self-contained HTML file of about nine thousand. Three attempts on
+// three endpoints streamed 5,510, 3,576 and 26,145 tokens at the lane's normal
+// rate the whole time, and each was cut at its wall with nothing wrong with it;
+// $1.46 of the task's $1.74 was output thrown away. The retry ran the identical
+// request into the identical wall, and the ledger could never learn the longer
+// reply either, because [velocityLedger.noteRun] learns only from a reply that
+// FINISHED and a wall too short for the reply is a wall no reply finishes under.
+// That chicken-and-egg needs no mechanism of its own: it is the blindness above
+// seen from the ledger's side, and it ends with it.
+//
+// SO WHEN THE WALL FIRES, IT ASKS BEFORE IT CUTS. The question is the one a
+// person would ask of a reply still arriving — is it arriving at the speed this
+// lane writes at? — answered from what the watch counted over the period the
+// wall was armed for, against what the lane's own measured rate would have
+// produced over the same period ([stallWatch.keptPace]). A stream that kept
+// pace is long and healthy, and the wall RE-ARMS for another period. A stream
+// that did not — the drip the wall was written for, a token every few seconds
+// against a lane that writes forty — is cut exactly as before, with the same
+// sentence.
+//
+// THIS IS NOT THE WALL BEING PUSHED BY CHUNKS, which [stallWatch.rewall] rightly
+// forbids. No chunk moves it. It is re-derived ONCE PER PERIOD, from a
+// measurement of pace over the whole of that period, and it can never pass
+// [streamWallCeiling]. A drip that sends a token a second cannot buy a second
+// period, however many tokens it sends, because the question is how many
+// arrived against how many the lane writes in that time.
+//
+// KEEPING PACE IS A FIFTH OF THE LANE'S RATE, AND THE FIFTH IS
+// [streamWallFactor]. The wall's own factor was argued from the spread between
+// two healthy replies — three or four to one, and a reply that is never going to
+// end is an order of magnitude off — and the same spread bounds a rate: a lane
+// under load, a reply decoding deep into a long context, a batched endpoint
+// delivering in bursts, all move the rate by less than the widest honest ratio,
+// and a drip is ten or a hundred times under it. So the one number answers both
+// sides of the same question and is not stated twice.
+//
+// A LANE WITH NO MEASURED RATE IS HELD TO [LagRate] ([paceFor]). It is the one
+// rate this process already asserts about every endpoint before it has timed
+// any: an endpoint that finishes under it is called slow. A fifth of that is six
+// tokens a second — under every healthy lane this adapter has measured (the
+// slowest on 2026-09-10 sustained twenty-four) and far over a drip — so a
+// stranger's drip is caught at its first wall exactly as it always was, and a
+// stranger's long reply is not. The stream's own first-period rate was the other
+// candidate and it is the wrong one: a drip measured against itself keeps pace
+// with itself forever, and would run to the ceiling on every stranger.
+//
+// THE RULE IS STRICTLY MORE PATIENT THAN THE ONE IT REPLACES. Every stream the
+// old wall cut is either cut at the same moment or re-armed; nothing is ever cut
+// earlier. That is what lets a measured rate that overstates a lane — a reply
+// whose thinking was billed and never streamed — be used without fear: the worst
+// it can do is decline a re-arm the old wall never offered.
+
+// paceFor is the rate, in tokens a second, a stream on a lane measured at `rate`
+// is expected to keep: the lane's own figure, or [LagRate] for a lane this
+// process has not rated. See THE WALL BOUNDS A REPLY THAT IS NOT WORKING above.
+func paceFor(rate float64) float64 {
+	if rate <= 0 {
+		return LagRate
+	}
+	return rate
+}
+
+// WallCeiling is [streamWallCeiling] for a reader outside the transport: the
+// longest one request is allowed to stay open, whatever its lane's history
+// claims. A surface quoting a wait longer than this is quoting arithmetic on a
+// belief that has forgotten, not a wait anybody could have sat through
+// (internal/tui3's lanes.go draws no tail past it).
+const WallCeiling = streamWallCeiling
+
+// stallFirstBound and stallGapBound are what the watchdog actually reads. The
+// constants above are the figures — one source of truth for the manual page and
+// for the sentence a cut is named with — and these exist only so a test can
+// prove the machinery in milliseconds rather than in minutes.
+var (
+	stallFirstBound    = firstDeltaBound
+	stallGapBound      = midStreamGapBound
+	stallBufferedBound = bufferedQuietBound
+	stallWallFloor     = streamWallFloor
+	stallWallMeasured  = streamWallMeasuredFloor
+	stallWallCeiling   = streamWallCeiling
+	stallGapLumpTokens = streamGapLumpTokens
+	// stallGapFloor is [LagGap], the least any DERIVED gap may be, and it is
+	// here for the same reason as the six above: the arithmetic of [gapFor] is
+	// stated in seconds and a test proving that a gap NARROWS to a lane's own
+	// rate would otherwise have to sit through fifteen of them.
+	stallGapFloor = LagGap
+)
+
+// ── THE BOUNDS BELONG TO THE ROLE, AND THEY SIT ABOVE THE CONTROLLER ────────
+//
+// THE TRANSPORT IS THE LAST RESORT AND NOT A SECOND CONTROLLER. Decision 10 of
+// docs/ARCHITECTURE.md states the order and the waiting design (§A, and "what
+// this deliberately does not do") restates it: the waiting controller acts on a
+// silence — it hedges, it asks, it reports — and every bound in this file exists
+// for the one case where no action is possible at all. So each of them must sit
+// strictly ABOVE the ceiling the controller acts at.
+//
+// THEY DID NOT, AND THE ARITHMETIC SAYS SO PLAINLY. A role's ceiling is its
+// patience times [lane.VisiblePatience]: thirty seconds for `leaf.unattended`,
+// `memory` and `auxiliary`, sixty for `standing`, `judge` and `design`. A
+// mid-stream bound of forty-five seconds — fifteen once [gapFor] had narrowed it
+// onto a fast lane — cut those streams BEFORE the controller had reached the
+// ceiling it would have rescued them at. The two are not the same event and the
+// order between them is not a detail: the controller's act is a second request
+// beside a stream that is still open, and the transport's is a torn one plus a
+// whole retry that pays the prompt again. The cheap rescue has to come first.
+//
+// SO THE THREE FIGURES ABOVE ARE WHAT A PATIENCE OF ONE GETS, and every request
+// is guarded by them scaled to the role that asked. Scaling keeps each argument
+// intact — the ninety seconds is still past every healthy first token, the
+// forty-five is still half of it — and moves the whole family with the ceiling
+// it has to clear, because the ceiling is the same multiplier applied to the
+// same ten seconds.
+
+const (
+	// transportHeadroom is how many of the controller's own ceilings this
+	// file's bounds must clear it by, and it exists because SCALING ALONE IS
+	// NOT ENOUGH AT THE EDGES: [gapFor] derives the mid-stream bound from a
+	// lane's measured rate, and a lane fast enough drives that derivation down
+	// to a figure no multiplier rescues.
+	//
+	// TWO, because the controller acting is not the controller finished. At the
+	// ceiling it puts a second request on the wire, and that request has its own
+	// handshake, its own router hop and its own first token to pay before it can
+	// rescue anything — which is the same order of time as the ceiling itself. A
+	// transport bound one ceiling above would cut the stream while the rescue it
+	// triggered was still in flight, which buys the torn request straight back.
+	// Two gives the act a whole ceiling of room to land in, and it is still well
+	// inside the flat figures: the mid-stream bound is four and a half ceilings
+	// wide at every patience in the table, so this floor only ever bites where a
+	// derivation has already narrowed one.
+	transportHeadroom = 2
+)
+
+// stallBounds are the three silence bounds ONE REQUEST is guarded by. They are a
+// per-request figure rather than three package constants read directly because
+// the role that asked is what decides how long a silence may last (§F of
+// docs/design/waiting/DESIGN.md), and because the ceiling they have to clear is
+// that same role's.
+type stallBounds struct {
+	first, gap, buffered time.Duration
+	// floor is the least any of them may be — and, the half that matters, the
+	// least any DERIVATION may narrow one to. [gapFor] tightens the gap onto the
+	// lane's measured rate, and a tightening that crossed the controller's
+	// ceiling would be the transport taking back the very silence the controller
+	// was about to act on.
+	floor time.Duration
+}
+
+// boundsFor is the three bounds in the patience of the role that asked. A role
+// the table has never heard of reads as [lane.RoleUnknown] — a background errand
+// — which is the conservative direction: it waits longer than a person does,
+// never less.
+func boundsFor(role lanes.Role) stallBounds {
+	patience := stallPatience(role)
+	gap := stretch(stallGapBound, patience)
+	floor := transportHeadroom * stallCeiling(role)
+	// A FLOOR MAY NOT OUTRANK THE BOUND IT STANDS UNDER. In the shipped figures
+	// it never comes close — the flat gap is four and a half ceilings and the
+	// floor is two — and this line is what keeps the seam a seam: a test proving
+	// this machinery at sixty milliseconds must not have a minute-wide floor
+	// quietly substituted for the figure it set.
+	if floor > gap {
+		floor = gap
+	}
+	return stallBounds{
+		first: max(stretch(stallFirstBound, patience), floor),
+		gap:   max(gap, floor),
+		// THE BUFFERED CAP IS NOT THE ROLE'S TO STRETCH, and this is the one
+		// line of the three that changed on 2026-09-10.
+		//
+		// The first two bounds are PATIENCE — how long this errand is willing to
+		// wait — and scaling them by whose errand it is is exactly right. The
+		// buffered cap is not patience: it is a measured ceiling on ENDPOINT
+		// BEHAVIOUR, the longest a machine assembling an answer server-side has
+		// ever legitimately taken while keeping the line warm (eighty-six
+		// seconds end to end, 2026-08-24), and a machine does not become
+		// entitled to babble for longer because nobody happens to be watching.
+		//
+		// Stretched, it was seven and a half minutes for a task node and fifteen
+		// for a standing pass, and that is precisely the "colon trickler owning
+		// this loop forever" the header above says the cap exists to prevent.
+		// Measured: four quick tasks on the evening of 2026-09-10 sat on one
+		// machine for 260, 370, 375 and 428 seconds before its first token, all
+		// four of them inside a 450-second stretched cap and all four of them
+		// past the flat one. The flat figure still holds every honest delivery
+		// this adapter has measured, with room to spare.
+		buffered: max(stallBufferedBound, floor),
+		floor:    floor,
+	}
+}
+
+// narrow is how far a derivation may take this request's mid-stream bound down.
+// [gapFor] produces a figure about the LANE; this is the band the ROLE leaves it
+// in, and [stallWatch.regap] is where the two meet.
+func (b stallBounds) narrow(gap time.Duration) time.Duration {
+	return min(max(gap, b.floor), b.gap)
+}
+
+// stretch scales one flat bound by a role's patience.
+func stretch(bound time.Duration, patience float64) time.Duration {
+	return time.Duration(float64(bound) * patience)
+}
+
+// stallCeiling is the controller's time-to-action for a role, and it is
+// [lane.Role.Ceiling] and nothing else.
+//
+// IT IS A VARIABLE FOR THE SAME REASON THE THREE BOUNDS ARE: the seam. The floor
+// under every bound here is [transportHeadroom] ceilings, so a test that
+// shortens the transport to milliseconds and leaves this at ten seconds is a
+// test whose floor has quietly swallowed every figure it set — and the one law
+// that then cannot be proven at all is the one that matters most, that a gap
+// NARROWS onto the lane's own measured rate. Production reads the table.
+var stallCeiling = func(role lanes.Role) time.Duration { return role.Ceiling() }
+
+// stallPatience is the role's multiplier, READ BACK OFF ITS CEILING rather than
+// out of the facts table, so that a bound and the ceiling it has to clear can
+// never be scaled by two different numbers.
+//
+// It is a variable for the reason the three bounds above are: the seam. A test
+// that shortens the transport to milliseconds is asking whether the machinery
+// cuts, not whose errand it was, so shortenStallBounds holds this at one and the
+// figures such a test sets are the figures its watch runs on.
+var stallPatience = func(role lanes.Role) float64 {
+	return float64(role.Ceiling()) / float64(lanes.VisiblePatience)
+}
+
+// wallFor turns the longest reply a lane has COMPLETED into the wall its next
+// reply is bounded by. A lane nothing is known about — a cold process, a model
+// whose first request this is, or a session with `routing off` — passes zero
+// and gets the floor, which is the whole of what the floor is for.
+func wallFor(longest time.Duration) time.Duration {
+	// A LANE NOTHING IS KNOWN ABOUT GETS THE OUTER BOUND AND NOT A DERIVATION.
+	// There is no measurement to be in proportion to, and five minutes is this
+	// file's stated answer to that case; every other lane is bounded by what it
+	// has actually done.
+	if longest <= 0 {
+		return stallWallFloor
+	}
+	wall := longest * streamWallFactor
+	if wall < stallWallMeasured {
+		wall = stallWallMeasured
+	}
+	if wall > stallWallCeiling {
+		wall = stallWallCeiling
+	}
+	return wall
+}
+
+// gapFor turns a lane's MEASURED OUTPUT RATE, in tokens per second, into how
+// long a stream it is serving may go quiet between two tokens.
+//
+// It is the silence half of the same law the wall is the duration half of: a
+// bound stated in what the lane itself does rather than in a figure invented for
+// every lane at once. [midStreamGapBound] is what a stranger gets and it is also
+// the ceiling here, because this may only ever TIGHTEN patience — the flat bound
+// was argued against the slowest healthy endpoint this adapter has seen, and a
+// derivation that loosened it would be re-opening a question that is settled.
+//
+// The floor is [LagGap]. Below that figure the lag law itself still calls a
+// quiet stretch streaming rather than buffering (velocity.go states the
+// measurement: every endpoint that streamed stayed under four seconds between
+// deltas, every one that buffered sat at twelve or worse), so cutting there
+// would be cutting a stream that the layer next door is still describing as
+// healthy — two bounds in one process disagreeing about the same silence.
+//
+// A rate of zero is a lane this process has not rated: it gets the flat bound,
+// which is what it always got.
+//
+// WHAT IT PRODUCES IS A FACT ABOUT THE LANE AND NOT A BOUND ANY REQUEST RUNS
+// ON. Three and a half thousand tokens is a measurement of an endpoint's biggest
+// buffered write, which is the same measurement whoever is waiting for it, so
+// the derivation is not scaled by anybody's patience. It is [stallBounds.narrow]
+// that decides how much of the tightening a given request may keep: below the
+// role's floor the transport would be answering a silence the controller owns.
+func gapFor(rate float64) time.Duration {
+	if rate <= 0 {
+		return stallGapBound
+	}
+	gap := time.Duration(float64(stallGapLumpTokens) / rate * float64(time.Second))
+	if gap < stallGapFloor {
+		gap = stallGapFloor
+	}
+	if gap > stallGapBound {
+		gap = stallGapBound
+	}
+	return gap
+}
+
+// CutReason says which thing went wrong, and it is the only thing
+// this package decides about a cut. The sentence is composed upstream.
+type CutReason int
+
+const (
+	// CutSilent is a request that produced nothing within firstDeltaBound.
+	CutSilent CutReason = iota
+	// CutStalled is a request that started writing and then went quiet for
+	// midStreamGapBound.
+	CutStalled
+	// CutBabble is a reply that stopped being language: a repetition loop, or
+	// text switching alphabet inside its own words.
+	CutBabble
+	// CutOverrun is a reply that never stopped: an endpoint that kept writing
+	// past the wall its own history earned it WITHOUT KEEPING PACE, or past
+	// [streamWallCeiling] whatever its pace. See [wallFor] and
+	// [stallWatch.keptPace].
+	CutOverrun
+	// CutMachinery is a reply that is the model's own tool grammar written as
+	// text: the request declared tools, the answer called none, and the content
+	// spells a declared tool's name fenced in delimiter bytes inside
+	// delimiter-dense text. It means the serving endpoint did not parse its
+	// model's chat template, and the reply is unusable no matter how healthy
+	// the stream that carried it was. See [MachineryLeak].
+	CutMachinery
+	// CutTruncated is a stream that ended without an explicit completion marker
+	// or a finish reason, so its partial reply cannot be used.
+	CutTruncated
+)
+
+// word is the short machine-readable name of a cut: what the lane's belief
+// records as the reason its answer could not be used, and what a log row spells
+// when it says why.
+//
+// IT IS NOT A SENTENCE A PERSON READS. [StreamCut.Error] composes those, and the
+// two must not become one thing — a word short enough to key a ledger on is too
+// short to explain anything, and a sentence is too long to be a key.
+func (r CutReason) word() string {
+	switch r {
+	case CutSilent:
+		return "silent"
+	case CutStalled:
+		return "stalled"
+	case CutBabble:
+		return "babble"
+	case CutOverrun:
+		return "overrun"
+	case CutMachinery:
+		return "machinery"
+	case CutTruncated:
+		return "truncated"
+	}
+	return "cut"
+}
+
+// StreamCut is the error a guarded stream fails with. It is a distinct type
+// rather than a message because the decision upstream — retry, and how many
+// times — is made on the reason, and a decision made by matching substrings of
+// an error string is a decision that breaks the next time somebody rewords it.
+type StreamCut struct {
+	Reason CutReason
+	// Waited is how long the stream was quiet, on the two silence reasons, and
+	// zero when no timer made the cut (CutBabble and CutTruncated). It is the
+	// constant that fired rather than a measurement
+	// — the plain bound on an outright silence, [bufferedQuietBound] when
+	// keepalives bought the stream its full patience and it still never wrote —
+	// because the timer is what decided, and the timer's own bound is the
+	// honest figure.
+	//
+	// On CutOverrun it is THE WALL THAT FIRED, which is derived rather than
+	// constant ([wallFor]): the same rule, that the figure a person is told is
+	// the figure the timer was set to. A wall re-armed on a stream that kept pace
+	// names the whole bound it reached, measured from when the stream opened —
+	// "ran past 7m30s" after two re-arms of a 2m30s wall, never the 2m30s.
+	Waited time.Duration
+	// Provider is the endpoint the stream named as serving it, "" when no chunk
+	// ever did. Ran is how long the request had been open, and Tokens is how
+	// much the model had WRITTEN — answer, thought and tool-call arguments alike
+	// — both measured rather than derived.
+	//
+	// TOKENS IS THE WATCH'S OWN COUNT, the one the wall's pace test read
+	// ([stallWatch.tokens]), so a row can be checked against the decision it
+	// records. It used to count answer text only, and a cut tool call — ten
+	// minutes of a `write` streaming at pace — was journaled as zero tokens,
+	// which is the one figure that cannot tell "producing nothing" from
+	// "producing forever". Thought is in it for the reason the provider's own
+	// output count has it: it is billed, streamed work, and a row comparable
+	// with the call rows beside it has to count what they count.
+	//
+	// THE THREE OF THEM EXIST FOR THE JOURNAL. A cut is the one failure that got
+	// somewhere before it failed, and the autopsy question about it — was this
+	// endpoint producing nothing, or producing forever? — cannot be answered
+	// from a reason word alone. internal/session's journalFailedCall writes them
+	// onto the error row.
+	Provider string
+	Ran      time.Duration
+	Tokens   int
+	// Rerouted says the ledger ACTED on this cut: the endpoint that went quiet
+	// was named on the wire and struck out of the (model, endpoint) lane, so the
+	// very next attempt is encoded away from it (velocity.go's noteCutProvider).
+	//
+	// It exists for one question a layer above has to answer before it moves a
+	// turn to another MODEL — has endpoint diversity actually been tried?
+	//
+	// TWO THINGS USED TO MAKE THE ANSWER NO AND NEITHER DOES ANY MORE. `routing
+	// off` switched the ledger off entirely, and a stream that died before any
+	// chunk named its provider had nothing to strike — so the one stall shape
+	// that most needed to reroute was the one that could not, and asking the same
+	// model again landed on the same lane deterministically. The ledger is no
+	// longer switched off by configuration (velocity.go's [Client.refuseLane]),
+	// and a cut that named no server is now filed against the machine this
+	// request ASKED FOR, which this process wrote itself and therefore knows
+	// ([Client.noteCutProvider]). What is left as false is a request that
+	// expressed no preference at all — a build with no router behind it, where
+	// there is one machine and diversity is not a thing that exists. The decision
+	// itself is not this package's — internal/session's loop.go states the rule —
+	// and this is the one fact it cannot see.
+	Rerouted bool
+
+	// OneMachine says this request had NO ENDPOINT DIVERSITY TO TRY: it named no
+	// machine and none named itself, which is a build with no router behind it
+	// and a set of one — a person's own base url, a local server, a single
+	// connected service.
+	//
+	// IT IS THE THIRD CAUSE OF [StreamCut.Rerouted] BEING FALSE, and it wants
+	// the opposite answer to the other two. Routing switched off, and a stream
+	// that died before naming its server, both leave a POOL that the next
+	// attempt draws from by the same rules, so asking again buys little and the
+	// allowance above narrows. Here there is no pool: nothing moved because
+	// there is nothing to move to, the next attempt is the only move there is,
+	// and the only thing that mends a machine which answered nothing is time.
+	// A layer above spends a different allowance on it and waits in front of it
+	// (internal/taxonomy's transportBudget and waitFor).
+	OneMachine bool
+}
+
+func (c *StreamCut) Error() string {
+	if c == nil {
+		return ""
+	}
+	switch c.Reason {
+	case CutSilent:
+		return fmt.Sprintf("nothing came back from the model in %s", roundSeconds(c.Waited))
+	case CutStalled:
+		return fmt.Sprintf("the model stopped mid-reply and went quiet for %s", roundSeconds(c.Waited))
+	case CutOverrun:
+		return fmt.Sprintf("the reply ran past %s without finishing and was cut", roundSeconds(c.Waited))
+	case CutMachinery:
+		return "the reply was the model's own internal markup instead of an answer and was cut"
+	case CutTruncated:
+		return "the connection ended before the reply was finished"
+	default:
+		return "the reply stopped being language and was cut"
+	}
+}
+
+// CutFrom reports whether an error is a guarded stream's cut, and which kind.
+func CutFrom(err error) (*StreamCut, bool) {
+	for err != nil {
+		if cut, ok := err.(*StreamCut); ok {
+			return cut, true
+		}
+		unwrapped, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return nil, false
+		}
+		err = unwrapped.Unwrap()
+	}
+	return nil, false
+}
+
+// ── WHAT WAS THE PATH'S FAULT AND NOT THE ENDPOINT'S ────────────────────────
+
+// pathFaultPhrases are what the Go network stack says when the far end drops a
+// connection an answer was still arriving on. They are the WIRE and nothing
+// else: a refusal the router made about our bytes carries a status and is
+// classified long before this is asked.
+var pathFaultPhrases = []string{
+	"connection reset",
+	"broken pipe",
+	"unexpected eof",
+	"reset before headers",
+	"socket hang up",
+	"socket connection was closed",
+}
+
+// roundSeconds spells a bound the way a person says it. The constants above are
+// whole seconds, so this is exact rather than approximate.
+func roundSeconds(d time.Duration) string {
+	return d.Round(time.Second).String()
+}
+
+// ── the off switch ──────────────────────────────────────────────────────────
+
+type babbleGuardKey struct{}
+
+// WithoutBabbleGuard takes the degeneration guard off every call made under
+// ctx. The silence watchdog has no switch and is not affected: a request that
+// produced nothing in ninety seconds has failed by any reading, and there is no
+// preference under which sitting on it is the answer.
+//
+// It rides the context for the reason patience.go's seams do — the adapter is
+// shared by every agent in the process, so a field on the client would make a
+// task node's setting the conversation's.
+func WithoutBabbleGuard(ctx context.Context) context.Context {
+	return context.WithValue(ctx, babbleGuardKey{}, false)
+}
+
+// babbleGuardOn reports whether this call watches for degeneration. Default on:
+// an unstamped context is every call that existed before this did.
+func babbleGuardOn(ctx context.Context) bool {
+	if ctx == nil {
+		return true
+	}
+	on, stamped := ctx.Value(babbleGuardKey{}).(bool)
+	return !stamped || on
+}
+
+// ── the silence watchdog ────────────────────────────────────────────────────
+
+// stallWatch cuts a request that is not being written to.
+//
+// One timer, reset by the model writing anything. It fires at most once — the
+// cancel it pulls is the attempt's, and pulling it twice would be a second cut
+// of a stream that is already dead. Keepalives never reset the timer: they are
+// weighed only when it fires, which is what keeps the hot read loop free of
+// timer traffic for lines that carry no answer.
+type stallWatch struct {
+	mu     sync.Mutex
+	timer  *time.Timer
+	cancel context.CancelFunc
+	// clock exists so a test can hold time still while the timer machinery
+	// runs at millisecond bounds; everything real reads time.Now through it.
+	clock  func() time.Time
+	spoken bool
+	// quietSince is when the model last wrote — the birth of the watch until
+	// it has — and it is what the buffered cap is measured against: the cap
+	// bounds ACCUMULATED quiet, not the gap between two keepalives.
+	quietSince time.Time
+	// lastAlive is when the endpoint last said anything that was not an
+	// answer — a keepalive comment. Zero is an endpoint that never has.
+	lastAlive time.Time
+	tripped   *StreamCut
+	// born is when the headers landed, and it is what the wall is measured
+	// from: the wall bounds the whole request, not one quiet stretch of it.
+	born time.Time
+	// wallTimer fires when the request has been open longer than the lane's
+	// own history says any reply of its ever takes. walled is the bound it was
+	// set to, measured from born, kept so the sentence a person reads names the
+	// figure that decided. rewalled says the wall has already been re-derived
+	// once, from the endpoint the stream named — see [stallWatch.rewall].
+	wallTimer *time.Timer
+	walled    time.Duration
+	rewalled  bool
+	// period is one wall's length, what the lane's history earned it; walled
+	// equals it until the first re-arm and grows by it on each one after
+	// ([stallWatch.keptPace]). pace is the rate, in tokens a second, the stream
+	// is expected to keep ([paceFor]).
+	period time.Duration
+	pace   float64
+	// written is every byte the model has written — answer, thought and call
+	// arguments alike — and it is THE ONE COUNT of this stream's output: the
+	// pace test reads it and the cut reports it ([stallWatch.tokens]).
+	// paceFrom and paceMark are where the period being judged began — the first
+	// write, then each re-arm — and how much had been written by then.
+	written  int
+	paceFrom time.Time
+	paceMark int
+	// bounds are the three silence bounds this request is guarded by, in the
+	// patience of the role that asked for it. They are read here rather than
+	// out of the package vars because the ceiling they must sit above is the
+	// role's ([boundsFor]).
+	bounds stallBounds
+	// gap is the mid-stream silence bound in force. It opens at the flat bound
+	// every stranger gets and narrows once the stream names its lane, to what
+	// that lane's measured rate says a gap should be ([gapFor], [regap]).
+	gap time.Duration
+	// regapped says the gap has already been narrowed once, for [rewall]'s
+	// reason exactly: a bound that could be moved repeatedly by chunks would
+	// not be a bound.
+	regapped bool
+	// arm is this request's place in the wait report, nil on a call with no
+	// controller. It exists for ONE fact travelling ONE way: when a bound here
+	// ends a stream, the row has to be able to say WHICH bound, and this layer
+	// is the only thing that knows. See [streamWatch.applied] for what the row
+	// was saying instead and what that cost the census.
+	arm *streamWatch
+}
+
+// newStallWatch starts both clocks: the silence timer, and the wall.
+//
+// The wall and the pace it is judged at are passed in rather than read here
+// because deriving them needs the ledger, and this file is deliberately the
+// layer that only detects and cuts. A caller with nothing to derive from passes
+// wallFor(0) and paceFor(0), which are the stranger's figures.
+//
+// THE SILENCE BOUNDS COME OFF THE CONTEXT, because they are the role's and the
+// role rides the context (roles.go says why: a role belongs to the errand, so it
+// survives a wrapper, a retry, a relax rung and a hedge arm without anybody
+// re-stating it). A call that named none reads as [lane.RoleUnknown], a hidden
+// background errand, which waits longer rather than less.
+func newStallWatch(ctx context.Context, cancel context.CancelFunc, wall time.Duration, pace float64) *stallWatch {
+	watch := &stallWatch{cancel: cancel, clock: time.Now, bounds: boundsFor(RoleFrom(ctx)), arm: streamWatchFrom(ctx)}
+	// AND THE ARM LEARNS WHERE ITS SCISSORS ARE. The ceiling is the controller's
+	// and the cutting is this file's, so the one place that can act on a ceiling
+	// the purse refused needs both — see armwatch.go's THE CEILING PICKS ONE OR
+	// THE OTHER, NEVER NEITHER.
+	watch.arm.guardedBy(watch)
+	watch.born = watch.clock()
+	watch.quietSince = watch.born
+	watch.walled, watch.period, watch.pace = wall, wall, pace
+	watch.gap = watch.bounds.gap
+	watch.timer = time.AfterFunc(watch.bounds.first, func() { watch.fire() })
+	watch.wallTimer = time.AfterFunc(wall, func() { watch.overran() })
+	return watch
+}
+
+// rewall re-derives the wall now that the stream has said WHO IS SERVING IT.
+//
+// THE WALL IS THE LANE'S AND NOT THE MODEL'S, and which lane a request landed
+// on is a thing nothing knows until the first chunk names it. So the request
+// opens under the lineage's widest wall — the most any endpoint of this model
+// has earned, which is the only honest bound before the answer to "who" exists
+// — and narrows to the serving lane's own the moment it is known. A lane this
+// process has never seen inherits the lineage's, which is what keeps a router
+// moving a session onto a fresh endpoint from cutting its first long reply.
+//
+// It happens ONCE. A stream that renamed its provider halfway through is not a
+// thing this wire does, and a wall that could be pushed out repeatedly by
+// chunks would not be a wall. (The re-arm on a stream that kept pace is not a
+// chunk pushing it: see THE WALL BOUNDS A REPLY THAT IS NOT WORKING.) And it
+// does not happen after a re-arm: a wall that has already been extended on a
+// measurement of pace is not narrowed afterwards by a name.
+//
+// The lane's pace comes with its wall, for the same reason and at the same
+// moment: before the first chunk names who is serving, the stream is judged at
+// the lineage's slowest measured rate, which is the most patient honest figure
+// there is ([velocityLedger.rate]).
+//
+// The new bound is measured from [stallWatch.born] rather than from now, so
+// narrowing is real: a lane whose wall is already spent is judged immediately
+// instead of being given the whole of it again.
+func (w *stallWatch) rewall(wall time.Duration, pace float64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil || w.rewalled || wall <= 0 || w.walled > w.period {
+		return
+	}
+	w.rewalled = true
+	w.walled, w.period, w.pace = wall, wall, pace
+	left := w.born.Add(wall).Sub(w.clock())
+	if left < 0 {
+		left = 0
+	}
+	w.wallTimer.Reset(left)
+}
+
+// regap re-derives the mid-stream silence bound now that the stream has said WHO
+// IS SERVING IT, and it is [stallWatch.rewall]'s twin in every respect: the same
+// seam, the same once-only rule, the same reason.
+//
+// The stream opens on the flat bound because nothing is known about the lane
+// before the first chunk names it. From that moment the bound is what THIS lane's
+// measured rate says a gap should be, which on a fast endpoint is a small
+// fraction of the flat figure — and a small fraction of it is the whole point:
+// sixty seconds of nothing from an endpoint sustaining two hundred and fifty
+// tokens a second is a dead stream, not a patient one.
+//
+// It only ever narrows ([gapFor] caps at the flat bound), and it re-arms the
+// timer from when the stream last WROTE rather than from now, so narrowing is
+// real: a lane whose new bound is already spent is cut immediately instead of
+// being given the whole of it again.
+//
+// AND IT NARROWS ONLY AS FAR AS THE ROLE ALLOWS. The derivation is about the
+// lane; how much of it this request may keep is [stallBounds.narrow]'s answer,
+// which never lets a bound down past the controller's ceiling and the headroom
+// over it.
+func (w *stallWatch) regap(gap time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil || w.regapped || gap <= 0 {
+		return
+	}
+	if gap = w.bounds.narrow(gap); gap >= w.gap {
+		return
+	}
+	w.regapped = true
+	w.gap = gap
+	// The first-token bound is a different question with a different answer and
+	// is not this bound's business: a request that has not been answered at all
+	// is judged by [firstDeltaBound] until it is.
+	if !w.spoken {
+		return
+	}
+	left := w.quietSince.Add(gap).Sub(w.clock())
+	if left < 0 {
+		left = 0
+	}
+	w.timer.Reset(left)
+}
+
+// overran is the wall firing: the endpoint has been writing for longer than
+// anything of its own has ever taken to finish. Whether that is a long answer
+// or one that is never going to end is [stallWatch.overrunVerdict]'s question;
+// a cut is the same cut every other reason makes — cancel the request, name
+// what happened — so the decode loop's one cut path answers it unchanged.
+//
+// The cancel runs outside the lock, for [stallWatch.fire]'s reason.
+func (w *stallWatch) overran() {
+	if cancel := w.overrunVerdict(); cancel != nil {
+		w.arm.boundApplied(w.cut())
+		cancel()
+	}
+}
+
+// overrunVerdict is the wall's whole reasoning, under the lock from first line
+// to last. It answers with the cancellation the caller owes the stream, or nil
+// when the stream kept pace and the wall re-armed for another period instead.
+//
+// THE RE-ARM IS BOUNDED BY THE CEILING AND BY NOTHING ELSE. A period is added
+// to the bound, never more than [streamWallCeiling] allows, and a wall already
+// at the ceiling cuts whatever the pace — that bound is the one no evidence
+// moves. The re-arm happens with the lock held and the timer already fired, so
+// it cannot race a second fire.
+func (w *stallWatch) overrunVerdict() context.CancelFunc {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil {
+		return nil
+	}
+	now := w.clock()
+	if w.walled < stallWallCeiling && w.keptPace(now) {
+		w.walled = min(w.walled+w.period, stallWallCeiling)
+		w.paceFrom, w.paceMark = now, w.written
+		w.wallTimer.Reset(w.born.Add(w.walled).Sub(now))
+		return nil
+	}
+	w.tripped = &StreamCut{
+		Reason: CutOverrun,
+		Waited: w.walled,
+		Ran:    now.Sub(w.born),
+	}
+	return w.cancel
+}
+
+// keptPace reports whether the period the wall was armed for delivered at
+// least a fifth of what the lane's own rate would have produced over it — the
+// fifth being [streamWallFactor], for the reason THE WALL BOUNDS A REPLY THAT IS
+// NOT WORKING gives. It runs with the lock held.
+//
+// THE PERIOD IS MEASURED FROM THE FIRST WRITE, then from each re-arm. The rate
+// it is judged against is measured over a lane's generation window, first token
+// to last, and the wait to be served is the first-token bound's business and
+// not this one's; charging it here would hold a stream that took a minute to
+// start to a rate it was never measured at. A stream that has written nothing
+// at all by its wall has not kept any pace and is cut.
+//
+// EACH PERIOD IS JUDGED ON ITS OWN. A stream that ran fast for ten minutes and
+// then fell to a drip has not earned the drip a pass, which is the controller's
+// "the collapse must be current" (internal/lane/control's hazard.go) said about
+// the transport's last resort.
+func (w *stallWatch) keptPace(now time.Time) bool {
+	if !w.spoken {
+		return false
+	}
+	delivered := float64(tokensOf(w.written - w.paceMark))
+	owed := w.pace * now.Sub(w.paceFrom).Seconds()
+	return delivered*streamWallFactor >= owed
+}
+
+// tokens is how much the model has written on this stream, in the estimate
+// every other count in this package uses ([tokensOf]). It is what a cut reports
+// ([StreamCut.Tokens]) and what the pace test reads, so the two are one figure.
+func (w *stallWatch) tokens() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return tokensOf(w.written)
+}
+
+// progress says the model wrote something, and how many bytes of it. It
+// restarts the clock at the mid-stream bound, because from the first token
+// onwards the question is about gaps rather than about the wait to be served —
+// and it restarts the buffered cap too, because the cap is about one quiet
+// stretch, not about the whole stream.
+//
+// THE BYTES ARE COUNTED AND THE WALL IS NOT TOUCHED. A chunk moves the silence
+// clock and nothing else; what the count buys is an answer when the wall
+// fires and asks whether the stream kept pace ([stallWatch.keptPace]).
+func (w *stallWatch) progress(bytes int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil {
+		return
+	}
+	now := w.clock()
+	if !w.spoken {
+		w.paceFrom = now
+	}
+	w.spoken = true
+	w.written += bytes
+	w.quietSince = now
+	w.timer.Reset(w.gap)
+}
+
+// alive says the endpoint spoke without answering — a keepalive line. It only
+// stamps the time: whether that buys the stream anything is decided when the
+// timer fires, against the cap, so a trickle of comments can never hold the
+// watch open by itself.
+func (w *stallWatch) alive() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil {
+		return
+	}
+	w.lastAlive = w.clock()
+}
+
+// fire is the timer's callback, and it is two things on purpose: a decision
+// taken entirely under the lock, and a cancellation taken entirely outside it.
+//
+// THE CANCEL MAY NOT RUN UNDER THIS LOCK. Cancelling a context runs whatever is
+// waiting on it, in this goroutine, before the call returns — so holding the
+// watch's lock across it would put this mutex underneath somebody else's
+// ordering. That is why the unlock used to sit in the middle of the reasoning,
+// and [stallWatch.verdict] is the same code with the whole critical section
+// wrapped in a function, so the unlock can be a defer that no future early
+// return can slip past (internal/guard's lockdefer_test.go states the law).
+func (w *stallWatch) fire() {
+	if cancel := w.verdict(); cancel != nil {
+		// THE ROW LEARNS WHICH BOUND ENDED IT, before the cancel unwinds the
+		// request and the attempt is recorded. Outside the lock, for the same
+		// reason the cancel is.
+		w.arm.boundApplied(w.cut())
+		cancel()
+	}
+}
+
+// verdict is the whole of fire's reasoning, under the lock from first line to
+// last. It answers with the cancellation the caller owes the stream, or nil when
+// the watch re-armed instead and the stream lives.
+func (w *stallWatch) verdict() context.CancelFunc {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil {
+		return nil
+	}
+	now := w.clock()
+	bound := w.bounds.first
+	// speaking is the window a keepalive has to land inside to buy the stream
+	// more patience, and IT IS THE FLAT BOUND EVEN WHEN THE SILENCE BOUND HAS
+	// NARROWED. Whether an endpoint is still on the line is a question about the
+	// connection; how fast the model behind it writes is a question about the
+	// lane, and narrowing the second must not quietly answer the first. A
+	// buffering endpoint sending a comment every twenty seconds is alive at any
+	// rate it has ever been measured at, and the cap above is what bounds it.
+	speaking := w.bounds.first
+	if w.spoken {
+		bound = w.gap
+		speaking = w.bounds.gap
+	}
+	// THE EXTENSION, and its two conditions. The endpoint must still be
+	// speaking — a keepalive inside the bound that just elapsed — and the
+	// accumulated quiet must still be inside the cap. Both true, the timer is
+	// re-armed for the shorter of another bound and what remains of the cap;
+	// either false, the cut below is the answer. The re-arm happens with the
+	// lock held and the timer already fired, so it cannot race a second fire.
+	allowance := w.quietSince.Add(w.bounds.buffered).Sub(now)
+	if now.Sub(w.lastAlive) <= speaking && allowance > 0 {
+		wait := bound
+		if allowance < wait {
+			wait = allowance
+		}
+		w.timer.Reset(wait)
+		return nil
+	}
+	// Waited is the figure that actually decided: the plain bound when the
+	// endpoint went silent outright, the cap when patience was extended and
+	// ran out — so the sentence a person reads matches the wait they watched.
+	waited := bound
+	if allowance <= 0 {
+		waited = w.bounds.buffered
+	}
+	if w.spoken {
+		w.tripped = &StreamCut{Reason: CutStalled, Waited: waited}
+	} else {
+		w.tripped = &StreamCut{Reason: CutSilent, Waited: waited}
+	}
+	return w.cancel
+}
+
+// cutIdle ends a stream the CEILING gave up on rather than one a silence bound
+// did: the controller fired, the purse refused a second request, and not one
+// byte had reached this stream. It is the free half of armwatch.go's THE CEILING
+// PICKS ONE OR THE OTHER, NEVER NEITHER.
+//
+// IT IS THE SAME CUT EVERY OTHER REASON MAKES, and that is the whole of why it
+// is enough. [CutSilent] is already "this request produced nothing", which is
+// exactly true here; what differs is only which clock decided, and the row
+// records that separately ([streamWatch.applied]). Because it is an ordinary
+// cut it leaves through the ordinary door — the decode loop's cut path in
+// client.go stamps it with the machine the stream named ([Client.stampCut]) and
+// asks the ledger to strike that machine, which is what sets [StreamCut.
+// Rerouted] — so the attempt loop reads it as a no-backoff move that vetoes the
+// served endpoint, and the next send goes somewhere else. NOTHING HERE SETS
+// `Provider` OR `Rerouted`: a cut that stamped itself would be a second answer
+// to "who was serving", and a cut that claimed a reroute the ledger had not
+// made would be a lie the turn loop counts endpoint diversity from.
+//
+// The cancel runs outside the lock, for [stallWatch.fire]'s reason, and a watch
+// that has already tripped keeps its first verdict: a bound that fired is the
+// bound that ended the stream.
+func (w *stallWatch) cutIdle(waited time.Duration) {
+	if w == nil {
+		return
+	}
+	cut, cancel, tripped := w.tripIdle(waited)
+	if !tripped {
+		return
+	}
+	w.arm.boundApplied(cut)
+	cancel()
+}
+
+// tripIdle is [stallWatch.cutIdle]'s locked half: the first verdict claimed,
+// or false when a bound already ended this stream — a watch that has tripped
+// keeps its first verdict. The cancel is handed back for the caller to run
+// outside the lock, for [stallWatch.fire]'s reason.
+func (w *stallWatch) tripIdle(waited time.Duration) (cut *StreamCut, cancel context.CancelFunc, tripped bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.tripped != nil {
+		return nil, nil, false
+	}
+	if waited <= 0 {
+		waited = w.clock().Sub(w.quietSince)
+	}
+	w.tripped = &StreamCut{Reason: CutSilent, Waited: waited}
+	return w.tripped, w.cancel, true
+}
+
+// cut is the trip, or nil. It is read after the stream has died, to tell a
+// watchdog's cancellation apart from the person's own interrupt.
+func (w *stallWatch) cut() *StreamCut {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.tripped
+}
+
+// stop ends the watch. BOTH timers are READ under the lock and stopped outside
+// it, for [stallWatch.fire]'s reason one function up: Stop is somebody else's
+// code and this lock stays underneath none of it. [stallWatch.heldTimers] is
+// that read as its own function, so the unlock is a defer rather than a line in
+// the middle.
+func (w *stallWatch) stop() {
+	quiet, wall := w.heldTimers()
+	if quiet != nil {
+		quiet.Stop()
+	}
+	if wall != nil {
+		wall.Stop()
+	}
+}
+
+// heldTimers are the watch's two clocks — the silence bound and the whole-request
+// wall — read under the lock.
+func (w *stallWatch) heldTimers() (*time.Timer, *time.Timer) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.timer, w.wallTimer
+}
+
+// ── the degeneration guard ──────────────────────────────────────────────────
+
+const (
+	// babbleWindow is the tail of assistant text the compression test reads, in
+	// bytes. Four kilobytes is long enough to hold several repetitions of a
+	// sentence-length cycle and short enough that the whole window is about the
+	// same thought.
+	babbleWindow = 4 << 10
+	// babbleShortWindow is the second, shorter length the same tail is read at.
+	// The long window is what catches a paragraph repeated — a cycle that
+	// needs several turns of itself before a compressor sees it — and it is
+	// also what made the guard useless against the commonest degeneration of
+	// all, ONE TOKEN over and over: four kilobytes of `</think>` is five
+	// hundred repetitions, ten to fifteen seconds at the rates these endpoints
+	// write at, and on 2026-09-01 a person watched the whole of it and stopped
+	// the turn by hand before the guard was allowed to speak. A kilobyte of a
+	// token loop compresses just as far below the floor as four (measured:
+	// 0.02 against 0.035), and legitimate text compresses WORSE in a shorter
+	// window, not better — the fixed cost of the compressor is a larger share
+	// of it — so the shorter read cannot be the one that cuts an innocent.
+	babbleShortWindow = 1 << 10
+	// babbleFloor is the compressed-to-raw ratio below which the window is a
+	// loop of SOME cycle length — one letter, one line, one paragraph; the test
+	// does not care which, which is the whole reason it is a compressor and not
+	// a pattern.
+	//
+	// Measured against the two real degenerations of 2026-08-20 and a corpus of
+	// legitimate replies (streamguard_test.go): the '    0\n' loop bottoms out
+	// at 0.015, while a markdown table reaches 0.22, ASCII art 0.086, and prose
+	// 0.24. Three and a half percent sits in the empty middle.
+	babbleFloor = 0.035
+	// babbleEvery is how much new text must arrive before the window is read
+	// again. The test runs at DELTA CADENCE and not per byte: a compressor over
+	// four kilobytes costs tens of microseconds, which is nothing once every
+	// half-kilobyte and a real tax once per token.
+	babbleEvery = 512
+	// churnWindow is the tail the script test reads, in RUNES.
+	churnWindow = 600
+	// churnBound is mid-word alphabet switches per hundred runes, above which
+	// the text is not being written in any language. Legitimate multilingual
+	// writing switches at word boundaries; every innocent in the corpus scores
+	// exactly zero, and the mixed-script degeneration scores 5.5.
+	churnBound = 3.0
+	// churnScripts is how many alphabets must be PRESENT before the churn figure
+	// is believed at all. Two is a bilingual answer, which is ordinary.
+	churnScripts = 3
+	// churnRunes is how many runes an alphabet needs in the window to count as
+	// present, so one loanword, one quoted name or one emoji is never a third
+	// alphabet.
+	churnRunes = 5
+	// cleanCap bounds the tail this keeps. It is twice the compression window so
+	// that the window is always full of real text after a fenced block passes.
+	cleanCap = 2 * babbleWindow
+	// fenceCap is how long a fence may stay open before the guard reads inside
+	// it anyway. Text inside a fence is not judged because a code block is
+	// allowed to be a matrix of zeros or a log of identical lines — but a fence
+	// that opens and never closes is not a code block anybody asked for, it is
+	// a model that opened one and then came apart, and until this bound
+	// existed that was a permanent blindfold: measured, 240 kilobytes of one
+	// repeated token after a bare "```go" line never tripped anything. Sixty-
+	// four kilobytes is far past every fenced innocent in the corpus and every
+	// code block a reply has ever carried.
+	fenceCap = 64 << 10
+)
+
+// babbleWatch reads the assistant's TEXT as it streams and says when it has
+// stopped being language.
+//
+// IT NEVER SEES A TOOL RESULT. A tool that prints a million zeros is doing its
+// job, and a guard that read results would cut the turn that asked for them —
+// so this is fed from the content deltas of the model's own reply and from
+// nothing else.
+//
+// FENCED CODE IS EXCLUDED for the same reason: a zero matrix, a test log and a
+// generated table are all legitimate replies that compress to nothing, and all
+// three arrive inside ``` fences. A fence is honoured only when it is
+// well-formed — an opener whose info string looks like a language tag, a closer
+// that is bare — because the 2026-08-20 degeneration emitted
+// "```ongoingSpark........................" mid-soup, and a scanner that
+// believed that would have been blinded by the very text it was watching for.
+type babbleWatch struct {
+	// clean is the tail of text OUTSIDE fenced code, oldest bytes dropped.
+	clean []byte
+	// pending is the line being written, which is not yet known to be a fence.
+	pending []byte
+	inFence bool
+	// fenced counts bytes written inside the open fence, so that a fence which
+	// never closes stops hiding the text behind it at [fenceCap].
+	fenced int
+	// since counts bytes of clean text added since the last test.
+	since int
+	// squeeze is the compressor [babbleWatch.loopedTail] runs the window
+	// through, and counter is what it writes into. Both are held for the life of
+	// the stream rather than built per test: zlib.NewWriter carries a deflate
+	// state a hundred kilobytes wide, the test runs once every babbleEvery bytes
+	// of a reply, and Reset leaves the writer in exactly the state a new one
+	// would be in — so the ratio measured is the same ratio, bit for bit.
+	squeeze *zlib.Writer
+	counter countingWriter
+}
+
+func (b *babbleWatch) write(delta string) bool {
+	for len(delta) > 0 {
+		at := strings.IndexByte(delta, '\n')
+		if at < 0 {
+			b.grow(delta)
+			break
+		}
+		b.grow(delta[:at+1])
+		b.endLine()
+		delta = delta[at+1:]
+	}
+	// A line long enough to be the whole window cannot be a fence marker, and
+	// holding it would let a model that never presses return write past the
+	// guard entirely.
+	if len(b.pending) > babbleWindow {
+		b.endLine()
+	}
+	if b.since < babbleEvery {
+		return false
+	}
+	b.since = 0
+	return b.tripped()
+}
+
+// grow adds one piece of the line being written, and counts it towards the next
+// test.
+//
+// THE COUNTER IS BYTES OF WATCHED TEXT and not bytes of settled line, because a
+// model in a repetition loop may never press return: the first version counted
+// only completed lines, and an excerpt of the real 2026-08-20 soup — fifteen
+// hundred runes with not one newline in them — streamed past the guard because
+// the test was never due. Text inside a fence is not watched and is not counted,
+// so a ten-megabyte code block costs one test rather than twenty thousand.
+func (b *babbleWatch) grow(piece string) {
+	b.pending = append(b.pending, piece...)
+	if b.inFence {
+		b.fenced += len(piece)
+	}
+	if !b.hidden() {
+		b.since += len(piece)
+	}
+}
+
+// hidden reports that the text being written is inside a fence the guard is
+// still honouring: open, and not yet past [fenceCap]. A fence past the cap is
+// still a fence — its closer still closes it — but what is written inside it
+// is read like everything else.
+func (b *babbleWatch) hidden() bool {
+	return b.inFence && b.fenced <= fenceCap
+}
+
+// endLine settles the pending line: it either toggles the fence, or joins the
+// clean tail.
+func (b *babbleWatch) endLine() {
+	line := b.pending
+	b.pending = nil
+	if kind, ok := fenceLine(line); ok {
+		switch {
+		case b.inFence && kind != fenceOpen:
+			b.inFence, b.fenced = false, 0
+			return
+		case !b.inFence && kind != fenceClose:
+			b.inFence, b.fenced = true, 0
+			return
+		}
+	}
+	if b.hidden() {
+		return
+	}
+	b.clean = append(b.clean, line...)
+	if len(b.clean) > cleanCap {
+		b.clean = append(b.clean[:0], b.clean[len(b.clean)-cleanCap:]...)
+	}
+}
+
+// window is the text the two tests read: the clean tail plus whatever line is
+// still being written, when that line is not inside a fence.
+func (b *babbleWatch) window() []byte {
+	if b.hidden() || len(b.pending) == 0 {
+		return b.clean
+	}
+	return append(append(make([]byte, 0, len(b.clean)+len(b.pending)), b.clean...), b.pending...)
+}
+
+func (b *babbleWatch) tripped() bool {
+	window := b.window()
+	return b.loopedTail(window) || churnedTail(window)
+}
+
+type fenceKind int
+
+const (
+	fenceOpen fenceKind = iota
+	fenceClose
+	fenceEither
+)
+
+// fenceLine reports whether one line is a markdown code fence, and which end.
+//
+// A CLOSER IS BARE and an OPENER MAY CARRY A LANGUAGE TAG, and the tag has to
+// look like one: up to twenty characters of the alphabet a language name is
+// spelled in, and nothing else. Everything looser was tried against the real
+// degenerate text and let it hide.
+func fenceLine(line []byte) (fenceKind, bool) {
+	trimmed := bytes.TrimSpace(line)
+	if !bytes.HasPrefix(trimmed, []byte("```")) {
+		return fenceEither, false
+	}
+	info := trimmed[3:]
+	if len(info) == 0 {
+		return fenceEither, true
+	}
+	if len(info) > 20 {
+		return fenceEither, false
+	}
+	for _, r := range string(info) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '+', r == '#', r == '-', r == '_':
+		default:
+			return fenceEither, false
+		}
+	}
+	return fenceOpen, true
+}
+
+// loopedTail is the COMPRESSION COLLAPSE test: a window that zlib squeezes below
+// babbleFloor is a repetition of some cycle, and the cycle's length does not
+// matter to the answer.
+//
+// THE TAIL IS READ AT TWO LENGTHS. The short one is what catches a token or a
+// line repeated — the shape a person is watching arrive and can see for
+// themselves within a second — and the long one is what catches a paragraph
+// repeated, which needs more of itself in front of the compressor before it
+// collapses. Both must be FULL before they may say anything: a short reply that
+// happens to be one repeated line is somebody answering "no, no, no" and is
+// not a model that has come off the rails.
+func (b *babbleWatch) loopedTail(window []byte) bool {
+	return b.collapses(window, babbleShortWindow) || b.collapses(window, babbleWindow)
+}
+
+// collapses runs one length of the tail through the compressor. The writer is
+// reused across both lengths and every reading (see the struct), so a reading
+// at two lengths still costs the allocations of one.
+func (b *babbleWatch) collapses(window []byte, size int) bool {
+	if len(window) < size {
+		return false
+	}
+	tail := window[len(window)-size:]
+	b.counter.n = 0
+	if b.squeeze == nil {
+		b.squeeze = zlib.NewWriter(&b.counter)
+	} else {
+		b.squeeze.Reset(&b.counter)
+	}
+	if _, err := b.squeeze.Write(tail); err != nil {
+		return false
+	}
+	if err := b.squeeze.Close(); err != nil {
+		return false
+	}
+	return float64(b.counter.n)/float64(len(tail)) < babbleFloor
+}
+
+// LostItsThread judges text that has ALREADY streamed — a reply a person
+// stopped by hand — by the same tests the live guard runs, read once over its
+// tail. It exists for the one road junk still had into the transcript: the
+// guard cuts a stream it wins the race against, and a person who stopped the
+// stream first was handed the soup as their own kept reply, replayed on every
+// request after (internal/session's keepPartial). Nothing here is a second
+// opinion — it is the same window, the same floor, the same compressor.
+func LostItsThread(text string) bool {
+	watch := &babbleWatch{}
+	return watch.write(text) || watch.tripped()
+}
+
+// countingWriter is how many bytes the compressor produced. The compressed
+// bytes themselves are never wanted, so they are never kept.
+type countingWriter struct{ n int }
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	c.n += len(p)
+	return len(p), nil
+}
+
+var _ io.Writer = (*countingWriter)(nil)
+
+// churnedTail is the SCRIPT CHURN test: it counts alphabet switches BETWEEN TWO
+// ADJACENT LETTERS, which is the difference between a multilingual answer and
+// soup.
+//
+// A person writing about two languages puts a space, a comma or a quote between
+// them — "the Russian is компьютер" switches alphabet at a boundary, and that
+// switch is not counted here at all. A model that has lost the thread writes
+// "стаthisada", where the switch is inside the word, and that is the only kind
+// this counts.
+//
+// Latin, Han, Kana and Hangul are mutually TOLERANT, because CJK writing sets
+// Latin words against native script with no separator as a matter of course:
+// "このAPIはHTTPリクエストを受け取り" is ordinary Japanese and scored 27 switches
+// per hundred runes before the tolerance existed.
+func churnedTail(window []byte) bool {
+	// The window is walked rather than materialized. Decoding it into a []rune
+	// first cost sixteen kilobytes of garbage on every test to read six hundred
+	// runes off the end of it, and a byte that is not valid UTF-8 becomes the
+	// same replacement rune either way — which is what keeps this the same
+	// measurement it was.
+	total := utf8.RuneCount(window)
+	if total < churnWindow {
+		return false
+	}
+	tail := window
+	for skip := total - churnWindow; skip > 0; skip-- {
+		_, size := utf8.DecodeRune(tail)
+		tail = tail[size:]
+	}
+	var counts [scriptCount]int
+	switches := 0
+	previous := scriptNeutral
+	for len(tail) > 0 {
+		r, size := utf8.DecodeRune(tail)
+		tail = tail[size:]
+		class := scriptOf(r)
+		if class == scriptNeutral {
+			previous = scriptNeutral
+			continue
+		}
+		counts[class]++
+		if previous != scriptNeutral && previous != class && !(tolerant(previous) && tolerant(class)) {
+			switches++
+		}
+		previous = class
+	}
+	present := 0
+	for _, count := range counts {
+		if count >= churnRunes {
+			present++
+		}
+	}
+	if present < churnScripts {
+		return false
+	}
+	return float64(switches)*100/float64(churnWindow) >= churnBound
+}
+
+// scriptClass is one alphabet, coarsely. Digits, punctuation, whitespace, marks
+// and emoji are scriptNeutral: they belong to no alphabet and they BREAK a run,
+// so a letter on either side of one is never a mid-word switch.
+type scriptClass uint8
+
+const (
+	scriptNeutral scriptClass = iota
+	scriptLatin
+	scriptGreek
+	scriptCyrillic
+	scriptArmenian
+	scriptHebrew
+	scriptArabic
+	scriptDevanagari
+	scriptThai
+	scriptKana
+	scriptHan
+	scriptHangul
+	scriptOther
+	// scriptCount is the width of [churnedTail]'s tally and not an alphabet. It
+	// must stay last in this block, which is what makes the tally an array
+	// rather than a map allocated once per test.
+	scriptCount
+)
+
+// tolerant names the alphabets that legitimately sit against each other with no
+// separator. See [churnedTail].
+func tolerant(class scriptClass) bool {
+	switch class {
+	case scriptLatin, scriptHan, scriptKana, scriptHangul:
+		return true
+	}
+	return false
+}
+
+func scriptOf(r rune) scriptClass {
+	switch {
+	case r < utf8.RuneSelf:
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return scriptLatin
+		}
+		return scriptNeutral
+	case r >= 0x00C0 && r <= 0x024F, r >= 0x1E00 && r <= 0x1EFF:
+		return scriptLatin
+	case r >= 0x0370 && r <= 0x03FF, r >= 0x1F00 && r <= 0x1FFF:
+		return scriptGreek
+	case r >= 0x0400 && r <= 0x052F:
+		return scriptCyrillic
+	case r >= 0x0530 && r <= 0x058F:
+		return scriptArmenian
+	case r >= 0x0590 && r <= 0x05FF:
+		return scriptHebrew
+	case r >= 0x0600 && r <= 0x06FF, r >= 0x0750 && r <= 0x077F:
+		return scriptArabic
+	case r >= 0x0900 && r <= 0x097F:
+		return scriptDevanagari
+	case r >= 0x0E00 && r <= 0x0E7F:
+		return scriptThai
+	case r >= 0x3040 && r <= 0x30FF:
+		return scriptKana
+	case r >= 0x3400 && r <= 0x4DBF, r >= 0x4E00 && r <= 0x9FFF, r >= 0xF900 && r <= 0xFAFF:
+		return scriptHan
+	case r >= 0x1100 && r <= 0x11FF, r >= 0xAC00 && r <= 0xD7AF:
+		return scriptHangul
+	case r >= 0xFF21 && r <= 0xFF5A:
+		// Fullwidth Latin. It is the same alphabet typed on a CJK keyboard.
+		return scriptLatin
+	case unicode.IsLetter(r):
+		return scriptOther
+	}
+	return scriptNeutral
+}

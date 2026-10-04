@@ -1,0 +1,220 @@
+package tui3
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Agent-Field/codeaf/internal/session"
+)
+
+// resumedJournal writes a transcript that has already spent money and hands
+// back its path.
+//
+// The lines are shaped exactly as the engine writes them (session's
+// sessionfile.go): a header, the exchange, one usage line for the turn itself
+// and one flagged `aux` for an errand the session ran beside it. The two are
+// deliberately different sizes so an assertion below can tell a sum from
+// whichever half it was taken from.
+func resumedJournal(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "session.jsonl")
+	lines := strings.Join([]string{
+		`{"type":"session","version":1,"id":"fix128aaaaaaaaaa","cwd":"` + dir + `","model":"vendor/m","timestamp":"2026-08-31T20:57:46.937847Z"}`,
+		`{"type":"message","role":"user","content":"what did we spend?","timestamp":"2026-08-31T20:57:50Z"}`,
+		`{"type":"message","role":"assistant","content":"A fair amount so far.","timestamp":"2026-08-31T20:57:55Z"}`,
+		`{"type":"usage","usage":{"model":"vendor/m","input":48100,"output":3200,"cacheRead":14080,"costUsd":0.42,"calls":12,"durationMs":192000},"timestamp":"2026-08-31T20:57:55Z"}`,
+		`{"type":"usage","usage":{"model":"vendor/errand","input":686,"output":120,"costUsd":0.02,"calls":2,"aux":true},"timestamp":"2026-08-31T20:58:05Z"}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(lines), 0o644); err != nil {
+		t.Fatalf("write journal: %v", err)
+	}
+	return path
+}
+
+// resumedAgent opens a real session on a journal, which is the resume path a
+// person takes with `codeaf chat --session <path>`.
+func resumedAgent(t *testing.T, dir, file string) *session.Agent {
+	t.Helper()
+	agent, err := session.New(session.Config{
+		Workspace: dir,
+		Model:     "vendor/m",
+		APIKey:    "test",
+		// A base URL is required to build a session and never dialled by these
+		// tests: no turn is sent, and the whole question is what the file
+		// already holds.
+		BaseURL:     "http://127.0.0.1:1/never-dialled",
+		System:      "SYSTEM",
+		SessionFile: file,
+	})
+	if err != nil {
+		t.Fatalf("session.New: %v", err)
+	}
+	t.Cleanup(func() { _ = agent.Close() })
+	return agent
+}
+
+// A RESUMED CONVERSATION OPENS KNOWING WHAT IT HAS ALREADY SPENT, on its first
+// frame and with no turn sent.
+//
+// The engine always restored the total from the journal's usage lines; nothing
+// on this surface asked for it until the paint clock came round, and the paint
+// clock only turns while something is animating — so an idle resumed session sat
+// at the prompt reporting `$0.00` over a conversation that had spent real money
+// (#128). The figures below are the file's two usage lines summed, the auxiliary
+// one included: an errand the session ran was still this conversation's bill.
+func TestAResumedConversationOpensWithTheSpendItsJournalRecords(t *testing.T) {
+	dir := t.TempDir()
+	agent := resumedAgent(t, dir, resumedJournal(t, dir))
+
+	a := newApp(t.Context(), Options{Agent: agent, Workspace: dir, Resumed: true})
+
+	if got := dollars(a.cost); got != "$0.44" {
+		t.Fatalf("the resumed session's cost is %q, want the journal's two lines summed", got)
+	}
+	if a.inputTokens != 48786 || a.outputTokens != 3320 {
+		t.Fatalf("restored tokens = %d in / %d out, want 48786/3320",
+			a.inputTokens, a.outputTokens)
+	}
+	if a.tokens != 52106 {
+		t.Fatalf("restored total tokens = %d, want both halves' 52106", a.tokens)
+	}
+	if a.cacheRead != 14080 {
+		t.Fatalf("restored cache reads = %d, want the journal's 14080", a.cacheRead)
+	}
+
+	// THE STATUS LINE IS THE SURFACE THE BUG WAS SEEN ON, so it is asserted as a
+	// person reads it rather than through the field behind it.
+	if line := plain(a.legend(200)); !strings.Contains(line, "$0.44") {
+		t.Fatalf("the status line does not carry the conversation's spend:\n%q", line)
+	}
+
+	// And /cost's own figures, which read the same counters plus the report's
+	// call count — the honest denominator for the money above it.
+	cost := plain(a.costText())
+	for _, want := range []string{"$0.44", "48.8k in · 3.3k out", "14.1k read", "model calls", "14"} {
+		if !strings.Contains(cost, want) {
+			t.Fatalf("/cost is missing %q:\n%s", want, cost)
+		}
+	}
+}
+
+// AND ONE THAT SPENT NOTHING STILL SAYS NOTHING. The restore folds a zero Usage
+// in, which leaves every counter where it was, so the emptiness law reaches the
+// resumed session exactly as it reaches a fresh one.
+func TestAResumedConversationThatSpentNothingStillDrawsNothing(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	lines := strings.Join([]string{
+		`{"type":"session","version":1,"id":"fix128bbbbbbbbbb","cwd":"` + dir + `","model":"vendor/m","timestamp":"2026-08-31T20:57:46.937847Z"}`,
+		`{"type":"message","role":"user","content":"hello","timestamp":"2026-08-31T20:57:50Z"}`,
+		`{"type":"message","role":"assistant","content":"hello yourself","timestamp":"2026-08-31T20:57:55Z"}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(lines), 0o644); err != nil {
+		t.Fatalf("write journal: %v", err)
+	}
+	a := newApp(t.Context(), Options{Agent: resumedAgent(t, dir, path), Workspace: dir, Resumed: true})
+
+	if a.cost != 0 || a.tokens != 0 {
+		t.Fatalf("a journal with no usage lines restored $%v / %d tokens", a.cost, a.tokens)
+	}
+	if got := plain(a.costText()); got != "nothing spent yet — this session has not sent a turn." {
+		t.Fatalf("/cost on an unspent resumed session says:\n%q", got)
+	}
+}
+
+// SWITCHING TO A CONVERSATION BRINGS ITS BILL WITH IT. The meters are zeroed on
+// the way in because every figure on them is a fact about the conversation being
+// left; this is the other half of that statement, and without it every door onto
+// a second conversation — the welcome list, the keeper, a take-over — landed on
+// `$0.00` over a session that had spent money.
+func TestSwitchingToAResumedConversationTakesUpItsSpend(t *testing.T) {
+	first := t.TempDir()
+	a := newApp(t.Context(), Options{Agent: &fakeAgent{model: "m"}, Workspace: first})
+	a.width, a.height = 200, 40
+	// A CONVERSATION SOMEBODY IS ACTUALLY IN, which is the only kind a switch is
+	// made from: the greeting's own row deliberately carries no bill at all
+	// ([app.statusQuiet]), so a fixture that left it up would be asserting about
+	// a row this defect could never have been seen on.
+	a.dismissWelcome()
+	a.cost = 9.99
+	// AND THE CONVERSATION BEING LEFT HAS WORK OUT, which is the half of this
+	// that #210 found: the figure a person actually reads is not a.cost but the
+	// whole tree's ([app.spendShown]), and the tree was the one meter this reset
+	// walked past. Fifty dollars of a family still running, against the $1.11
+	// the tmux replication used and the $0.44 the arriving journal holds here.
+	a.tree = session.Receipt{Direct: 9.99, Children: 40.01, Calls: 7}
+
+	second := t.TempDir()
+	agent := resumedAgent(t, second, resumedJournal(t, second))
+	a.attachConversation(Conversation{Agent: agent, Workspace: second, Resumed: true}, nil)
+
+	if got := dollars(a.cost); got != "$0.44" {
+		t.Fatalf("after the switch the status line says %q, want the arriving conversation's own bill", got)
+	}
+	// THE FIGURE THE ROW DRAWS, and not the field under it. Asserting a.cost is
+	// what let the bleed through: a.cost was right the whole time and the row
+	// beside it still read $50.00, because spendShown takes the larger of the
+	// two readings and the tree's was somebody else's.
+	if got := a.spendShown(); !near(got, 0.44) {
+		t.Fatalf("after the switch the row shows %v, want the arriving conversation's own 0.44", got)
+	}
+	if line := plain(a.legend(a.width)); !strings.Contains(line, "$0.44") || strings.Contains(line, "$50.00") {
+		t.Fatalf("the status line carries the conversation that was left:\n%s", line)
+	}
+	if a.inputTokens != 48786 || a.outputTokens != 3320 {
+		t.Fatalf("after the switch tokens = %d in / %d out, want the arriving journal's 48786/3320",
+			a.inputTokens, a.outputTokens)
+	}
+}
+
+// AND THE ARRIVING CONVERSATION'S OWN WORK IS ON THE ROW FROM THE FIRST FRAME.
+// Zeroing the tree alone would leave a conversation whose family is still
+// working reading only what its own books hold — every closed node and none of
+// the running ones — until the task column had animated a roster into place, so
+// the switch takes one reading of the ledger on the way in.
+func TestSwitchingToAConversationWithWorkOutReadsItsTreeOnTheFirstFrame(t *testing.T) {
+	root := t.TempDir()
+	ledger := filepath.Join(root, session.UsageLedgerName)
+
+	first := t.TempDir()
+	a := newApp(t.Context(), Options{Agent: &fakeAgent{model: "m"}, Workspace: first, UsageLedger: ledger})
+	a.width, a.height = 200, 40
+	a.dismissWelcome()
+	a.tree = session.Receipt{Direct: 9.99, Children: 40.01, Calls: 7}
+
+	// The arriving conversation, in the shape the surface reads an id off: the
+	// journal sits in a folder named for the conversation (place.go), which is
+	// what [app.selfSessionID] joins the ledger's rows against.
+	const arriving = "2222222222222222"
+	folder := filepath.Join(root, "projects", "repo", arriving)
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := resumedJournal(t, folder)
+	// One node of the arriving conversation's family, still running: its money is
+	// in the ledger and NOT in the journal, because a node's tally reaches the
+	// conversation's books only when it closes.
+	appendLedger(t, ledger, []session.UsageLine{
+		{At: time.Now(), Session: arriving, Calls: 14, USD: 0.44},
+		{At: time.Now(), Session: "cccc4444cccc4444", Task: "1", Root: arriving, Calls: 3, USD: 9.00},
+	})
+
+	a.attachConversation(Conversation{
+		Agent: resumedAgent(t, folder, file), Workspace: folder, SessionFile: file, Resumed: true,
+	}, nil)
+
+	if got := a.spendShown(); !near(got, 9.44) {
+		t.Fatalf("the first frame after the switch shows %v, want the journal's 0.44 plus the running node's 9.00", got)
+	}
+	// AND THE ROW AND THE NOTE AGREE ON IT, which is the law the bleed broke:
+	// /cost recomputed the tree and the row did not, so for that moment the two
+	// said different things about the same money.
+	if line, note := plain(a.legend(a.width)), plain(a.costText()); !strings.Contains(line, "$9.44") || !strings.Contains(note, "$9.44") {
+		t.Fatalf("the row and /cost do not agree:\nrow:  %s\nnote: %s", line, note)
+	}
+}
