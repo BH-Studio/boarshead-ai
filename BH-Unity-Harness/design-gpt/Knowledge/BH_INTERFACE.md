@@ -12,7 +12,9 @@ Owned by `contracts/schema.json`. The copies named `BH_CONTRACT_SCHEMA.json` in 
 
 The design method owns proposals, specifications, requirements and design review. The human owns decisions and approvals. The harness owns execution state, verified observations and receipt freshness. Native Codex instruction precedence is not this policy's authority hierarchy and can bypass it; host permissions and genuine human review remain necessary.
 
-## Required design resources
+## Required design resources — producer only
+
+This section governs the design host. Codex consumes the approved handoff and `Docs/Harness/CODEX_CONSUMER.md`; it does not retrieve producer personas or frameworks to execute a task. Compact views from `Tools/BH/views.py` are derived reading aids, not replacement wire contracts. Full records and approval subjects remain authoritative and retrievable.
 
 For full system/foundation work retrieve `01_GPT_INSTRUCTIONS_FULL.md` and `K01_PERSONAS_AND_ROUTING.md`. The retained full file preserves the design workflow; only its older compiler procedure is replaced by current K12 and this interface. Full/reference documents do not acquire higher instruction priority by being uploaded.
 

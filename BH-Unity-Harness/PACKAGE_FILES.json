@@ -5,7 +5,7 @@
   "files": [
     {
       "path": ".agents/skills/bh-implement-approved-slice/SKILL.md",
-      "sha256": "941590210a2fc7748833d11dae50b12f5640434d9ed5890f518650bb11842364",
+      "sha256": "7ee8aa69f43a28411b10ddfaccda58ccff780cdf00b6c0cc6ed4f34db202619e",
       "ownership": "managed"
     },
     {
@@ -15,7 +15,7 @@
     },
     {
       "path": ".agents/skills/bh-review-handoff/SKILL.md",
-      "sha256": "58f6880b23332880826ac4e987cb51f5226972e115df9a301d21412b064fec08",
+      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
       "ownership": "managed"
     },
     {
@@ -85,12 +85,17 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "66bc78d72b0f12b0ba68b9fa3b54a7ff1b53c85389e839b66d32dd3f04880859",
+      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/CODEX_CONSUMER.md",
+      "sha256": "d383a93f2f8ec8ef258a6d0b5bae6380e3ffdfbdb7154733d0acd80c693514c0",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/INTERFACE.md",
-      "sha256": "2bb8ec57838cb4bd63a29fbec6763fe1cf4bb965e79a23e573d3505ccdeaf5cc",
+      "sha256": "cb63b65e03f89b3d5d707ed980e2f38852fdfe5aa7240191b2235f280203efcd",
       "ownership": "managed"
     },
     {
@@ -111,6 +116,11 @@
     {
       "path": "Tools/BH/check_release_profile.py",
       "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/views.py",
+      "sha256": "32862f567b16ff6fe34e0408c3005c53eacf36b95c45b8a4e1b44b93836f2101",
       "ownership": "managed"
     }
   ]

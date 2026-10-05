@@ -72,7 +72,7 @@
     },
     {
       "path": "Knowledge/BH_INTERFACE.md",
-      "sha256": "2bb8ec57838cb4bd63a29fbec6763fe1cf4bb965e79a23e573d3505ccdeaf5cc",
+      "sha256": "cb63b65e03f89b3d5d707ed980e2f38852fdfe5aa7240191b2235f280203efcd",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     },
     {
