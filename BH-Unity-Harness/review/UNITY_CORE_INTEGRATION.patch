@@ -1,0 +1,41 @@
+--- a/BH-Unity-Harness/project-template/Tools/BH/bh.py
++++ b/BH-Unity-Harness/project-template/Tools/BH/bh.py
+@@ -816,7 +816,7 @@
+         rev = s['revision']
+         snap = snapshot(self.root)
+         plan = self.authorized(s, snap)
+-        require(s['phase'] == 'EXECUTING' or (reuse and s['phase'] == 'READY_FOR_HUMAN_REVIEW'),
++        require(s['phase'] in ('EXECUTING', 'READY_FOR_HUMAN_REVIEW'),
+                 'Verification requires EXECUTING; use explicit begin/repair/recovery/resume')
+         require('run-checks' in plan['allowed_actions'], 'Check execution not authorized')
+         h, criteria, _ = self.handoff(s['handoff']['path'])
+@@ -836,7 +836,7 @@
+                 old = latest.get(spec['id'])
+                 if spec['adapter'] == 'manual':
+                     continue  # Never execute or certify a human judgment.
+-                if old and old[0] == 'PASS':
++                if old and old[0] == 'PASS' and self.bound.get(spec['id'], {}).get('reuse_policy', 'source-bound') != 'never':
+                     self.binding_ready(spec)  # Changed executables cannot borrow old evidence.
+                     reused.append({'id': spec['id'], 'receipt': old[1], 'status': 'PASS'})
+                 else:
+@@ -846,7 +846,8 @@
+                 return {'phase': s['phase'], 'status': 'REUSED_CURRENT_EVIDENCE',
+                         'acceptance': scores, 'blockers': gaps, 'reused_checks': reused,
+                         'executed_checks': [], 'fresh_final_gate': False}
+-        require(s['phase'] == 'EXECUTING', 'Changed evidence requires resume before execution')
++        if s['phase'] == 'READY_FOR_HUMAN_REVIEW':
++            self.move(s, 'EXECUTING', 'Explicitly requested fresh verification under the same approved plan')
+         require(len(s['runs']) < 256, 'Run limit reached; preserve history and split/archive task explicitly')
+         for spec in selected:
+             tool = self.tools.get(self.bound.get(spec['id'], {}).get('tool_key'), {})
+--- a/BH-Unity-Harness/tools/build_contract.py
++++ b/BH-Unity-Harness/tools/build_contract.py
+@@ -50,7 +50,7 @@
+ D['binding']=obj({'check_id':ID,'tool_key':ID,'arguments':strings(1,128),'working_directory':S,'result_file':S,
+  'timeout_seconds':{'type':'integer','minimum':1,'maximum':3600},'input_files':arr(ref('artifact')),'dependency_paths':strings(),
+  'dependency_review_ref':nullable(S),'expectations':arr(ref('expectation'),0,64),'diagnostics_baseline':nullable(ref('artifact')),
+- 'diagnostic_source':nullable(S),'build_target':nullable(S),'review_ref':S})
++ 'diagnostic_source':nullable(S),'build_target':nullable(S),'review_ref':S,'reuse_policy':enum('source-bound','never')}, optional=('reuse_policy',))
+ D['bindings']=obj({'version':V,'project_id':ID,'checks':arr(ref('binding'),0,64)})
+ D['proposal']=obj({'version':V,'project_id':ID,'task_id':ID,'steps':arr(obj({'id':ID,'description':S,'paths':strings(1),'ac_ids':ids(1)}),1,64),
+  'risks':strings(),'reconciliation':strings(1),'tool_review_ref':S,'scope_conflicts':strings(),'next_action':S})
