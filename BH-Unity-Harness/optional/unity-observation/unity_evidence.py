@@ -88,23 +88,7 @@ def read_auditor_csv(path):
     return rows
 
 
-def audit_report(spec, value, root, outdir):
-    fields(spec, ('categories', 'scope_paths', 'rules_fingerprint', 'baseline'), 'audit spec')
-    fields(value, ('csv_file', 'issue_count', 'categories', 'scope_paths', 'rules_fingerprint',
-                   'rules_present', 'coverage_complete', 'analyzed_count'), 'audit result')
-    strings(spec['categories'], 'categories', 1)
-    strings(spec['scope_paths'], 'scope', 1)
-    for path in spec['scope_paths']:
-        bh.portable(path)
-    text(spec['rules_fingerprint'], 'rules fingerprint')
-    for key in ('categories', 'scope_paths', 'rules_fingerprint'):
-        bh.require(value[key] == spec[key], 'Audit scope/rules differ: ' + key)
-    bh.require(boolean(value['rules_present'], 'rules') and
-               boolean(value['coverage_complete'], 'coverage'), 'Audit rules or coverage unavailable')
-    integer(value['analyzed_count'], 'analyzed count', 1)
-    rows = read_auditor_csv(run_file(root, outdir, value['csv_file']))
-    bh.require(len(rows) == integer(value['issue_count'], 'issue count'), 'Audit issue count mismatch')
-    bh.require(all(row[0] in spec['categories'] for row in rows), 'Undeclared audit category')
+def read_audit_baseline(spec, root):
     baseline_ref = spec['baseline']
     fields(baseline_ref, ('path', 'sha256'), 'baseline reference')
     baseline_path = bh.safe(root, baseline_ref['path'])
@@ -122,6 +106,31 @@ def audit_report(spec, value, root, outdir):
     bh.require(bh.file_hash(old_path) == baseline['report']['sha256'], 'Baseline CSV changed')
     old_rows = read_auditor_csv(old_path)
     bh.require(all(row[0] in spec['categories'] for row in old_rows), 'Undeclared baseline category')
+    bh.require(all(not row[4] or any(bh.below(row[4], scope) for scope in spec['scope_paths'])
+                   for row in old_rows), 'Baseline row outside declared scope')
+    return old_rows
+
+
+def audit_report(spec, value, root, outdir):
+    fields(spec, ('categories', 'scope_paths', 'rules_fingerprint', 'baseline'), 'audit spec')
+    fields(value, ('csv_file', 'issue_count', 'categories', 'scope_paths', 'rules_fingerprint',
+                   'rules_present', 'coverage_complete', 'analyzed_count'), 'audit result')
+    strings(spec['categories'], 'categories', 1)
+    strings(spec['scope_paths'], 'scope', 1)
+    for path in spec['scope_paths']:
+        bh.portable(path)
+    text(spec['rules_fingerprint'], 'rules fingerprint')
+    for key in ('categories', 'scope_paths', 'rules_fingerprint'):
+        bh.require(value[key] == spec[key], 'Audit scope/rules differ: ' + key)
+    bh.require(boolean(value['rules_present'], 'rules') and
+               boolean(value['coverage_complete'], 'coverage'), 'Audit rules or coverage unavailable')
+    integer(value['analyzed_count'], 'analyzed count', 1)
+    rows = read_auditor_csv(run_file(root, outdir, value['csv_file']))
+    bh.require(len(rows) == integer(value['issue_count'], 'issue count'), 'Audit issue count mismatch')
+    bh.require(all(row[0] in spec['categories'] for row in rows), 'Undeclared audit category')
+    bh.require(all(not row[4] or any(bh.below(row[4], scope) for scope in spec['scope_paths'])
+                   for row in rows), 'Audit row outside declared scope')
+    old_rows = read_audit_baseline(spec, root)
     old, now = Counter(old_rows), Counter(rows)
     added, removed = now - old, old - now
     groups = Counter((row[0], row[6], row[1]) for row in rows)
@@ -261,6 +270,57 @@ REDUCERS = {'search': search_report, 'audit': audit_report, 'smoke': smoke_repor
             'assets': asset_report, 'localization': localization_report}
 
 
+def validate_spec(operation, spec, root):
+    """Reject malformed/empty scope before an expensive or stateful provider call."""
+    bh.require(operation in REDUCERS, 'Unsupported Unity observation')
+    if operation in ('search', 'audit'):
+        names = (('query', 'provider', 'scope_paths', 'properties', 'max_items')
+                 if operation == 'search' else ('categories', 'scope_paths', 'rules_fingerprint', 'baseline'))
+        fields(spec, names, operation + ' spec')
+        strings(spec['scope_paths'], 'scope paths', 1)
+        for path in spec['scope_paths']:
+            bh.portable(path)
+        if operation == 'search':
+            text(spec['query'], 'query'); text(spec['provider'], 'provider')
+            strings(spec['properties'], 'properties'); integer(spec['max_items'], 'max items', 1, 200)
+        else:
+            strings(spec['categories'], 'categories', 1)
+            text(spec['rules_fingerprint'], 'rules fingerprint')
+            read_audit_baseline(spec, root)
+    elif operation == 'smoke':
+        fields(spec, ('condition_ids', 'capture_source', 'minimum_frame_advance'), 'smoke spec')
+        strings(spec['condition_ids'], 'condition ids', 1, 64)
+        integer(spec['minimum_frame_advance'], 'minimum advance', 1)
+        bh.require(spec['capture_source'] in ('screen', 'camera', 'none'), 'Unknown capture source')
+    elif operation == 'assets':
+        # Empty observations exercise the existing requirement validator without creating evidence.
+        asset_report(spec, {'assets': []}, Path(root), Path(root))
+    else:
+        localization_report(spec, {'entries': [], 'converted_code_sites': []}, Path(root), Path(root))
+
+
+def validate_expectations(operation, binding):
+    """Coverage/behavior prerequisites cannot be omitted to obtain a misleading PASS.
+
+    Task-specific thresholds (for example allowed new diagnostics) remain the
+    approved binding's decision, not a hard-coded project policy.
+    """
+    required = {'search': {'coverage_complete': True},
+                'audit': {'coverage_complete': True},
+                'smoke': {'frames_advanced': True, 'conditions_met': True},
+                'assets': {'asset_failures': 0},
+                'localization': {'missing_or_empty_entries': 0, 'unconverted_code_sites': 0}}[operation]
+    rows = binding['expectations']
+    for key, value in required.items():
+        bh.require(any(row['key'] == key and row['operator'] == 'equals'
+                       and type(row['value']) is type(value) and row['value'] == value for row in rows),
+                   'Missing mandatory observation expectation: ' + key)
+    for key in {'search': ('match_count',), 'audit': ('new_findings',),
+                'smoke': ('error_count',), 'assets': (), 'localization': ()}[operation]:
+        bh.require(any(row['key'] == key for row in rows), 'Missing approved outcome expectation: ' + key)
+
+
 def reduce_result(operation, spec, value, root, outdir):
     bh.require(operation in REDUCERS, 'Unsupported Unity observation')
+    validate_spec(operation, spec, root)
     return REDUCERS[operation](spec, value, Path(root), Path(outdir))

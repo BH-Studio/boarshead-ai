@@ -63,7 +63,9 @@ def configure(h, path, check, run_id, task, project, result):
     bh.require(spec['adapter'] == 'facts', 'Observation adapter must use the facts contract')
     binding, _ = h.binding_ready(spec)
     bh.require(binding.get('reuse_policy') == 'never', 'Live observations require reuse_policy=never')
-    bh.require(config['deadline_seconds'] + 5 <= binding['timeout_seconds'], 'Parent timeout needs journal grace')
+    bh.require(config['deadline_seconds'] + 10 <= binding['timeout_seconds'], 'Parent timeout needs journal grace')
+    evidence.validate_spec(config['operation'], config['spec'], h.root)
+    evidence.validate_expectations(config['operation'], binding)
     pinned = {entry['path']: entry['sha256'] for entry in binding['input_files']}
     bh.require(pinned.get(path) == bh.file_hash(bh.safe(h.root, path)), 'Operation configuration is not pinned')
     bh.require(type(config['provider_inputs']) is list and len(config['provider_inputs']) <= 32, 'Invalid provider inputs')

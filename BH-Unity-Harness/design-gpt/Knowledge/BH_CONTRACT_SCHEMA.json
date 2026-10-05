@@ -1213,6 +1213,13 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 8000
+        },
+        "reuse_policy": {
+          "type": "string",
+          "enum": [
+            "source-bound",
+            "never"
+          ]
         }
       },
       "required": [

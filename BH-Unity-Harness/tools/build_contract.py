@@ -50,7 +50,8 @@ D['expectation']=obj({'key':S,'ac_ids':ids(1),'operator':enum('equals','at_most'
 D['binding']=obj({'check_id':ID,'tool_key':ID,'arguments':strings(1,128),'working_directory':S,'result_file':S,
  'timeout_seconds':{'type':'integer','minimum':1,'maximum':3600},'input_files':arr(ref('artifact')),'dependency_paths':strings(),
  'dependency_review_ref':nullable(S),'expectations':arr(ref('expectation'),0,64),'diagnostics_baseline':nullable(ref('artifact')),
- 'diagnostic_source':nullable(S),'build_target':nullable(S),'review_ref':S})
+ 'diagnostic_source':nullable(S),'build_target':nullable(S),'review_ref':S,
+ 'reuse_policy':enum('source-bound','never')}, optional=('reuse_policy',))
 D['bindings']=obj({'version':V,'project_id':ID,'checks':arr(ref('binding'),0,64)})
 D['proposal']=obj({'version':V,'project_id':ID,'task_id':ID,'steps':arr(obj({'id':ID,'description':S,'paths':strings(1),'ac_ids':ids(1)}),1,64),
  'risks':strings(),'reconciliation':strings(1),'tool_review_ref':S,'scope_conflicts':strings(),'next_action':S})

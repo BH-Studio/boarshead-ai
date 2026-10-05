@@ -77,7 +77,7 @@
     },
     {
       "path": "Knowledge/BH_CONTRACT_SCHEMA.json",
-      "sha256": "a781cccd0e652c73c0dff6809e0b3f72e7c292b39cc1ed1e1ae5f587703e438f",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     }
   ],

@@ -816,7 +816,7 @@ class Harness:
         rev = s['revision']
         snap = snapshot(self.root)
         plan = self.authorized(s, snap)
-        require(s['phase'] == 'EXECUTING' or (reuse and s['phase'] == 'READY_FOR_HUMAN_REVIEW'),
+        require(s['phase'] in ('EXECUTING', 'READY_FOR_HUMAN_REVIEW'),
                 'Verification requires EXECUTING; use explicit begin/repair/recovery/resume')
         require('run-checks' in plan['allowed_actions'], 'Check execution not authorized')
         h, criteria, _ = self.handoff(s['handoff']['path'])
@@ -836,7 +836,7 @@ class Harness:
                 old = latest.get(spec['id'])
                 if spec['adapter'] == 'manual':
                     continue  # Never execute or certify a human judgment.
-                if old and old[0] == 'PASS':
+                if old and old[0] == 'PASS' and self.bound.get(spec['id'], {}).get('reuse_policy', 'source-bound') != 'never':
                     self.binding_ready(spec)  # Changed executables cannot borrow old evidence.
                     reused.append({'id': spec['id'], 'receipt': old[1], 'status': 'PASS'})
                 else:
@@ -846,7 +846,8 @@ class Harness:
                 return {'phase': s['phase'], 'status': 'REUSED_CURRENT_EVIDENCE',
                         'acceptance': scores, 'blockers': gaps, 'reused_checks': reused,
                         'executed_checks': [], 'fresh_final_gate': False}
-        require(s['phase'] == 'EXECUTING', 'Changed evidence requires resume before execution')
+        if s['phase'] == 'READY_FOR_HUMAN_REVIEW':
+            self.move(s, 'EXECUTING', 'Explicitly requested fresh verification under the same approved plan')
         require(len(s['runs']) < 256, 'Run limit reached; preserve history and split/archive task explicitly')
         for spec in selected:
             tool = self.tools.get(self.bound.get(spec['id'], {}).get('tool_key'), {})

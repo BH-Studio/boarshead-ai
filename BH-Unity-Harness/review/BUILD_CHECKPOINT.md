@@ -1,29 +1,24 @@
-# BH Unity Harness construction checkpoint
+# BH Unity Harness construction checkpoint — Unity incorporation
 
-Status: UNITY INCORPORATION RESUMED; partial implementation published; NOT adopted.
+Status: recovered Unity observation modules, core freshness extension and tests authored; documentation, final evidence/readback and complete-package validation still open. NOT adopted.
 Repository: BH-Studio/boarshead-ai
-Branch: harness/bh-standard-v1-20261004. Keep PR #1 draft and unmerged.
-Resume baseline: 9336b6c02cc6e5ddc99765a1c1d4ed88a52f8044.
+Branch: harness/bh-standard-v1-20261004; PR #1 stays draft/unmerged.
+Parent: 15a060880b1974f68ea39d9da4bd8748453bfa75; initial resume baseline: 5fcf6a52b7d6fb9b2d75207065bfae73d2a31309.
 
-## Authority and scope
-The human approved the Codex efficiency recommendations and then the Unity Reference incorporation recommendations, and requested resume after a failed response. Continue the existing implementation. All candidate edits remain under BH-Unity-Harness; preserve original directories, existing Readme.md, contributor work and historical evidence. The pipeline remains game-agnostic. No game defaults, live installation, live GPT edit, external paid spend, merge, release or force-push.
+## Authority and preservation
+The human approved the Codex efficiency recommendations and Unity Reference incorporation. Preserve all original directories and existing Readme.md; changes stay within BH-Unity-Harness. Game-agnostic workflow only. No live provider, real game, GPT activation, paid spend, merge, release or force-push. Do not reconstruct or replace the preserved efficiency implementation.
 
-## Durable state recovered from the failed turn
-Read UNITY_INCORPORATION.md, UNITY_REFERENCE_DEEP_REVIEW.md, UNITY_REFERENCE_INVENTORY.json, EFFICIENCY_IMPLEMENTATION.md and EFFICIENCY_PUBLICATION.md. Previous comprehensive checkpoint is preserved at the resume baseline above; its earlier review-only next action is superseded by this implementation request.
+## Actual implementation in this batch
+- Existing core runtime recovered exactly from blob 136f1b7e7a736e169227849cea953b0531b03833; targeted patched blob ca2bc04487a4cacba042bbbb9c8ff0bd9168a083. Binding reuse_policy optionally accepts source-bound/never; live observation checks require never. Explicit fresh verification from READY uses the same revalidated approved plan.
+- Schema generator and all three schema copies agree; schema blob 7b8276fc116ff0e40653b52c3fe71dc63baf1632. 24-file installation and 15-file knowledge manifests updated. Older cores reject the optional field; do not mix versions or relabel active approvals/receipts.
+- Optional unity_jobs.py and unity_evidence.py validate exact scope, mandatory outcome expectations, parent approval, execution inputs, identities, bounded outputs and job deadlines. One submit plus local polling; unresolved ownership survives lost responses/timeouts. No fictitious cancellation or automatic Editor restart.
+- Five reducers: bounded search, Project Auditor CSV/baseline delta, Play-state smoke, persisted asset/binding checks, localization key/locale/code-site completeness. No provider operation maps to an assumed Unity CLI command. The real-host mapping remains unconfigured and requires observed capabilities.
+- Real subprocess synthetic provider and 37 regression cases added. These test actual wrappers/parsers, not live Unity. A single test subtest-label spelling differs from the initial passed source; the full module rerun is being retained separately.
 
-The failed turn added actual optional/unity-observation/unity_evidence.py (Git blob 0104099c5c93dc336562f7d8c8755f792d335eb3) and unity_jobs.py (6548d8a801673b8da8c61b1509686053a7d07b52). Preserve and inspect these, not a replacement implementation. The optional directory currently has those two files only: integration guide, configuration example, tests and any native provider must not be assumed present.
+## Actual validation so far
+37 new tests passed in ten complete partitions on identical source maps before the label-only edit; zero failures/errors/skips. 84 unchanged runtime tests and 20 unchanged installer tests passed in completed partitions against the patched runtime/schema. Logs and receipt JSON currently remain local at /mnt/data/unity-resume/evidence until the next evidence publication. These counts are not a complete revised-package suite and do not incorporate historical 148/136 totals.
 
-review/UNITY_CORE_INTEGRATION.patch records a proposed tested-in-the-prior-session delta for bh.py and build_contract.py. The patch adds optional binding reuse_policy and allows explicitly requested fresh verification from READY_FOR_HUMAN_REVIEW. A patch on disk is not an applied core change; check applicability and execute fresh tests before publishing actual source/schema/manifests. No raw test evidence for the optional runner is assumed recovered merely from the commit message.
+## Exact next action
+Read UNITY_RESUME_TEST_PLAN.md and this checkpoint; verify current head and current manifest entries. Finish the in-progress same-module rerun, commit actual raw logs and source fingerprints. Add disabled provider configuration/protocol documentation, on-demand asset/UI/package guidance and authoring metadata/reference tests. Recover exact remaining current test/tool/design bytes and run outstanding efficiency/package/design/static cases; do not substitute older archive contents or weaken tests. Reconcile current guide/manifests and publish consolidated assurance/readback.
 
-## Previously published efficiency functionality and evidence
-Compact context/schema/proposal/return views; consumer guidance; selected/reused/fail-fast intermediate checks; normal repair below thresholds; latest-supporting-evidence audit; per-snapshot path indexes. Published efficiency evidence covers 136 unique tests in four modules, not a full revised suite. The prior other 44 package/design/static tests remain unverified for this revision until freshly executed. Historical 148/85 results apply only to their recorded sources.
-
-## Current exact action
-1. Materialize available source bytes from exact GitHub contents and reconcile to Git blobs; old archives are supplemental and must not overwrite current work. Direct public git download was unavailable in the current execution environment; use the authorized connector, not credentials or a reconstructed substitute.
-2. Review the saved optional modules, apply only justified integration changes, supply missing tests and disabled configuration/operating guidance, and run the actual modules in disposable synthetic fixtures. Keep native provider mapping explicitly unconfigured unless verified; no invented vendor commands.
-3. Add on-demand persisted asset/UI/localization and package-capability guidance and authoring checks without another always-on skill catalog.
-4. Reconcile manifests/documentation, run all available complete-package tests with separate current evidence, and publish coherent source/test/checkpoint batches. Read back actual tree and inspect complete diff before reporting.
-
-## Remaining boundaries
-Content-preserving commit continuation and machine-declared check prerequisites from the earlier efficiency review remain open. Sequential fail-fast is not a dependency scheduler. Do not silently change approval semantics to close them.
-Windows/PowerShell, live Unity/C# helper, native Codex, optional MCP/diagnostics, configured design GPT/Project, player tests and billed-credit comparisons remain NOT_RUN. Human adoption PENDING. A local tested provider protocol is not proof of a working Unity integration. Save exact remaining actions at every substantive commit; do not rely on temporary files or old chat summaries.
+Content-preserving checkpoint commits and automatic machine-declared check prerequisites remain separately open; strict HEAD and ordered fail-fast remain active. Explicitly disposition rather than silently claiming implementation. Windows/PowerShell, actual Unity/C# helpers, native Codex/MCP/GPT, player tests and billed-credit savings remain NOT_RUN; human adoption PENDING. Commit coherent progress with exact next actions; temporary files must not be the only recovery source.
