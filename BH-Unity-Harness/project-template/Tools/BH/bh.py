@@ -116,7 +116,7 @@ def no_links(path):
                     f'Junction/reparse point rejected: {part}')
 
 
-def safe(root, name, allow_dot=False):
+def safe(root, name, allow_dot=False, case_index=None):
     portable(name, allow_dot)
     p = Path(root) / name
     no_links(p)
@@ -124,7 +124,16 @@ def safe(root, name, allow_dot=False):
     current = Path(root)
     for part in ([] if name == '.' else name.split('/')):
         if current.is_dir():
-            matches = [x.name for x in current.iterdir() if x.name.casefold() == part.casefold()]
+            if case_index is None:
+                matches = [x.name for x in current.iterdir() if x.name.casefold() == part.casefold()]
+            else:
+                # A fresh index is owned by ONE snapshot, never reused after a process.
+                if current not in case_index:
+                    children = {}
+                    for child in current.iterdir():
+                        children.setdefault(child.name.casefold(), []).append(child.name)
+                    case_index[current] = children
+                matches = case_index[current].get(part.casefold(), [])
             require(not matches or matches == [part], f'Case collision: {name}: {matches}')
         current /= part
     return p
@@ -241,10 +250,11 @@ def snapshot(root):
     require(len({x.casefold() for x in names}) == len(names), 'Case-colliding Git paths')
     files = {}
     total = 0
+    case_index = {}
     for name in names:
         if any(below(name, p) for p in VOLATILE):
             continue
-        p = safe(root, name)
+        p = safe(root, name, case_index=case_index)
         if not p.exists():
             continue
         require(p.is_file(), f'Non-file source: {name}')
@@ -458,12 +468,13 @@ class Harness:
             require(any(below(name, p) for p in plan['allowed_paths']), 'Out-of-scope mutation: ' + name)
             require(not any(below(name, p) for p in plan['protected_paths']), 'Protected-path mutation: ' + name)
 
-    def dependency_hash(self, spec, snap):
+    def dependency_hash(self, spec, snap, metadata=None):
         binding = self.bound.get(spec['id'], {})
         deps = binding.get('dependency_paths', [])
         require(not deps or binding.get('dependency_review_ref'), 'Narrow dependencies require explicit review reference')
         files = {p: h for p, h in snap['files'].items() if not deps or any(below(p, d) for d in deps) or any(below(p, d) for d in CORE)}
-        return digest({'commit': snap['commit'], 'files': files, 'config': self.config_hash(), 'harness': self.harness_hash()})
+        config, harness = metadata or (self.config_hash(), self.harness_hash())
+        return digest({'commit': snap['commit'], 'files': files, 'config': config, 'harness': harness})
 
     def binding_ready(self, spec):
         if spec['adapter'] == 'manual':
@@ -512,8 +523,8 @@ class Harness:
             require(set(re.findall(r'\{([^{}]+)\}', arg)) <= {'project', 'run_dir', 'result', 'log', 'project_id', 'task_id', 'run_id'}, 'Unknown command placeholder')
         return b, t
 
-    def preflight(self):
-        snap = snapshot(self.root)
+    def preflight(self, snap=None):
+        snap = snap if snap is not None else snapshot(self.root)
         issues = []
         skills = []
         # Use known Git input paths instead of traversing Library/assets caches.
@@ -591,7 +602,7 @@ class Harness:
                 portable(p)
                 require(any(below(p, a) for a in h['allowed_paths']), 'Plan exceeds design envelope')
         snap = snapshot(self.root)
-        blockers = self.preflight()['issues']
+        blockers = self.preflight(snap)['issues']
         if h['source_commit'] and h['source_commit'] != snap['commit']:
             blockers.append('Handoff repository baseline differs; obtain corrected design/reconciliation input')
         for spec in h['checks']:
@@ -632,20 +643,21 @@ class Harness:
         self.save(s, rev)
         return {'phase': s['phase'], 'authentication': 'NOT PROVIDED by shared writable records'}
 
-    def authorized(self, s):
+    def authorized(self, s, snap=None):
         p = self.load_plan(s)
         require(s['approval'] is not None, 'Missing technical-plan approval')
         self.artifact(s['approval'])
         self.approval(self.read(s['approval']['path'], 'approval'), 'plan', digest(p), s['task_id'])
         self.handoff(s['handoff']['path'])
-        self.scope(p, snapshot(self.root))
+        self.scope(p, snap if snap is not None else snapshot(self.root))
         return p
 
     def begin(self):
         s = self.state()
         rev = s['revision']
-        p = self.authorized(s)
-        require(snapshot(self.root)['sha256'] == p['baseline']['sha256'], 'Initial execution baseline changed')
+        snap = snapshot(self.root)
+        p = self.authorized(s, snap)
+        require(snap['sha256'] == p['baseline']['sha256'], 'Initial execution baseline changed')
         self.move(s, 'EXECUTING', 'Begin only the approved bounded plan')
         s['next_action'] = p['proposal']['next_action']
         self.save(s, rev)
@@ -798,16 +810,43 @@ class Harness:
                 'reason': 'Observed values contradict approved expectation' if failures else 'Observed values match approved expectations',
                 'observations': notes, 'failed_names': failures}
 
-    def verification(self, profile):
+    def verification(self, profile, check_ids=None, reuse=False, fail_fast=False):
         require(profile in TIERS, 'Unknown verification profile')
         s = self.state()
         rev = s['revision']
-        plan = self.authorized(s)
-        require(s['phase'] == 'EXECUTING', 'Verification requires EXECUTING; use explicit begin/recovery/resume')
+        snap = snapshot(self.root)
+        plan = self.authorized(s, snap)
+        require(s['phase'] == 'EXECUTING' or (reuse and s['phase'] == 'READY_FOR_HUMAN_REVIEW'),
+                'Verification requires EXECUTING; use explicit begin/repair/recovery/resume')
         require('run-checks' in plan['allowed_actions'], 'Check execution not authorized')
         h, criteria, _ = self.handoff(s['handoff']['path'])
-        selected = [x for x in h['checks'] if TIERS[x['profile']] <= TIERS[profile]]
+        eligible = [x for x in h['checks'] if TIERS[x['profile']] <= TIERS[profile]]
+        if check_ids is not None:
+            require(bool(check_ids) and len(check_ids) == len(set(check_ids)), 'Empty or duplicate check selection')
+            require(set(check_ids) <= {x['id'] for x in eligible}, 'Unknown or out-of-profile check selection')
+        selected = [x for x in eligible if check_ids is None or x['id'] in check_ids]
         require(bool(selected), 'No checks selected; no verification receipt can pass')
+        reused = []
+        if reuse:
+            scores, refs, gaps, latest = self.audit_results(s, snap, check_details=True)
+            require(not any(g.startswith('Invalid receipt ') for g in gaps),
+                    'Invalid current evidence; inspect it before selecting reuse')
+            pending = []
+            for spec in selected:
+                old = latest.get(spec['id'])
+                if spec['adapter'] == 'manual':
+                    continue  # Never execute or certify a human judgment.
+                if old and old[0] == 'PASS':
+                    self.binding_ready(spec)  # Changed executables cannot borrow old evidence.
+                    reused.append({'id': spec['id'], 'receipt': old[1], 'status': 'PASS'})
+                else:
+                    pending.append(spec)
+            selected = pending
+            if not selected:
+                return {'phase': s['phase'], 'status': 'REUSED_CURRENT_EVIDENCE',
+                        'acceptance': scores, 'blockers': gaps, 'reused_checks': reused,
+                        'executed_checks': [], 'fresh_final_gate': False}
+        require(s['phase'] == 'EXECUTING', 'Changed evidence requires resume before execution')
         require(len(s['runs']) < 256, 'Run limit reached; preserve history and split/archive task explicitly')
         for spec in selected:
             tool = self.tools.get(self.bound.get(spec['id'], {}).get('tool_key'), {})
@@ -821,21 +860,25 @@ class Harness:
         s['next_action'] = 'Await current owned check result; interrupted runs require resume.'
         self.save(s, rev)
         rev = s['revision']
-        snap = snapshot(self.root)
         results = []
         mutations = []
+        after = snap
         atomic_json(safe(self.root, run_name + '/pending.json'), {'run_id': run_id, 'project_id': s['project_id'], 'task_id': s['task_id'], 'started': start})
         # The pending state deliberately survives an unexpected interruption before receipt persistence.
         for spec in selected:
             results.append(self.run_check(spec, snap, run_name, run_id, s['task_id']))
-            after = snapshot(self.root)
+            if spec['adapter'] != 'manual':
+                after = snapshot(self.root)
             mutations = changed(snap['files'], after['files'])
             if mutations or snap['commit'] != after['commit']:
                 results[-1].update(status='ERROR', reason='Audit changed tested inputs; no auto-repair/restore performed')
                 break
             if 'CANCELLED' in results[-1]['reason'] or 'TIMEOUT' in results[-1]['reason']:
                 break
-        after = snapshot(self.root)
+            if fail_fast and results[-1]['status'] in ('FAIL', 'ERROR', 'BLOCKED'):
+                break
+        # The last automated check already captured its post-process snapshot.
+        # Manual entries perform no process, so they do not need another full scan.
         receipt = {'version': VERSION, 'harness_version': VERSION, 'project_id': s['project_id'], 'task_id': s['task_id'],
                    'run_id': run_id, 'synthetic': s['synthetic'], 'started_utc': start, 'finished_utc': utc(),
                    'harness_sha256': self.harness_hash(), 'config_sha256': self.config_hash(), 'plan_sha256': s['plan']['sha256'],
@@ -867,43 +910,56 @@ class Harness:
                         for k in ('failed_rounds', 'repeat_failures', 'no_progress_rounds', 'infrastructure_failures'))
         ready = all(scores[c['id']] == 'PASS' for c in criteria.values() if c['kind'] == 'automated') and not gaps
         cancelled = any('CANCELLED' in r['reason'] for r in results)
-        target = ('PAUSED' if threshold or cancelled else 'BLOCKED' if infra else 'FAILED' if failed
+        target = ('PAUSED' if (threshold and not ready) or cancelled else 'BLOCKED' if infra else 'FAILED' if failed
                   else 'READY_FOR_HUMAN_REVIEW' if ready else 'EXECUTING')
         self.move(s, target, 'Verification receipts evaluated; human acceptance remains separate')
         s['next_action'] = ('Human reviews return/evidence and performs pending playtest.' if ready else
-                            'Inspect exact failed/not-run criteria; use bounded recovery or request missing binding/approval.')
+                            'Inspect exact failed/not-run criteria; use repair below thresholds, recover at a stuck boundary, or request missing authority.')
         self.save(s, rev)
-        return {'phase': s['phase'], 'receipt': receipt_ref, 'acceptance': scores, 'blockers': gaps}
+        return {'phase': s['phase'], 'receipt': receipt_ref, 'acceptance': scores, 'blockers': gaps,
+                'executed_checks': [r['id'] for r in results if r['command']], 'reused_checks': reused}
 
-    def audit_results(self, s, snap=None):
-        snap = snap or snapshot(self.root)
+    def audit_results(self, s, snap=None, check_details=False, full_history=False):
+        """Validate newest evidence per check; optional deep audit retains old failures.
+
+        There is no persistent cache to forge or grow stale. The reverse run ledger
+        is the index. Each used receipt and actual raw artifact is checked anew.
+        Final readiness requires a complete fresh profile, not mixed partial runs.
+        """
+        snap = snap if snap is not None else snapshot(self.root)
         self.artifact(s['handoff'])
         h, criteria, _ = self.handoff(s['handoff']['path'])
         specs = {x['id']: x for x in h['checks']}
-        latest = {}
-        gaps = []
-        current_profile = False
-        for name in s['runs']:
+        metadata = (self.config_hash(), self.harness_hash())
+        dependencies = {key: self.dependency_hash(spec, snap, metadata) for key, spec in specs.items()}
+        latest, gaps, complete = {}, [], set()
+        needed_ids = {key for key, spec in specs.items() if spec['required']}
+        for name in reversed(s['runs']):
+            if not full_history and set(specs) <= latest.keys():
+                break
             try:
                 require(below(name, '.bh/runs') and Path(name).name == 'receipt.json', 'Receipt must be in the designated run tree')
                 r = self.read(name, 'receipt')
                 self.identity(r, s['task_id'])
                 if s['plan'] is None or r['plan_sha256'] != s['plan']['sha256']:
-                    continue  # Preserve superseded-plan history without treating it as current.
-                require(r['harness_sha256'] == self.harness_hash() and r['config_sha256'] == self.config_hash(), 'Receipt core/configuration mismatch')
+                    continue
+                require(r['harness_sha256'] == metadata[1] and r['config_sha256'] == metadata[0], 'Receipt core/configuration mismatch')
                 require(r['run_id'] == Path(name).parent.name, 'Receipt path/run mismatch')
                 require(r['snapshot']['sha256'] == digest({'commit': r['snapshot']['commit'], 'files': r['snapshot']['files']}), 'Receipt source snapshot hash is inconsistent')
                 require(not r['audit_mutations'] and r['snapshot']['sha256'] == r['after_snapshot_sha256'], 'Audit mutation invalidates receipt')
                 require(r['finished_utc'] >= r['started_utc'], 'Receipt timestamps reversed')
-                current_profile = current_profile or TIERS[r['profile']] >= TIERS[h['required_profile']]
-                unique(r['results'], 'id', 'receipt check IDs')
-                for result in r['results']:
-                    require(result['id'] in specs, 'Unknown receipt check')
-                    spec = specs[result['id']]
+                results = unique(r['results'], 'id', 'receipt check IDs')
+                require(results.keys() <= specs.keys(), 'Unknown receipt check')
+                valid_complete = TIERS[r['profile']] >= TIERS[h['required_profile']] and needed_ids <= results.keys()
+                for key, result in results.items():
+                    if key in latest and not full_history:
+                        continue
+                    spec = specs[key]
                     require(result['ac_ids'] == spec['ac_ids'] and result['required'] == spec['required'] and result['adapter'] == spec['adapter'], 'Receipt changed requirement mapping')
-                    require(result['dependency_sha256'] == self.dependency_hash(spec, r['snapshot']), 'Receipt dependency claim contradicts its source snapshot')
-                    if result['dependency_sha256'] != self.dependency_hash(spec, snap):
-                        latest[result['id']] = ('NOT_RUN', name, 'Stale tested-input dependencies')
+                    require(result['dependency_sha256'] == self.dependency_hash(spec, r['snapshot'], metadata), 'Receipt dependency claim contradicts its source snapshot')
+                    if result['dependency_sha256'] != dependencies[key]:
+                        latest.setdefault(key, ('NOT_RUN', name, 'Stale tested-input dependencies'))
+                        valid_complete = False
                         continue
                     for artifact in result['artifacts']:
                         require(below(artifact['path'], str(Path(name).parent).replace('\\', '/')), 'Raw artifact outside its recorded run')
@@ -911,18 +967,29 @@ class Harness:
                     require(result['status'] != 'PASS' or bool(result['artifacts']), 'Passing check has no raw artifacts')
                     if result['status'] == 'PASS':
                         require(result['exit_code'] == 0, 'Passing receipt has nonzero/missing process status')
-                        binding = self.bound.get(spec['id'])
+                        binding = self.bound.get(key)
                         require(binding is not None, 'Passing receipt has no binding')
-                        result_name = (Path(name).parent / spec['id'] / binding['result_file']).as_posix()
+                        result_name = (Path(name).parent / key / binding['result_file']).as_posix()
                         require(result_name in {a['path'] for a in result['artifacts']}, 'Receipt omits bound raw result')
                         output = safe(self.root, result_name)
                         parsed = parse_nunit(output, spec) if spec['adapter'] == 'nunit' else self.parse_observations(output, spec, binding, s['task_id'], r['run_id'], output.parent)
                         require(parsed['status'] == 'PASS', 'Raw artifact contradicts passing receipt')
                         if spec['adapter'] == 'nunit':
                             require(result['counts'] == parsed['counts'], 'Receipt test counts contradict raw result')
-                    latest[result['id']] = (result['status'], name, result['reason'])
+                    if spec['required'] and spec['adapter'] != 'manual' and result['status'] != 'PASS':
+                        valid_complete = False
+                    latest.setdefault(key, (result['status'], name, result['reason']))
+                if valid_complete:
+                    complete.add(name)
             except (BHError, OSError, ValueError, KeyError, ET.ParseError) as exc:
                 gaps.append(f'Invalid receipt {name}: {exc}')
+        # All current automated claims must share one complete fresh profile run.
+        # A selected/reuse-only run cannot create a new final-gate certificate.
+        auto_refs = {latest[key][1] for key in needed_ids if specs[key]['adapter'] != 'manual' and key in latest}
+        auto_present = all(key in latest and latest[key][0] == 'PASS'
+                           for key in needed_ids if specs[key]['adapter'] != 'manual')
+        current_profile = auto_present and (bool(complete & auto_refs) and len(auto_refs) == 1
+                                            if auto_refs else bool(complete))
         if s['plan'] is not None and not current_profile:
             gaps.append('Required final verification profile has not run for this plan')
         scores, refs = {}, {}
@@ -936,7 +1003,24 @@ class Harness:
             scores[ac] = ('PASS' if statuses and all(x == 'PASS' for x in statuses) else
                           next((x for x in ('ERROR', 'BLOCKED', 'FAIL', 'NOT_RUN') if x in statuses), 'BLOCKED'))
             refs[ac] = sorted({x[1] for x in entries if x[1]})
-        return scores, refs, gaps
+        result = (scores, refs, gaps)
+        return (*result, latest) if check_details else result
+
+    def repair(self, diagnosis):
+        """Normal in-scope correction; cannot bypass paused/stuck/user stops."""
+        s = self.state()
+        rev = s['revision']
+        self.authorized(s)
+        require(s['phase'] == 'FAILED', 'Ordinary repair requires FAILED; paused/blocked work needs explicit recovery')
+        require(len(diagnosis.strip()) >= 20, 'Supply concrete evidence, hypothesis and a bounded correction')
+        require(all(s['counters'][k] < self.config['budgets'][k]
+                    for k in ('failed_rounds', 'repeat_failures', 'no_progress_rounds', 'infrastructure_failures')),
+                'Stuck threshold reached; ordinary repair cannot bypass recovery')
+        self.move(s, 'EXECUTING', 'Ordinary bounded repair: ' + diagnosis[:1500])
+        s['next_action'] = diagnosis[:1500]
+        self.save(s, rev)
+        return {'phase': s['phase'], 'recovery_cycles': s['counters']['recovery_cycles'],
+                'counters': s['counters']}
 
     def resume(self):
         s = self.state()
@@ -959,7 +1043,7 @@ class Harness:
         if s['phase'] == 'READY_FOR_HUMAN_REVIEW' and (gaps or any(v not in ('PASS', 'HUMAN_PENDING') for v in scores.values())):
             self.move(s, 'EXECUTING', 'Relevant edits invalidated prior verification')
         s['blockers'] = interrupted_note + gaps
-        s['next_action'] = ('Read current plan, exact diff and checkpoint; do not re-execute completed work. Use explicit recover when paused/failed.'
+        s['next_action'] = ('Read current plan, exact diff and checkpoint; do not re-execute completed work. Use repair for ordinary failures and explicit recover for paused/stuck work.'
                             if s['plan'] else 'Read pinned design inputs and prepare the bounded technical proposal; no game edits authorized.')
         self.save(s, rev)
         return {'phase': s['phase'], 'acceptance': scores, 'blockers': s['blockers']}
@@ -1152,8 +1236,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', default='.')
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('preflight', 'begin', 'resume', 'status', 'checkpoint', 'return'):
+    for name in ('preflight', 'begin', 'resume', 'checkpoint', 'return'):
         sub.add_parser(name)
+    p = sub.add_parser('status')
+    p.add_argument('--history', action='store_true', help='Also validate superseded raw evidence')
     p = sub.add_parser('validate-handoff')
     p.add_argument('path')
     p.add_argument('--draft', action='store_true')
@@ -1162,7 +1248,10 @@ def main(argv=None):
         p.add_argument('path')
     p = sub.add_parser('verify')
     p.add_argument('--profile', choices=TIERS, required=True)
-    for name in ('pause', 'cancel', 'recover', 'claim'):
+    p.add_argument('--check', action='append', dest='check_ids')
+    p.add_argument('--reuse', action='store_true', help='Reuse validated current results; not a fresh final gate')
+    p.add_argument('--fail-fast', action='store_true', help='Stop on first failure; remaining checks stay unrun')
+    for name in ('pause', 'cancel', 'recover', 'repair', 'claim'):
         p = sub.add_parser(name)
         p.add_argument('reason')
     p = sub.add_parser('archive')
@@ -1183,7 +1272,7 @@ def main(argv=None):
                    'limitations': 'Not authentication, execution authorization, or design-quality proof'}
         elif args.command == 'status':
             s = h.state()
-            scores, refs, gaps = h.audit_results(s)
+            scores, refs, gaps = h.audit_results(s, full_history=args.history)
             out = {'phase': s['phase'], 'acceptance': scores, 'gaps': gaps, 'next_action': s['next_action'], 'state_sha256': digest(s)}
         elif args.command == 'unlock':
             out = h.unlock(args.token, args.confirm_owner_stopped)
@@ -1198,13 +1287,15 @@ def main(argv=None):
                 elif args.command == 'begin':
                     out = h.begin()
                 elif args.command == 'verify':
-                    out = h.verification(args.profile)
+                    out = h.verification(args.profile, args.check_ids, args.reuse, args.fail_fast)
                 elif args.command == 'resume':
                     out = h.resume()
                 elif args.command == 'return':
                     out = h.return_report()
                 elif args.command == 'accept':
                     out = h.accept(args.path)
+                elif args.command == 'repair':
+                    out = h.repair(args.reason)
                 elif args.command == 'recover':
                     out = h.recovery(args.reason)
                 elif args.command == 'archive':

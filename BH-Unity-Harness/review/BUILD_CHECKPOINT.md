@@ -1,23 +1,26 @@
 # BH Unity Harness construction checkpoint
 
-Status: APPROVED EFFICIENCY REVISION IN PROGRESS; not adopted.
+Status: EFFICIENCY IMPLEMENTATION BATCHES 1–2 PUBLISHED; final evidence/readback and remaining items open. NOT adopted.
 Repository: BH-Studio/boarshead-ai
-Branch: harness/bh-standard-v1-20261004; PR #1 stays draft and unmerged.
-Review baseline: 4ed5b1fccf25cf7f45e1cf933df162f3b79161d2.
-Parent of first implementation batch: f9a1d81848a4645fd3aafd529b2c8bc0504dbdc8.
+Branch: harness/bh-standard-v1-20261004; PR #1 must remain draft/unmerged.
+Efficiency review baseline: 4ed5b1fccf25cf7f45e1cf933df162f3b79161d2.
+Compact-view batch: 903790014808e12c47407232c1d34d25832df436 (parent of this batch).
+Tested current runtime blob: 136f1b7e7a736e169227849cea953b0531b03833.
 
-## Current authority
-The human accepted the recommendations in CODEX_EFFICIENCY_REVIEW.md. Implement the targeted efficiency revision; do not rebuild the harness. Keep game designs/names in reference-only provenance, never operational defaults. Candidate commits are authorized; live installation, live GPT edits, merge, release and paid spend are not.
+## Authority and current implementation
+The human accepted the efficiency recommendations. Continue targeted improvements to the existing candidate, not a rebuild. Keep all writes under BH-Unity-Harness, original directories and existing Readme.md unchanged. Game designs/names remain reference-only. No live installation/GPT edit, merge, release, paid spend or force-push.
 
-## Latest completed batch
-Compact context/schema/draft-proposal/return commands are implemented in project-template/Tools/BH/views.py. All decision fields and criteria remain visible; full source-hash rosters stay in referenced machine records. The original return is preserved, with a compact AGENT_RETURN and separate history index. Generated proposal drafts contain blockers, not fabricated approval. Consumer guidance is owned in contracts/CODEX_CONSUMER.md and copied to the installed package; producer-only retrieval is explicitly labeled in the canonical interface and both copies. Two skills/root guidance and manifests are updated. Installed files: 24. Knowledge files: 15. Official Instructions unchanged at 7,798 characters.
+Published changes: compact context/schema/draft-proposal/return views and consumer guide; producer-only retrieval is explicitly separated; all criteria and machine evidence retained. Selective verification supports --check, --reuse and --fail-fast. Reuse points to genuine original evidence, never a new PASS receipt. Final readiness requires one complete fresh required profile. Normal repair below thresholds no longer consumes exceptional recovery; paused/stuck/user stops cannot use repair. A successful bounded exceptional correction can reach review without resetting counters. Routine audits validate newest supporting results, with explicit status --history for old raw artifacts. Snapshot path/case indexes are per-operation only; redundant snapshots removed while retaining checks after automated processes. Runtime, guidance, contract copies and manifests are aligned; 24 installed files, 15 knowledge files, original Instructions unchanged at 7,798 characters.
 
-Actual runs on the same batch source: 11 new view tests PASS; 20 existing installer tests PASS; 84 existing runtime tests PASS. These are three completed runs, not a rerun of the full historical 148-test suite. Raw outputs remain local until their publication; compact receipts are in evidence/efficiency-1. An earlier installer invocation correctly rejected a not-yet-refreshed manifest; it is retained as a failed attempt, not counted as passing. Runtime bh.py, installer and canonical wire schema are unchanged by batch 1.
+## Actual current verification
+Four completed focused runs on identical 32-file source maps: 84 existing runtime +20 existing installer +11 compact-view +21 efficiency cases =136 unique tests, zero failures/errors/skips, 66.937 seconds combined. This is NOT the full historical 148-test package suite: its other 44 package/design/static cases have not been rerun on the revised candidate. No historical totals are added to the 136. Final raw JSON/logs are currently local and must be published next; summary/observed measurements are in evidence/efficiency-2. Earlier batch-1 logs and a genuine stale-manifest installer failure are preserved locally, not fabricated from summaries.
+
+Measured synthetic observations: context 6,935 bytes versus 6,936 after 1,000 extra files; compact return 2,052 bytes versus 109,212 full bytes; two snapshots for one automated plus one manual check; latest status reparses one of eight results and computes the harness hash once; unchanged fast-to-slice reuse executes zero checks and creates no fresh final certificate; dense directory visits 157/557 for 100/500 added files. These are byte/operation observations, not billed-credit savings or production benchmarks.
 
 ## Exact next action
-Read EFFICIENCY_IMPLEMENTATION.md and evidence/efficiency-1/BATCH.json, verify this batch's new/changed blobs and current head, and publish the actual raw test logs. Then implement selective verification and ordinary repair with negative tests, keeping explicit final fresh gates. Finish safe current-evidence/snapshot improvements and record dispositions for every EF finding. Reconcile remaining package tests and source manifests before any pilot recommendation. Do not claim all eight findings are fixed by compact views.
+Publish actual raw final logs/receipts and measurement script, read back this batch's tree and manifest identities, inspect the complete incremental diff, and update draft PR #1. Reconcile whole-package/static and paired design-host regression coverage before routine-adoption advice. Do not rerun the entire source review or reconstruct runtime from this prose.
 
-## Preserved earlier work and limits
-Prior complete construction/148-test evidence is recorded at b002e3cc0b2134868c36ea93dadc83aaa7333739 and FINAL_PUBLICATION_REVIEW.md; efficiency review/probes at 4ed5b1fccf25cf7f45e1cf933df162f3b79161d2. Original directories and existing Readme.md remain protected. Historical CURRENT_ARTIFACT_STATE/VERIFICATION_REPORT describe their pinned pre-efficiency snapshots until explicitly superseded.
+Two proposed mechanisms remain unimplemented: explicit content-preserving checkpoint-commit continuation and a machine-declared prerequisite graph. Commit identity therefore remains strict; sequential fail-fast staging is implemented, not a dependency scheduler. Reviewed dependency paths and stable-runner/task-data separation are documented and tested where existing runtime supports them; arbitrary runner mutation remains blocked.
 
-Windows/PowerShell, Unity/C# helper, native Codex, MCP/diagnostics, configured design host, human acceptance and measured credit savings remain NOT_RUN/PENDING. No quota/savings estimate is inferred. Commit real source/evidence at each completed batch, recheck head, use expected-head non-force updates and preserve concurrent work. Temporary files are supplemental, not the sole recovery record.
+## Limits
+Windows/PowerShell, Unity/C# helper, native Codex, MCP/diagnostics, configured design GPT/Project, human playtests/adoption and billed-credit measurement remain NOT_RUN/PENDING. Historical CURRENT_ARTIFACT_STATE, VERIFICATION_REPORT and FINAL_PUBLICATION_REVIEW retain their pinned pre-efficiency meaning until explicitly superseded. Record actual next-step status and commit real sources/evidence at every completed boundary. Recheck head and use non-force updates; the connector rejected expected_sha, so do not claim a server-side compare-and-swap lease was provided.
