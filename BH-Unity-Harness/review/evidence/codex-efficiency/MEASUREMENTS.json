@@ -1,0 +1,223 @@
+{
+  "kind": "synthetic-efficiency-observations",
+  "reviewed_commit": "b002e3cc0b2134868c36ea93dadc83aaa7333739",
+  "runtime_git_blob": "5dff7bef67a6ee750918e190ce635ac1cddf2857",
+  "environment": {
+    "os": "Linux",
+    "python": "3.13.5"
+  },
+  "limitations": [
+    "No Codex model or credits were measured.",
+    "No Windows/Unity/real game run.",
+    "Timing is one local sample per observation, not a production benchmark.",
+    "Fixtures create and remove only their own temporary projects."
+  ],
+  "probes": {
+    "cumulative_rerun": {
+      "first_phase": "EXECUTING",
+      "second_phase": "READY_FOR_HUMAN_REVIEW",
+      "fast": {
+        "snapshot_calls": 4,
+        "git_calls": 21,
+        "file_hash_calls": 252,
+        "file_hash_bytes": 8451222,
+        "harness_hash_calls": 6,
+        "config_hash_calls": 6,
+        "parse_nunit_calls": 2,
+        "directory_entries_visited": 3560,
+        "run_check_calls": [
+          {
+            "id": "CHECK-01",
+            "adapter": "nunit"
+          }
+        ],
+        "elapsed_seconds": 0.734841
+      },
+      "slice_after_unchanged_fast": {
+        "snapshot_calls": 5,
+        "git_calls": 26,
+        "file_hash_calls": 393,
+        "file_hash_bytes": 9519073,
+        "harness_hash_calls": 12,
+        "config_hash_calls": 12,
+        "parse_nunit_calls": 3,
+        "directory_entries_visited": 4947,
+        "run_check_calls": [
+          {
+            "id": "CHECK-01",
+            "adapter": "nunit"
+          },
+          {
+            "id": "HUMAN-01",
+            "adapter": "manual"
+          }
+        ],
+        "elapsed_seconds": 0.716494
+      }
+    },
+    "unrelated_edit_default": {
+      "before": {
+        "AC-01": "PASS",
+        "AC-HUMAN": "HUMAN_PENDING"
+      },
+      "after": {
+        "AC-01": "NOT_RUN",
+        "AC-HUMAN": "HUMAN_PENDING"
+      },
+      "phase": "EXECUTING"
+    },
+    "unrelated_edit_reviewed_narrow": {
+      "before": {
+        "AC-01": "PASS",
+        "AC-HUMAN": "HUMAN_PENDING"
+      },
+      "after": {
+        "AC-01": "PASS",
+        "AC-HUMAN": "HUMAN_PENDING"
+      },
+      "phase": "READY_FOR_HUMAN_REVIEW"
+    },
+    "content_identical_new_commit": {
+      "input_files_identical": true,
+      "resume_error": "Git revision changed; reconcile/replan explicitly"
+    },
+    "recovery_budget": {
+      "first_phase": "FAILED",
+      "second_phase": "FAILED",
+      "counters": {
+        "failed_rounds": 2,
+        "repeat_failures": 2,
+        "no_progress_rounds": 2,
+        "infrastructure_failures": 0,
+        "recovery_cycles": 1
+      },
+      "configured_budgets": {
+        "failed_rounds": 3,
+        "repeat_failures": 3,
+        "no_progress_rounds": 3,
+        "recovery_cycles": 1,
+        "infrastructure_failures": 2
+      },
+      "second_recovery_error": "Recovery budget exhausted; human must revise scope/plan, not loop"
+    },
+    "status_after_8_runs": {
+      "exit_code": 0,
+      "stdout_bytes": 297,
+      "counts": {
+        "snapshot_calls": 1,
+        "git_calls": 5,
+        "file_hash_calls": 519,
+        "file_hash_bytes": 4019926,
+        "harness_hash_calls": 26,
+        "config_hash_calls": 26,
+        "parse_nunit_calls": 8,
+        "directory_entries_visited": 4972,
+        "run_check_calls": [],
+        "elapsed_seconds": 0.105782
+      },
+      "return_receipt_count": 8,
+      "current_AC_receipt_count": 1
+    },
+    "authorized_helper_edit": {
+      "test_directory_in_allowed_scope": true,
+      "phase": "BLOCKED",
+      "check_reason": "Missing or changed artifact: Tests/fixture_driver.py",
+      "exit_code": null
+    },
+    "runs_after_normal_failure": {
+      "results": [
+        {
+          "id": "CHECK-01",
+          "status": "FAIL"
+        },
+        {
+          "id": "CHECK-02",
+          "status": "PASS"
+        },
+        {
+          "id": "HUMAN-01",
+          "status": "NOT_RUN"
+        }
+      ],
+      "counts": {
+        "snapshot_calls": 6,
+        "git_calls": 31,
+        "file_hash_calls": 428,
+        "file_hash_bytes": 16543444,
+        "harness_hash_calls": 12,
+        "config_hash_calls": 12,
+        "parse_nunit_calls": 0,
+        "directory_entries_visited": 5438,
+        "run_check_calls": [
+          {
+            "id": "CHECK-01",
+            "adapter": "facts"
+          },
+          {
+            "id": "CHECK-02",
+            "adapter": "facts"
+          },
+          {
+            "id": "HUMAN-01",
+            "adapter": "manual"
+          }
+        ],
+        "elapsed_seconds": 1.30475
+      },
+      "note": "No prerequisite/dependency relation is represented by this fixture. The runtime has no check-level dependency scheduler."
+    },
+    "dense_snapshot_100": {
+      "synthetic_extra_files": 100,
+      "snapshot_file_count": 131,
+      "snapshot_bytes": 13855,
+      "counts": {
+        "snapshot_calls": 1,
+        "git_calls": 5,
+        "file_hash_calls": 131,
+        "file_hash_bytes": 183756,
+        "harness_hash_calls": 0,
+        "config_hash_calls": 0,
+        "parse_nunit_calls": 0,
+        "directory_entries_visited": 11792,
+        "run_check_calls": [],
+        "elapsed_seconds": 0.058223
+      }
+    },
+    "dense_snapshot_500": {
+      "synthetic_extra_files": 500,
+      "snapshot_file_count": 531,
+      "snapshot_bytes": 55055,
+      "counts": {
+        "snapshot_calls": 1,
+        "git_calls": 5,
+        "file_hash_calls": 531,
+        "file_hash_bytes": 187756,
+        "harness_hash_calls": 0,
+        "config_hash_calls": 0,
+        "parse_nunit_calls": 0,
+        "directory_entries_visited": 256992,
+        "run_check_calls": [],
+        "elapsed_seconds": 0.794178
+      }
+    },
+    "actual_1000_extra_file_payloads": {
+      "snapshot_file_count": 1031,
+      "plan_bytes": 116236,
+      "receipt_bytes": 118070,
+      "return_json_bytes": 116009,
+      "return_markdown_bytes": 580,
+      "full_path_hash_maps_in_plan_receipt_return": 3
+    },
+    "source_sizes": {
+      "AGENTS_bytes": 3888,
+      "schema_bytes": 56715,
+      "schema_lines": 2414,
+      "interface_bytes": 11614,
+      "operating_guide_bytes": 15544,
+      "all_five_skill_body_bytes": 7362,
+      "proposal_definition_serialized_bytes": 2426,
+      "note": "Definition-only size excludes transitive referenced definitions. Byte counts are not token or credit counts."
+    }
+  },
+  "assertions": "All probe assertions passed. This is not a rerun or replacement of the 148-test candidate suite."
+}
