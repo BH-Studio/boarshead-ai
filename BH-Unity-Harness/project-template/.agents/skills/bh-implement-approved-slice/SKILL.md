@@ -12,3 +12,5 @@ Start with the acceptance criteria and likely affected files. Make the smallest 
 Stop at the verification boundary and invoke bh-unity-verify. Do not run every regression after every edit, but do not omit required profile checks. If changed facts invalidate the plan, checkpoint and return to reconciliation. No autonomous crews, paid APIs, speculative refactors, or quota-evasion loops.
 
 Inputs: current approved plan, scope, configuration, and actual source. Outputs: bounded edits and claims. Example: an approved UI binding repair must not silently replace the input system or clean historical SonarQube findings.
+
+Before Unity asset, UI, localization or package changes, read only the applicable section of [Unity procedures](../../../Docs/Harness/UNITY_PROCEDURES.md). Optional providers remain disabled until explicitly configured and tested.

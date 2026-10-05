@@ -5,7 +5,7 @@
   "files": [
     {
       "path": ".agents/skills/bh-implement-approved-slice/SKILL.md",
-      "sha256": "7ee8aa69f43a28411b10ddfaccda58ccff780cdf00b6c0cc6ed4f34db202619e",
+      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
       "ownership": "managed"
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "path": ".agents/skills/bh-systematic-debug/SKILL.md",
-      "sha256": "276040d7b2e552923e01e374a41bdeaa3b9954b0f5d55712108a420f90de93e5",
+      "sha256": "997d9a4157b201226cb48863b641fb7960c87418fe8a42bfc8a75c6e1228c9df",
       "ownership": "managed"
     },
     {
@@ -35,7 +35,7 @@
     },
     {
       "path": ".agents/skills/bh-unity-preflight/SKILL.md",
-      "sha256": "6265515cf88c0a6f6bd2e4f0ad466b0cbe7f660ae0f760cef8f832a8cff4f624",
+      "sha256": "6ccd70fee1604331a7e412aa39d231628462f3f368b470cdd7da55eb6d37929d",
       "ownership": "managed"
     },
     {
@@ -45,7 +45,7 @@
     },
     {
       "path": ".agents/skills/bh-unity-verify/SKILL.md",
-      "sha256": "33b57e41c8bea9a90746bd983e3d6c3297809de1ffbbd1d03df60728cf7598b1",
+      "sha256": "ef80f29606283fcd738b108305d22908787cc3c69f9a7c845d237f7b701687a8",
       "ownership": "managed"
     },
     {
@@ -101,6 +101,11 @@
     {
       "path": "Docs/Harness/OPERATING_GUIDE.md",
       "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/UNITY_PROCEDURES.md",
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
       "ownership": "managed"
     },
     {

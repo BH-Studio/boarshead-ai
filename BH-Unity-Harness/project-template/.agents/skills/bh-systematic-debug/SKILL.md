@@ -12,3 +12,5 @@ The runtime counts completed verification rounds, identical result fingerprints,
 For interruption, use `resume`; inspect process ownership before retrying. Stale locks are not automatically deleted. Do not kill a live owner, the user's Editor, or another session. For observed quota limits checkpoint and stop; no indefinite sleep/retry.
 
 Inputs: current plan and retained failure evidence. Outputs: bounded diagnosis, preserved evidence and exact next action; no self-approved acceptance. Example: a missing Unity executable is an environment blocker, not a reason to mark compilation N/A.
+
+When diagnosing Unity scene, asset, reload or connection failures, read only the applicable section of [Unity procedures](../../../Docs/Harness/UNITY_PROCEDURES.md). Optional providers remain disabled until explicitly configured and tested.

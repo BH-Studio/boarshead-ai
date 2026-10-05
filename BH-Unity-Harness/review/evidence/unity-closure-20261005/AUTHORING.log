@@ -1,0 +1,18 @@
+test_changed_core_hash_rejected (test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected) ... ok
+test_current_authored_subset (test_unity_authoring.UnityAuthoringTests.test_current_authored_subset) ... ok
+test_enabled_example_rejected (test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected) ... ok
+test_existing_reference_and_external_link (test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link) ... ok
+test_implicit_activation_rejected (test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected) ... ok
+test_invalid_frontmatter_never_silently_disappears (test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears) ... ok
+test_malformed_activation_metadata_rejected (test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected) ... ok
+test_missing_and_escaping_references (test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references) ... ok
+test_missing_default_manifest_file_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected) ... ok
+test_missing_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected) ... ok
+test_nonstring_yaml_scalars_rejected (test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected) ... ok
+test_plain_and_quoted_metadata (test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata) ... ok
+test_symlink_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.052s
+
+OK

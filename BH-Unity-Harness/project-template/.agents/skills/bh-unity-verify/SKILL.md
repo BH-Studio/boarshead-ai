@@ -12,3 +12,5 @@ Inspect actual NUnit, facts, diagnostics or build results and receipt mappings. 
 Audit may write only run artifacts and permitted state/checkpoint updates. Unexpected source mutation invalidates the run. A failing check returns to execution/recovery; do not repair code while judging it. Preserve failed attempts. Human judgments stay pending, and same-workspace verification is not an independent attestation.
 
 Inputs: approved executable plan and configured required checks. Outputs: .bh/runs receipts/raw artifacts, updated state, concise status. Example: after a verified file changes, `resume` invalidates affected evidence even when HEAD has not changed.
+
+Before Unity live-state, persisted-asset or UI verification, read only the applicable section of [Unity procedures](../../../Docs/Harness/UNITY_PROCEDURES.md). Optional providers remain disabled until explicitly configured and tested.

@@ -1,0 +1,25 @@
+# Optional Unity observation capability
+
+Status: offline-tested BH protocol runner and reducers; live provider mapping NOT_CONFIGURED and NOT_TESTED. This directory is excluded from the default game installation and native skill discovery. It contains original BH implementation, not a repackaged Unity skill catalog.
+
+## Included behavior
+`unity_jobs.py` executes one approved observation through a separately reviewed local provider. `unity_evidence.py` reduces scoped search, Project Auditor, Play-state, saved-asset/binding and localization observations to the existing facts contract. Neither module installs Unity, starts a competing Editor, implements game behavior, approves a change, or authenticates a human.
+
+Read [PROVIDER_PROTOCOL.md](PROVIDER_PROTOCOL.md) before configuring a provider. [provider.disabled.json](provider.disabled.json) is a deliberately disabled, incomplete configuration example. Reading or copying it enables nothing. Provider construction and real-host testing are required; changing `enabled` alone is not configuration.
+
+## Controlled optional installation
+Finish/cancel and archive any active slice before changing the harness. In an isolated game clone, preview and approve only the selected files and configuration. The default installer does not install this capability. Copy only `unity_jobs.py` and `unity_evidence.py` beside the installed `Tools/BH/bh.py`; keep this guide and protocol available to the operator. Do not copy the Reference catalogs or synthetic provider into a real game.
+
+Obtain a real provider mapping for the installed Editor/Pipeline/MCP version. Review its executable and helper code, observed capabilities, project/session targeting, permissions and restoration behavior. Record hashes through the existing local tool/binding configuration. Adopt `unity-observation` explicitly in the project configuration. Configure an operation, reviewed exact scope and acceptance expectations; pin its file and all provider inputs in the parent binding. The parent check uses adapter `facts`, `reuse_policy: never`, a timeout at least ten seconds beyond the operation deadline, and an actual approved plan with `run-checks`. Both Python modules and the provider entry point are reviewed executable inputs, not mutable test data.
+
+Invoke through the existing parent verification command only. A direct child invocation without the correct parent VERIFYING state, pending run and writer lock is rejected. Arguments are arrays and paths are project-relative where declared. Keep runtime observations separate from code edits or experimental tuning.
+
+## Evidence and recovery
+The parent records the real process status and hashes the request, job journal, provider output, retained CSV/capture, summary and facts result in its normal receipt. The summary is not a replacement for raw evidence. Compact returns retain current supporting receipt references; retrieve the necessary run files rather than every historical log.
+
+`reuse_policy: never` requires a new observation on every verification invocation, even if source bytes are unchanged. Status and return can report a validated historical receipt; they do not reconnect to the Editor or prove that its current in-memory state is unchanged. Reobserve immediately before a claim requiring current live state. The provider must identify the actual session and capability schema, not simply echo expected values.
+
+A timeout, lost response, busy/unavailable/interrupted job or foreign identity may leave `.bh/locks/unity-job.json` with unresolved ownership. Stopping polling is not server cancellation. Inspect the referenced journal, actual Editor/provider session and owned processes. Do not delete the record based only on age, kill the user's Editor, resubmit blindly, or reset evidence. Remove only that identified stale ownership record after a real human-authorized investigation confirms the old operation stopped. The ordinary parent writer lock is a separate record.
+
+## Pilot acceptance
+Run the synthetic offline tests first, then test the real provider in a disposable Unity project: wrong target/session, missing capability/rules, compile/reload interruption, timeout/lost submit, partial coverage, frozen state, saved/reloaded assets, missing locale and changed inputs. Confirm bounded output, one submit, restoration and retained failure evidence. Only that observed pilot can establish compatibility. The tests in `tests/test_unity_observation.py` use a visibly synthetic subprocess provider; no real Unity execution or credit saving is implied.

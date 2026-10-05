@@ -1,0 +1,5 @@
+interface:
+  display_name: "bh-unity-project-audit"
+  short_description: "Explicit optional Unity diagnostic audit"
+policy:
+  allow_implicit_invocation: false

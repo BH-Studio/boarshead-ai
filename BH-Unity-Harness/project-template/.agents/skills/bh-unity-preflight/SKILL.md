@@ -10,3 +10,5 @@ Read AGENTS, the three .bh configuration files, and current checkpoint when pres
 Inputs: project root and installed candidate. Outputs: observed capabilities, instruction conflicts, dirty-worktree baseline, blocked configuration, and exact next action. Preflight does not install tools or edit project settings. Inspect global/ancestor instructions and ignored instruction files manually; the bounded repository scan cannot see all host policy. Missing required tooling blocks its check. Synthetic fixtures never establish real integration compatibility.
 
 Example: an open Editor and batch-only configuration require choosing a supported existing-Editor route or explicitly closing the Editor yourself; never launch a second Editor to make the check pass.
+
+Before Unity scene/asset inspection or capability reconciliation, read only the applicable section of [Unity procedures](../../../Docs/Harness/UNITY_PROCEDURES.md). Optional providers remain disabled until explicitly configured and tested.

@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "enabled": false,
+  "project_id": "UNCONFIGURED",
+  "operation": "search",
+  "session_id": "UNCONFIGURED",
+  "capabilities_sha256": "UNCONFIGURED",
+  "required_capabilities": [],
+  "provider_tool": "UNCONFIGURED",
+  "provider_arguments": [],
+  "provider_inputs": [],
+  "deadline_seconds": 15,
+  "poll_interval_seconds": 0.25,
+  "max_polls": 20,
+  "max_response_bytes": 65536,
+  "spec": {
+    "query": "UNCONFIGURED",
+    "provider": "UNCONFIGURED",
+    "scope_paths": [],
+    "properties": [],
+    "max_items": 25
+  }
+}
