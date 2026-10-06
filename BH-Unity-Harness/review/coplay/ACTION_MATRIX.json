@@ -1,0 +1,170 @@
+{
+  "document_kind": "BH Coplay integration design matrix",
+  "version": 1,
+  "status": "SPECIFIED_NOT_IMPLEMENTED",
+  "executable_configuration": false,
+  "default_enabled": false,
+  "input_commit": "4325d0e6a0eb39ffff219ded4629971d8467ce7a",
+  "reference_tree_sha": "b3ec16283d5ce88e7576fbe2eacf2d2eb9bdf1dc",
+  "package_server_pair": {
+    "unity": {
+      "version": "10.3.1-beta.1",
+      "tree_sha": "ef358632ad5d0cecd84420eaeb7b0e0294ac4e49"
+    },
+    "server": {
+      "version": "10.3.0",
+      "tree_sha": "c8577d68137ce5c8bc80c52f1989b36bef4ecef5"
+    },
+    "compatibility": "NOT_RUN",
+    "dependency_environment": "UNRESOLVED_UNTIL_HOST_PILOT"
+  },
+  "source_schema_baseline": [
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_jobs.py",
+      "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_evidence.py",
+      "git_blob_sha": "548992178c51f51ffab74e82462aa281ce56d34a"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/resources/editor_state.py",
+      "git_blob_sha": "26d5b36c7083d072aa5a3926e51d19fb323c24f6"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/resources/project_info.py",
+      "git_blob_sha": "816154a8a9d9ffcad8d3a27b97032a57d4a97670"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/tools/manage_asset.py",
+      "git_blob_sha": "a0c7592d088e2d51d3a036c4a9bf7b8751e6c419"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/Editor/Tools/ManageAsset.cs",
+      "git_blob_sha": "69aaf53cc93a0b638d5a10139f4751dc42c13787"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/main.py",
+      "git_blob_sha": "b057f3d96c0632692fae01dd21b0be71534c087e"
+    }
+  ],
+  "live_schema_digest": null,
+  "enabled_observation_capabilities": [],
+  "actions": [
+    {
+      "id": "discovery",
+      "stage": "CP-B1",
+      "native": "instance inventory; get_project_info; get_editor_state",
+      "effects": "Queries only; wrapper/default fields and target races require explicit validation.",
+      "result": "Diagnostic only; not BH ready.",
+      "gate": "Unique explicit target, positive observed identity and fresh readiness; closed on unknown."
+    },
+    {
+      "id": "asset_search",
+      "stage": "CP-B2/CP-B3",
+      "native": "Strict query-only handler required; unmodified manage_asset(search) ineligible.",
+      "effects": "Vendor wrapper can refresh; invalid folder broadens scope; paging occurs after all records are built.",
+      "result": "Existing BH search contract only after live mapping validation.",
+      "gate": "Atomic folder validation, candidate budget before record loading, identity/session proof, complete bounded coverage."
+    },
+    {
+      "id": "reflection",
+      "stage": "after CP-B3",
+      "native": "unity_reflect search/get_type/get_member",
+      "effects": "Inspect loaded APIs; cap and scope results; no method invocation.",
+      "result": "Implementation guidance initially.",
+      "gate": "Actual assembly/version/session; distinguish signatures from semantics."
+    },
+    {
+      "id": "object_inspection",
+      "stage": "after CP-B3",
+      "native": "find_gameobjects and targeted component resources",
+      "effects": "Search wrapper may refresh; component serialization may be large.",
+      "result": "Scoped diagnostic initially; scene IDs are session-bound.",
+      "gate": "Approved state effects; explicit object/property limits."
+    },
+    {
+      "id": "batch",
+      "stage": "after CP-B3",
+      "native": "batch_execute",
+      "effects": "Sequential non-atomic edits; parallelApplied=false; arbitrary nested calls must be rejected.",
+      "result": "Every callSucceeded/result validated; unrun suffix explicit.",
+      "gate": "Full prevalidated single-target action list; no uncertain replay; actual effective limit."
+    },
+    {
+      "id": "tests",
+      "stage": "CP-E",
+      "native": "run_tests/get_test_job",
+      "effects": "Play state, callbacks, focus nudges and throttling settings; full results lost on reload.",
+      "result": "Separate verification binding and complete raw test evidence.",
+      "gate": "Submit once, exact roster/job/target, observed terminal state, recorded/restored preparation."
+    },
+    {
+      "id": "build",
+      "stage": "CP-E",
+      "native": "manage_build",
+      "effects": "Build outputs/platform/settings changes; some cancellation only stops future batch work.",
+      "result": "Separate build binding; job-bound report and hashes.",
+      "gate": "Approved target/scenes/configuration and restoration; no stale last-report substitution."
+    },
+    {
+      "id": "profiling",
+      "stage": "CP-E",
+      "native": "manage_profiler",
+      "effects": "Profiler/frame-debugger state and output artifacts; optional package requirements.",
+      "result": "Separate project-specific performance binding.",
+      "gate": "Comparable workload/target/budget, measured state restoration."
+    },
+    {
+      "id": "tool_visibility",
+      "stage": "after CP-B3",
+      "native": "manage_tools and Editor tool toggles",
+      "effects": "Changes exposed catalog; connection sync can change effective groups.",
+      "result": "Context configuration, not action authorization.",
+      "gate": "Approved task-specific visibility and independently enforced action scope."
+    },
+    {
+      "id": "excluded",
+      "stage": "not enabled",
+      "native": "asset generation, package mutations, execute_code, unreviewed custom tools, console clear, clear_stuck, auto-install/upgrade",
+      "effects": "Paid/provider calls, project changes or erased/altered operational state.",
+      "result": "Unavailable in initial provider.",
+      "gate": "Separate scoped work if ever needed."
+    }
+  ],
+  "pilot_policy": {
+    "max_items": 25,
+    "max_queries": 1,
+    "max_scope_folders": 1,
+    "previews": false,
+    "max_native_json_bytes": 262144,
+    "total_deadline_seconds": 30,
+    "transport_timeout_seconds": 5,
+    "max_state_age_ms": 2000,
+    "automatic_pagination": false
+  },
+  "mandatory_negatives": [
+    "missing_or_ambiguous_target",
+    "wrong_project_root",
+    "session_changed",
+    "missing_or_changed_capability",
+    "stale_or_unknown_readiness",
+    "invalid_scope_no_fallback",
+    "too_many_candidates",
+    "incomplete_or_duplicate_results",
+    "out_of_scope_result",
+    "lost_submission_no_replay",
+    "native_failure_despite_exit_zero",
+    "malformed_or_partial_batch",
+    "missing_result_after_reload",
+    "unauthorized_side_effect",
+    "redirect_or_nonloopback_endpoint"
+  ],
+  "live_execution": "NOT_RUN",
+  "adoption": "PENDING"
+}
+

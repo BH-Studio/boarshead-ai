@@ -1,0 +1,117 @@
+{
+  "task": "CP-A",
+  "input_commit": "4325d0e6a0eb39ffff219ded4629971d8467ce7a",
+  "source_identity_result": "PASS",
+  "sources": [
+    {
+      "path": "BH-Unity-Harness/PACKAGE_FILES.json",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "bytes": 4520
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39",
+      "sha256": "c49a0c84a2a261b8f129b8fc272cd471092e4d25e6c05010c1382a421807e94e",
+      "bytes": 7284
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_evidence.py",
+      "git_blob_sha": "548992178c51f51ffab74e82462aa281ce56d34a",
+      "sha256": "c0d209d63bdb2f786a9ba72a0d23cc0534b05eab4840b6f8b1bedbcb08b9d849",
+      "bytes": 18961
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_jobs.py",
+      "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+      "sha256": "a43a98b01308d59d551825375a5bf3a4b5260e6c6e7c343d525ba5b1b1773f38",
+      "bytes": 15627
+    },
+    {
+      "path": "BH-Unity-Harness/review/BUILD_CHECKPOINT.md",
+      "git_blob_sha": "4431b841610dfd0e5c801649684d17ecc63ca886",
+      "sha256": "36783277ca8e777014eb2f8fdefc9b9cd5b2cec480b4a7cd7484ef19814c8a8f",
+      "bytes": 39398
+    },
+    {
+      "path": "BH-Unity-Harness/review/COPLAYDEV_REVIEW.md",
+      "git_blob_sha": "3cf6f08cd9eceb7e98268dc7a6f486b1ee81e4c1",
+      "sha256": "4cdd14ee920ff04a56e47b94553c15e81d535b364d211613d851d0abe4f0ddc8",
+      "bytes": 16510
+    },
+    {
+      "path": "BH-Unity-Harness/review/UNITY_INCORPORATION_STATUS.md",
+      "git_blob_sha": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+      "sha256": "27a81d3099c563eca90fe075f2e15af0a2591b7300f5fe6d5699e8c4fa276152",
+      "bytes": 6500
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/coplaydev-review/SOURCES.json",
+      "git_blob_sha": "d165e1d20deaf9f0a0dbe06e23a86eb490f4a674",
+      "sha256": "822fd826649d679b43190f494fa6731e392b17349cf36759453e6d151dd0b7b4",
+      "bytes": 25790
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/Editor/Tools/ManageAsset.cs",
+      "git_blob_sha": "69aaf53cc93a0b638d5a10139f4751dc42c13787",
+      "sha256": "2b2dd181e92f38522938468dcf3b2682fa4ea40caa166c8c2dbeb00d7c86799e",
+      "bytes": 51093
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/package.json",
+      "git_blob_sha": "ca3b386117dbccce89a09a17afa1f8db63ec92a8",
+      "sha256": "e5670ce802500b1ebe7457e15cee97716ba8ffc9114971d8dda513893f9227c3",
+      "bytes": 1346
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/pyproject.toml",
+      "git_blob_sha": "83800f55c65984102b61a035613a2ca40459eb91",
+      "sha256": "82c77092090d2208da31a989943b8003be57f24d7b8203fcee7cd498d611baa2",
+      "bytes": 2566
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/main.py",
+      "git_blob_sha": "b057f3d96c0632692fae01dd21b0be71534c087e",
+      "sha256": "c75148c2dae3207c1bbdb3786eaac13eb1c0310ef7dd0712f7d325d22d53d978",
+      "bytes": 42204
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/resources/editor_state.py",
+      "git_blob_sha": "26d5b36c7083d072aa5a3926e51d19fb323c24f6",
+      "sha256": "0c2451ff7fbfd8e8e0a88ca4190c656c3b98f65fb450fc94d1e33be83e128992",
+      "bytes": 11156
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/resources/project_info.py",
+      "git_blob_sha": "816154a8a9d9ffcad8d3a27b97032a57d4a97670",
+      "sha256": "c2a1ba9c0fceaedb72d31dd147497858db7129949238624973848052b2ad4d0e",
+      "bytes": 1407
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/tools/manage_asset.py",
+      "git_blob_sha": "a0c7592d088e2d51d3a036c4a9bf7b8751e6c419",
+      "sha256": "22ac23d2cda3e10ee50657c2a6ed480f907597a872d047bf900d143670463f70",
+      "bytes": 6002
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/Server/src/services/tools/preflight.py",
+      "git_blob_sha": "6817eb8201908689ba719eb19ba74095ff6ee202",
+      "sha256": "d27be8d0199931d206a29d476bfbf2a648e7d952e246fb24174bb187f4a56601",
+      "bytes": 4162
+    }
+  ],
+  "document_consistency": "PASS: candidate versions, eight schema-source pins, disabled non-executable matrix, ten unique actions, BH item ceiling, installed roster and continuation",
+  "runtime_tests": "NOT_RUN",
+  "unity": "NOT_RUN",
+  "native_provider": "NOT_IMPLEMENTED",
+  "adoption": "PENDING",
+  "command": "python coplay-cpa/validate.txt",
+  "validator_source": "import hashlib, json, pathlib, tomllib\nroot = pathlib.Path(\"coplay-cpa\")\ninputs = json.loads((root / \"inputs.json\").read_text())\ninputs[\"BH-Unity-Harness/review/BUILD_CHECKPOINT.md\"] = json.loads((root / \"checkpoint-input.json\").read_text())\nmatrix = json.loads((root / \"ACTION_MATRIX.json\").read_text())\nrecords = []\nfor path, value in sorted(inputs.items()):\n    raw = value[\"content\"].encode(\"utf-8\")\n    actual = hashlib.sha1(b\"blob \" + str(len(raw)).encode() + b\"\\0\" + raw).hexdigest()\n    assert actual == value[\"sha\"], path\n    records.append({\"path\": path, \"git_blob_sha\": actual, \"sha256\": hashlib.sha256(raw).hexdigest(), \"bytes\": len(raw)})\nprefix = \"Reference/CoplayDev/unity-mcp-beta/\"\nassert json.loads(inputs[prefix + \"MCPForUnity/package.json\"][\"content\"])[\"version\"] == matrix[\"package_server_pair\"][\"unity\"][\"version\"]\nassert tomllib.loads(inputs[prefix + \"Server/pyproject.toml\"][\"content\"])[\"project\"][\"version\"] == matrix[\"package_server_pair\"][\"server\"][\"version\"]\nfor pin in matrix[\"source_schema_baseline\"]:\n    assert inputs[pin[\"path\"]][\"sha\"] == pin[\"git_blob_sha\"]\nassert matrix[\"default_enabled\"] is False and matrix[\"executable_configuration\"] is False\nassert matrix[\"enabled_observation_capabilities\"] == [] and matrix[\"live_schema_digest\"] is None\nassert len(matrix[\"actions\"]) == len({r[\"id\"] for r in matrix[\"actions\"]}) == 10\nassert matrix[\"pilot_policy\"][\"max_items\"] <= 200\nassert \"scope_paths\" in inputs[\"BH-Unity-Harness/optional/unity-observation/unity_evidence.py\"][\"content\"]\nmanifest = json.loads(inputs[\"BH-Unity-Harness/PACKAGE_FILES.json\"][\"content\"])\nassert len(manifest[\"files\"]) == 25\nassert sum(x[\"path\"].endswith(\"/SKILL.md\") for x in manifest[\"files\"]) == 5\ncheckpoint = (root / \"BUILD_CHECKPOINT.md\").read_text()\nassert \"CP-B1 ONLY next:\" in checkpoint and \"B06a ONLY next\" in checkpoint\nresult = {\"task\": \"CP-A\", \"input_commit\": matrix[\"input_commit\"], \"source_identity_result\": \"PASS\", \"sources\": records, \"document_consistency\": \"PASS: candidate versions, eight schema-source pins, disabled non-executable matrix, ten unique actions, BH item ceiling, installed roster and continuation\", \"runtime_tests\": \"NOT_RUN\", \"unity\": \"NOT_RUN\", \"native_provider\": \"NOT_IMPLEMENTED\", \"adoption\": \"PENDING\", \"command\": \"python coplay-cpa/validate.txt\", \"validator_source\": (root / \"validate.txt\").read_text(), \"artifact_hashes\": {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in (\"INTEGRATION_SPEC.md\", \"ACTION_MATRIX.json\", \"BUILD_CHECKPOINT.md\")}}\n(root / \"RESULT.json\").write_text(json.dumps(result, indent=2) + \"\\n\")\nprint(\"CP-A source identity checks: PASS (\" + str(len(records)) + \"/\" + str(len(records)) + \")\")\nprint(\"Document consistency checks: PASS\")\nprint(\"Installed baseline: 25 files / five skills; capabilities disabled\")\nprint(\"Runtime tests, native provider and Unity: NOT_RUN / NOT_IMPLEMENTED\")\n\n",
+  "artifact_hashes": {
+    "INTEGRATION_SPEC.md": "802ba5ad7a3df58ee60244e59c647ffbc1073481b06b09e0cfaaf14acefc4fbc",
+    "ACTION_MATRIX.json": "3522ab7546b9a1bc17e0d9e403acbe12aefe49724741fd7b2cdb1ea2e220b1e6",
+    "BUILD_CHECKPOINT.md": "90e10487cb5f3f4db939699c8bc3c96e7d7834dce0a42610115f6b6fad69bec5"
+  },
+  "validation_process_exit_code": 0,
+  "validation_stdout": "CP-A source identity checks: PASS (16/16)\nDocument consistency checks: PASS\nInstalled baseline: 25 files / five skills; capabilities disabled\nRuntime tests, native provider and Unity: NOT_RUN / NOT_IMPLEMENTED\n"
+}
