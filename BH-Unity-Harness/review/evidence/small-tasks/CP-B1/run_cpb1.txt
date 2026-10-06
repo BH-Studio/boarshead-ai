@@ -1,0 +1,70 @@
+import ast
+import hashlib
+import json
+from pathlib import Path
+import platform
+import sys
+import time
+import unittest
+
+root = Path(__file__).resolve().parent
+package = root / 'BH-Unity-Harness'
+evidence = root / 'evidence'
+evidence.mkdir(exist_ok=True)
+inputs = json.loads((root / 'inputs-final.json').read_text())
+retrieved = []
+for path, value in sorted(inputs.items()):
+    raw = value['content'].encode('utf-8')
+    actual = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+    assert actual == value['sha'], path
+    retrieved.append({'path': path, 'git_blob_sha': actual, 'bytes': len(raw),
+                      'sha256': hashlib.sha256(raw).hexdigest()})
+
+names = ['optional/coplay-provider/discovery.py', 'optional/coplay-provider/README.md',
+         'tests/test_coplay_discovery.py']
+def sources():
+    result = {}
+    for name in names:
+        raw = (package / name).read_bytes()
+        result[name] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(),
+                       'git_blob_sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()}
+    return result
+
+before = sources()
+for name in names:
+    if name.endswith('.py'):
+        ast.parse((package / name).read_text())
+suite = unittest.defaultTestLoader.discover(str(package / 'tests'), pattern='test_coplay_discovery.py')
+def ids(suite):
+    result = []
+    for item in suite:
+        result.extend(ids(item) if isinstance(item, unittest.TestSuite) else [item.id()])
+    return result
+case_ids = ids(suite)
+assert len(case_ids) == len(set(case_ids)) == 20
+(evidence / 'SOURCES.json').write_text(json.dumps({'input_commit': '7cd1a788f5fa940275e68548c0785de5b1a2edd0',
+    'retrieved_inputs': retrieved, 'tested_sources_before': before,
+    'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}, indent=2) + '\n')
+(evidence / 'CASES.json').write_text(json.dumps(case_ids, indent=2) + '\n')
+started = time.monotonic()
+with (evidence / 'RAW.log').open('w') as stream:
+    result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+elapsed = time.monotonic() - started
+after = sources()
+unchanged = before == after
+passed = result.wasSuccessful() and unchanged
+record = {'task': 'CP-B1', 'command': 'python coplay-cpb1/run_cpb1.txt',
+    'input_commit': '7cd1a788f5fa940275e68548c0785de5b1a2edd0',
+    'python': sys.version, 'platform': platform.platform(), 'tests_run': result.testsRun,
+    'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped),
+    'elapsed_seconds': round(elapsed, 6), 'exit_status': 0 if passed else 1,
+    'sources_unchanged': unchanged, 'tested_sources_after': after,
+    'raw_log_sha256': hashlib.sha256((evidence / 'RAW.log').read_bytes()).hexdigest(),
+    'coverage': '20 focused offline discovery cases only; synthetic Unity and HTTP responses; two isolated rejecting CLI/worker processes',
+    'live_unity': 'NOT_RUN', 'live_coplay': 'NOT_RUN', 'windows': 'NOT_RUN',
+    'native_observation_mapping': 'NOT_IMPLEMENTED', 'full_candidate_regression': 'NOT_RUN',
+    'human_adoption': 'PENDING'}
+(evidence / 'RESULT.json').write_text(json.dumps(record, indent=2) + '\n')
+print((evidence / 'RAW.log').read_text())
+print(json.dumps({k:record[k] for k in ('tests_run','failures','errors','skipped','elapsed_seconds','exit_status','sources_unchanged')}))
+raise SystemExit(record['exit_status'])

@@ -1,6 +1,6 @@
 # CP-A — optional Coplay integration specification
 
-Status: SPECIFIED; runtime adapter NOT_IMPLEMENTED; live compatibility NOT_RUN.
+Status: CP-A SPECIFIED; CP-B1 discovery-only adapter IMPLEMENTED with 20 offline cases passed; BH observation provider NOT_IMPLEMENTED; live compatibility NOT_RUN.
 Accepted direction: human instruction "Proceed with your recommendations", 2026-10-06 UTC.
 Scope: one conditional integration specification. ACTION_MATRIX.json is review metadata, not an executable configuration, skill registry or permission grant.
 
@@ -60,7 +60,8 @@ Telemetry must be explicitly disabled and verified for an adopted local setup; a
 
 CP-A completion is publication of this specification, the machine-readable action/source-pin matrix, actual input identity checks and checkpoint readback. It is not runtime delivery or live compatibility.
 
-Next bounded task CP-B1: implement an optional discovery-only adapter with a fake-transport seam and focused identity/readiness/transport negatives (one named module, at most 20 cases in its first partition). It may emit a diagnostic discovery report; it must not advertise BH observation readiness or execute search/mutations. No installation is needed for these offline negatives. Save exact source/case/raw evidence and stop.
+CP-B1 is complete: optional/coplay-provider/discovery.py and its README provide diagnostic-only discovery with a fake-transport seam; tests/test_coplay_discovery.py passed all 20 focused offline cases. Actual sources/cases/raw output are in review/evidence/small-tasks/CP-B1/. Native observation capabilities remain disabled. The raw vendor state leaves identity/external-change observations unavailable, so the diagnostic does not synthesize provider readiness. Next bounded task is CP-B2, the strict Editor query handler; no live compatibility is implied by the offline result.
 
 CP-B2 then defines/implements the minimal strict Editor query handler as a separate bounded task; CP-B3 performs the disposable-project live pilot, including two Editor targets and changed-session/invalid-folder cases. The user's acceptance authorizes this staged incorporation direction; obtaining actual host access/target facts is still necessary, and no host success can be fabricated. CP-C remaining adapter negatives, CP-D measurements and CP-E later bindings follow their dependencies. Preserve pending B06a/B06b/B08; final assurance must account for relevant changes before adoption.
+
 

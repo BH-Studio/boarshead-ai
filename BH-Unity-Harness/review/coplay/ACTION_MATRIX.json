@@ -1,7 +1,7 @@
 {
   "document_kind": "BH Coplay integration design matrix",
   "version": 1,
-  "status": "SPECIFIED_NOT_IMPLEMENTED",
+  "status": "DISCOVERY_ONLY_IMPLEMENTED_OBSERVATION_DISABLED",
   "executable_configuration": false,
   "default_enabled": false,
   "input_commit": "4325d0e6a0eb39ffff219ded4629971d8467ce7a",
@@ -61,7 +61,10 @@
       "native": "instance inventory; get_project_info; get_editor_state",
       "effects": "Queries only; wrapper/default fields and target races require explicit validation.",
       "result": "Diagnostic only; not BH ready.",
-      "gate": "Unique explicit target, positive observed identity and fresh readiness; closed on unknown."
+      "gate": "Unique explicit target, positive observed identity and fresh readiness; closed on unknown.",
+      "implementation": "optional/coplay-provider/discovery.py",
+      "offline_verification": "20 cases passed; review/evidence/small-tasks/CP-B1/RESULT.json",
+      "live_verification": "NOT_RUN"
     },
     {
       "id": "asset_search",
