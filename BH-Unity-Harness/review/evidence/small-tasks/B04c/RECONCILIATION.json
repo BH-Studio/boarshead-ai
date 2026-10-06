@@ -1,0 +1,28 @@
+{
+  "task": "B04c",
+  "input_head": "df1fa04499c61961bb44fde6bcce186f272acb62",
+  "reconciled_at_utc": "2026-10-06T03:59:16.463869+00:00",
+  "command": "python3 prepare_b04c.py > b04c-reconciliation.log 2>&1",
+  "source_count": 30,
+  "matched_count": 30,
+  "installed_file_count": 25,
+  "manifest_roster_and_hashes_match": true,
+  "git_tree_truncated": false,
+  "root_tree": "37eadbaf87d2754e11bad28031510a06663044ec",
+  "harness_tree": "15a00e89fd8ab9ff12b92c9701d6532f1496032b",
+  "tree_url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/trees/15a00e89fd8ab9ff12b92c9701d6532f1496032b?recursive=1",
+  "prior_ledger_path": "review/evidence/small-tasks/B04b/SOURCES.json",
+  "prior_ledger_git_blob_sha": "0977978de0c0234ecfd188bf479c90f33d0afa45",
+  "prior_input_head": "6b97fcf47b6fdc848b508d244f19cab9e062bec7",
+  "prior_ledger_matched_count": 30,
+  "changed_inputs": [],
+  "dependency_scope": [
+    "efficiency runtime module imports support and exercises bh.py",
+    "support imports bh.py and installer/install.py",
+    "Fixture copies the entire 25-file template and reads tests/fixture_driver.py",
+    "PACKAGE_FILES.json included as independent installation-roster integrity evidence"
+  ],
+  "tests_executed": 0,
+  "exit_status": 0,
+  "result": "PASS"
+}

@@ -1,0 +1,23 @@
+{
+  "task": "B04c",
+  "commands": [
+    {
+      "command": "python3 prepare_b04c.py > b04c-reconciliation.log 2>&1",
+      "cwd": "/workspace/scratch/301f3dd0656a",
+      "exit_status": 0,
+      "log": "RECONCILIATION.log"
+    },
+    {
+      "command": "python3 discover.py > DISCOVERY.log 2>&1",
+      "cwd": "/workspace/scratch/301f3dd0656a/b04c-work",
+      "exit_status": 0,
+      "log": "DISCOVERY.log"
+    },
+    {
+      "command": "python3 run_partition.py > RAW.log 2>&1",
+      "cwd": "/workspace/scratch/301f3dd0656a/b04c-work",
+      "exit_status": 0,
+      "log": "RAW.log"
+    }
+  ]
+}
