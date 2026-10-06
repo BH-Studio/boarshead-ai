@@ -1,0 +1,22 @@
+{
+  "task": "B05e2",
+  "review_type": "bounded identity and retained/selected scope reconciliation",
+  "scope_counts": {
+    "selected_knowledge": 6,
+    "preserved_references": 7,
+    "evaluation_only": 1
+  },
+  "retention": "K05-K10 match the declared original Git blobs in both selected and preserved records. The evaluation file matches its declared original acceptance-test blob. This is exact byte retention against recorded identities, not repeated framework research.",
+  "evaluation_boundary": {
+    "path": "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md",
+    "finding": "Preserved source evaluation material; excluded from selected knowledge. Its opening instructions specify GPT Preview after configuration and evaluate behavior. Example prompts are evaluation inputs, not project defaults. No preview prompt was executed and no configured-host pass is claimed."
+  },
+  "limits": [
+    "Framework contents were not researched again or activated.",
+    "No source-game defaults imported.",
+    "No candidate source content changed.",
+    "No tests, discovery, package checker, assembler, runner or installer ran.",
+    "B05f1 and later content batches NOT_STARTED.",
+    "Not full-package validation, configured-host testing or human adoption."
+  ]
+}

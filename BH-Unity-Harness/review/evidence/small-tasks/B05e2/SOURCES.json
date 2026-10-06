@@ -1,0 +1,177 @@
+{
+  "task": "B05e2",
+  "input_head": "c250b8a5c87671d7d933c122d9b50038fc8f929e",
+  "root_tree": "8bef716a24dfee5b1a1033060501fa19eb0ca84e",
+  "harness_tree": "b4fd0196a7a7c06d5fadc36f9494ba9cf5764f04",
+  "files": [
+    {
+      "path": "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+      "git_blob_sha": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+      "sha256": "0e1bed62cb87578a117093048445faffa5207a9ce274d7b6f547aaa991f39ac9",
+      "bytes": 19721,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+      "git_blob_sha": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+      "sha256": "fd69e185f2e67d3762c9f8abce1351b840fadaa6f02fa2cdf8b2965dd3cb29b7",
+      "bytes": 21641,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+      "git_blob_sha": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+      "sha256": "485b877ada79baa555d1c482854bd603a1122b0b5f31455c84ca4b6b458f1e3e",
+      "bytes": 2995,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+      "git_blob_sha": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+      "sha256": "ad324dee8d7c26194e36e8a97f99fba895e8b9e438f1a7a2cad317f54e21a544",
+      "bytes": 4677,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+      "git_blob_sha": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+      "sha256": "3997d4111ea2bc2910a4db1a365cdb1a967157967e2a832ebbba98128a33f6f0",
+      "bytes": 3875,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+      "git_blob_sha": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+      "sha256": "00c539f75897b39710e1c247b7ac63268dd912db0cb68b6550b580fd8b8c3774",
+      "bytes": 3112,
+      "selected_knowledge": true,
+      "preserved_reference": true,
+      "selected_role": "Preserved method/reference, retrieve by procedure; not superior instructions",
+      "original_source_path": "BH-Game-Design-Director/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "git_blob_sha1",
+          "expected": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+          "matched": true
+        },
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md",
+      "git_blob_sha": "a0f3ed05af3145388505c953a9f554120917ef00",
+      "sha256": "cf12f142bc7f417dedcd11f732ec1ddfc43b012b06507e3d1e1a950c33b1f8e5",
+      "bytes": 8500,
+      "selected_knowledge": false,
+      "preserved_reference": true,
+      "selected_role": null,
+      "original_source_path": "BH-Game-Design-Director/03_GPT_ACCEPTANCE_TESTS.md",
+      "manifest_checks": [
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "a0f3ed05af3145388505c953a9f554120917ef00",
+          "matched": true
+        }
+      ],
+      "matched": true
+    }
+  ]
+}
