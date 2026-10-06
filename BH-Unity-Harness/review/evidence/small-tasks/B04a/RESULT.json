@@ -1,0 +1,404 @@
+{
+  "task": "B04a",
+  "result": "PASS",
+  "input_head": "99b8b07cb43940a7e5f065dfea66002dda8b62bb",
+  "command": "python3 run_partition.py > RAW.log 2>&1",
+  "working_directory": "/workspace/scratch/301f3dd0656a/b04a-work",
+  "started_at_utc": "2026-10-06T03:47:07.912824+00:00",
+  "finished_at_utc": "2026-10-06T03:47:12.197717+00:00",
+  "elapsed_seconds": 4.28359827300028,
+  "exit_status": 0,
+  "selected_case_ids": [
+    "test_efficiency_views.EfficiencyViewTests.test_all_decision_fields_present_without_source_roster",
+    "test_efficiency_views.EfficiencyViewTests.test_changed_handoff_is_blocked",
+    "test_efficiency_views.EfficiencyViewTests.test_context_cli_emits_valid_json",
+    "test_efficiency_views.EfficiencyViewTests.test_context_does_not_write_workspace",
+    "test_efficiency_views.EfficiencyViewTests.test_context_size_not_proportional_to_irrelevant_source_roster",
+    "test_efficiency_views.EfficiencyViewTests.test_generated_draft_has_no_approval_and_blocks_execution_plan",
+    "test_efficiency_views.EfficiencyViewTests.test_missing_raw_artifact_visible",
+    "test_efficiency_views.EfficiencyViewTests.test_return_keeps_full_evidence_and_every_criterion",
+    "test_efficiency_views.EfficiencyViewTests.test_schema_transitive_closure_and_unknown_rejection",
+    "test_efficiency_views.EfficiencyViewTests.test_tampered_plan_is_not_projected_as_valid",
+    "test_efficiency_views.EfficiencyViewTests.test_unrelated_edit_keeps_evidence_and_relevant_edit_invalidates"
+  ],
+  "discovered_count": 11,
+  "tests_run": 11,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "expected_failures": 0,
+  "unexpected_successes": 0,
+  "source_before": [
+    {
+      "path": "PACKAGE_FILES.json",
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "bytes": 4520
+    },
+    {
+      "path": "installer/install.py",
+      "sha256": "bdcc7ec6c11ecda3db415cbf781b84c567fbfe4d91bab1a2945eaaab69e3169f",
+      "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "bytes": 12192
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
+      "git_blob_sha": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+      "bytes": 1906
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "sha256": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      "git_blob_sha": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "bytes": 152
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
+      "git_blob_sha": "870e46e38301836801a0ef1a357609598bb7a0ca",
+      "bytes": 1677
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "sha256": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      "git_blob_sha": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "bytes": 142
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+      "sha256": "997d9a4157b201226cb48863b641fb7960c87418fe8a42bfc8a75c6e1228c9df",
+      "git_blob_sha": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+      "bytes": 2063
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "sha256": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      "git_blob_sha": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "bytes": 144
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+      "sha256": "6ccd70fee1604331a7e412aa39d231628462f3f368b470cdd7da55eb6d37929d",
+      "git_blob_sha": "2e4106c465ddc326b5a6f4b83aa55c57581b6b3e",
+      "bytes": 1547
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "sha256": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      "git_blob_sha": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "bytes": 143
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+      "sha256": "ef80f29606283fcd738b108305d22908787cc3c69f9a7c845d237f7b701687a8",
+      "git_blob_sha": "2ff6099ee2f5f27ff18b80f9814736318f63439d",
+      "bytes": 2233
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "sha256": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      "git_blob_sha": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "bytes": 140
+    },
+    {
+      "path": "project-template/.bh/GITIGNORE_MERGE.txt",
+      "sha256": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      "git_blob_sha": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "bytes": 282
+    },
+    {
+      "path": "project-template/.bh/bindings.json",
+      "sha256": "75708d8783bdb3dba198ebcc62f2ebcc0cf4570a2382e997f27bc9155352f26c",
+      "git_blob_sha": "8f1c79c7aae5146a3f9c0e81e17db7696b6787e6",
+      "bytes": 73
+    },
+    {
+      "path": "project-template/.bh/local.json",
+      "sha256": "620c676aca908c70c68b9abfb4585515dbeafee9b6f16f76560942929c89c031",
+      "git_blob_sha": "440956805b38377506b3d3aa11463578f343664c",
+      "bytes": 143
+    },
+    {
+      "path": "project-template/.bh/project.json",
+      "sha256": "6da5c1fe692f8b63681ee7ab3ad8a32e7a13937442d3ad2c8428091ed2509613",
+      "git_blob_sha": "f015e1d3727c425327dc6d3caf7dc6adb5df8057",
+      "bytes": 668
+    },
+    {
+      "path": "project-template/.bh/schema.json",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "bytes": 56860
+    },
+    {
+      "path": "project-template/.bh/skill-registry.json",
+      "sha256": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      "git_blob_sha": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "bytes": 1692
+    },
+    {
+      "path": "project-template/AGENTS.md",
+      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "git_blob_sha": "4a548d17132e1185af67dcbcd7f69d95beccad35",
+      "bytes": 4119
+    },
+    {
+      "path": "project-template/Docs/Harness/CODEX_CONSUMER.md",
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "bytes": 5557
+    },
+    {
+      "path": "project-template/Docs/Harness/INTERFACE.md",
+      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "bytes": 13085
+    },
+    {
+      "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "git_blob_sha": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "bytes": 15544
+    },
+    {
+      "path": "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "git_blob_sha": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+      "bytes": 6223
+    },
+    {
+      "path": "project-template/Tools/BH/Invoke-BH.ps1",
+      "sha256": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "git_blob_sha": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "bytes": 755
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "bytes": 79390
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "bytes": 2723
+    },
+    {
+      "path": "project-template/Tools/BH/views.py",
+      "sha256": "32862f567b16ff6fe34e0408c3005c53eacf36b95c45b8a4e1b44b93836f2101",
+      "git_blob_sha": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+      "bytes": 7123
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "sha256": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "bytes": 2004
+    },
+    {
+      "path": "tests/support.py",
+      "sha256": "87e06af520085c00dd64ee67f4ae2394f2ead92bf2c68520fcaeeaab65d2dd90",
+      "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "bytes": 9166
+    },
+    {
+      "path": "tests/test_efficiency_views.py",
+      "sha256": "e0e0926ca5e3ad2e8fd1ab30b93f9181ed7c74452b8803656a87e4e33cc3378b",
+      "git_blob_sha": "3a378b784e02bab0d17452f6f97bcb80a40b1f48",
+      "bytes": 4965
+    }
+  ],
+  "source_after": [
+    {
+      "path": "PACKAGE_FILES.json",
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "bytes": 4520
+    },
+    {
+      "path": "installer/install.py",
+      "sha256": "bdcc7ec6c11ecda3db415cbf781b84c567fbfe4d91bab1a2945eaaab69e3169f",
+      "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "bytes": 12192
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
+      "git_blob_sha": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+      "bytes": 1906
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "sha256": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      "git_blob_sha": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "bytes": 152
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
+      "git_blob_sha": "870e46e38301836801a0ef1a357609598bb7a0ca",
+      "bytes": 1677
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "sha256": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      "git_blob_sha": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "bytes": 142
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+      "sha256": "997d9a4157b201226cb48863b641fb7960c87418fe8a42bfc8a75c6e1228c9df",
+      "git_blob_sha": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+      "bytes": 2063
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "sha256": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      "git_blob_sha": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "bytes": 144
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+      "sha256": "6ccd70fee1604331a7e412aa39d231628462f3f368b470cdd7da55eb6d37929d",
+      "git_blob_sha": "2e4106c465ddc326b5a6f4b83aa55c57581b6b3e",
+      "bytes": 1547
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "sha256": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      "git_blob_sha": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "bytes": 143
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+      "sha256": "ef80f29606283fcd738b108305d22908787cc3c69f9a7c845d237f7b701687a8",
+      "git_blob_sha": "2ff6099ee2f5f27ff18b80f9814736318f63439d",
+      "bytes": 2233
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "sha256": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      "git_blob_sha": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "bytes": 140
+    },
+    {
+      "path": "project-template/.bh/GITIGNORE_MERGE.txt",
+      "sha256": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      "git_blob_sha": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "bytes": 282
+    },
+    {
+      "path": "project-template/.bh/bindings.json",
+      "sha256": "75708d8783bdb3dba198ebcc62f2ebcc0cf4570a2382e997f27bc9155352f26c",
+      "git_blob_sha": "8f1c79c7aae5146a3f9c0e81e17db7696b6787e6",
+      "bytes": 73
+    },
+    {
+      "path": "project-template/.bh/local.json",
+      "sha256": "620c676aca908c70c68b9abfb4585515dbeafee9b6f16f76560942929c89c031",
+      "git_blob_sha": "440956805b38377506b3d3aa11463578f343664c",
+      "bytes": 143
+    },
+    {
+      "path": "project-template/.bh/project.json",
+      "sha256": "6da5c1fe692f8b63681ee7ab3ad8a32e7a13937442d3ad2c8428091ed2509613",
+      "git_blob_sha": "f015e1d3727c425327dc6d3caf7dc6adb5df8057",
+      "bytes": 668
+    },
+    {
+      "path": "project-template/.bh/schema.json",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "bytes": 56860
+    },
+    {
+      "path": "project-template/.bh/skill-registry.json",
+      "sha256": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      "git_blob_sha": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "bytes": 1692
+    },
+    {
+      "path": "project-template/AGENTS.md",
+      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "git_blob_sha": "4a548d17132e1185af67dcbcd7f69d95beccad35",
+      "bytes": 4119
+    },
+    {
+      "path": "project-template/Docs/Harness/CODEX_CONSUMER.md",
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "bytes": 5557
+    },
+    {
+      "path": "project-template/Docs/Harness/INTERFACE.md",
+      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "bytes": 13085
+    },
+    {
+      "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "git_blob_sha": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "bytes": 15544
+    },
+    {
+      "path": "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "git_blob_sha": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+      "bytes": 6223
+    },
+    {
+      "path": "project-template/Tools/BH/Invoke-BH.ps1",
+      "sha256": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "git_blob_sha": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "bytes": 755
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "bytes": 79390
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "bytes": 2723
+    },
+    {
+      "path": "project-template/Tools/BH/views.py",
+      "sha256": "32862f567b16ff6fe34e0408c3005c53eacf36b95c45b8a4e1b44b93836f2101",
+      "git_blob_sha": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+      "bytes": 7123
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "sha256": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "bytes": 2004
+    },
+    {
+      "path": "tests/support.py",
+      "sha256": "87e06af520085c00dd64ee67f4ae2394f2ead92bf2c68520fcaeeaab65d2dd90",
+      "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "bytes": 9166
+    },
+    {
+      "path": "tests/test_efficiency_views.py",
+      "sha256": "e0e0926ca5e3ad2e8fd1ab30b93f9181ed7c74452b8803656a87e4e33cc3378b",
+      "git_blob_sha": "3a378b784e02bab0d17452f6f97bcb80a40b1f48",
+      "bytes": 4965
+    }
+  ],
+  "sources_unchanged": true,
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "interpreter": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "interpreter_sha256": "fa67443527ed9647f760d807e2a38f26340757123e643c4639cf273ed15d5ea7",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "git_version": "git version 2.51.1"
+  },
+  "scope": "Offline synthetic efficiency views fixtures only. Efficiency runtime and other modules NOT_RUN. Native Unity/Windows/adoption NOT_RUN."
+}
