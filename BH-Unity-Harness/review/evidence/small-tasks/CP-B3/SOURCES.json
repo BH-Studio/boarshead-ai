@@ -1,0 +1,65 @@
+{
+  "input_commit": "b0c0df5b533733ae8df6d94846c0ce985243565d",
+  "retrieved_inputs": [
+    {
+      "path": "BH-Unity-Harness/optional/coplay-provider/Editor/BHAssetQuery.cs",
+      "git_blob_sha": "cf2ad2713732e7ac06c4e0775bce538ff47f3cc1",
+      "bytes": 14029,
+      "sha256": "9536b7ce263169f5e7bbb8a39c8e72cb6d26672c5ab759fc4669fba6cbe5648a"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/coplay-provider/Editor/CONTRACT.md",
+      "git_blob_sha": "a62e9c84f6a893aa8bb16331d45e666d1dca76cb",
+      "bytes": 6533,
+      "sha256": "6377aa15c9617647b0f51087a797ef490e27f8ebb3462be080799355f17433fc"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/coplay-provider/README.md",
+      "git_blob_sha": "6b172f6f93481e87c3aff437ec0520960ade7cf8",
+      "bytes": 5123,
+      "sha256": "38c514bccd649bd3c71fc4cf7f3a3756ca74ae9a188acec030b90e1bef903107"
+    },
+    {
+      "path": "BH-Unity-Harness/review/BUILD_CHECKPOINT.md",
+      "git_blob_sha": "db36b092d1f52041385a937b75651e25035ba2c1",
+      "bytes": 47175,
+      "sha256": "8546b1a09e8333d320566d887acc39e9b557c11ee156c2981981a2bbddbb91e4"
+    },
+    {
+      "path": "BH-Unity-Harness/review/coplay/ACTION_MATRIX.json",
+      "git_blob_sha": "7cd7ebb68f5dbd914d2cfce49d4a126dc4b7b378",
+      "bytes": 7500,
+      "sha256": "632a6d3e11b311b632354eac042e92693765d0247dd3193bc44c3ddf2cf090b5"
+    },
+    {
+      "path": "BH-Unity-Harness/review/coplay/INTEGRATION_SPEC.md",
+      "git_blob_sha": "6a9d8e5b89f425aa484f363580c911a287b03c7b",
+      "bytes": 11722,
+      "sha256": "07775180c68223e6adebcb61c212a32d54d74b47a2467f44ab2343b167d29f0a"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B1/RESULT.json",
+      "git_blob_sha": "f7b96e1207780371b68abe36b6410e501b95c7eb",
+      "bytes": 1526,
+      "sha256": "8bc4c37862d70a3f31fdd6b25264dc6a48c0393abc168209c7b200603df4150d"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B1/SOURCES.json",
+      "git_blob_sha": "cac40fbac630e084114f1c24070beb3ccbe62ec5",
+      "bytes": 3748,
+      "sha256": "25553c76b2efd5c1d132f0c710aee082320caf4d0118099ba8fb6df952054fc8"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B2/RESULT.json",
+      "git_blob_sha": "17beaa17034d35da95f946ded9a0c387da5c1528",
+      "bytes": 2640,
+      "sha256": "770164bf605ee666917cdc9dc89d17708783a2634bd7299ae6584c383a46adc9"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B2/SOURCES.json",
+      "git_blob_sha": "28b3e99cd8193b39ae07035f748e24c3b0391cb2",
+      "bytes": 5122,
+      "sha256": "01a98f6f426c7ec44139e86de30c2f18eb9d1af61a4dcf7cdf3cf9b964f7b4e2"
+    }
+  ]
+}

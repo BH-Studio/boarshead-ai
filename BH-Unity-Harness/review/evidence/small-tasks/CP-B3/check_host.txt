@@ -1,0 +1,55 @@
+"""Record CP-B3 access prerequisites only. Does not launch Unity or probe a network."""
+import hashlib
+import json
+import os
+import pathlib
+import platform
+import shutil
+import sys
+
+work = pathlib.Path(sys.argv[1])
+out = work / 'out/BH-Unity-Harness/review/evidence/small-tasks/CP-B3'
+out.mkdir(parents=True, exist_ok=True)
+records = json.loads((work / 'inputs.json').read_text())
+sources = []
+for path, item in sorted(records.items()):
+    data = item['content'].encode('utf-8')
+    blob = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+    assert blob == item['sha'], path
+    sources.append({'path': path, 'git_blob_sha': blob, 'bytes': len(data),
+                    'sha256': hashlib.sha256(data).hexdigest()})
+tools = json.loads((work / 'tool_availability.json').read_text())
+environment = {
+    'platform': platform.platform(), 'os_name': os.name, 'cwd': os.getcwd(),
+    'executables_on_PATH': {n: shutil.which(n) for n in
+        ('Unity', 'unity-editor', 'UnityHub', 'dotnet', 'csc', 'mcs', 'pwsh', 'coplay', 'unity-mcp')},
+    'tool_registry_observation': tools,
+    'scope': 'Current cloud execution environment and enabled tool registry only; not the user Windows PC.',
+    'approved_project_roots_supplied': [], 'approved_endpoint_supplied': None,
+    'explicit_editor_targets_supplied': [],
+    'network_probes': 0, 'editors_launched': 0, 'software_installed': 0,
+    'limitation': 'PATH absence does not prove software is absent elsewhere; no configured accessible host was supplied.'
+}
+result = {
+    'task': 'CP-B3', 'status': 'BLOCKED_HOST_ACCESS',
+    'input_commit': 'b0c0df5b533733ae8df6d94846c0ce985243565d',
+    'command': 'python coplay-cpb3/check_host.txt coplay-cpb3',
+    'input_blobs_verified': len(sources), 'host_probe': 'COMPLETED_ACCESS_CHECK_ONLY',
+    'missing_prerequisites': [
+        'Execution access to the Unity host (local Codex workspace or an explicitly connected host tool)',
+        'Two explicitly approved disposable Unity project roots and actual Editor targets',
+        'Actual installed Editor/package/server versions, source origins and resolved dependency identities',
+        'Approved loopback endpoint or observed native route and session inventory',
+        'Loaded handler compilation, command/schema and target-to-session provenance evidence'],
+    'live_pilot': 'NOT_RUN', 'csharp_compilation': 'NOT_RUN', 'unity_execution': 'NOT_RUN',
+    'windows_execution': 'NOT_RUN', 'executable_tests_run': 0,
+    'native_provider_mapping': 'DISABLED_NOT_IMPLEMENTED', 'human_adoption': 'PENDING',
+    'next_task': 'CP-B3 remains current; use HOST_HANDOFF.md to establish actual local access',
+    'later_tasks_started': False
+}
+for filename, value in [('ENVIRONMENT.json', environment), ('RESULT.json', result),
+                        ('SOURCES.json', {'input_commit': result['input_commit'], 'retrieved_inputs': sources})]:
+    (out / filename).write_text(json.dumps(value, indent=2) + '\n')
+print(json.dumps({'input_blobs_verified': len(sources), 'environment': environment,
+                  'status': result['status'], 'live_pilot': result['live_pilot'],
+                  'executable_tests_run': 0}, indent=2))

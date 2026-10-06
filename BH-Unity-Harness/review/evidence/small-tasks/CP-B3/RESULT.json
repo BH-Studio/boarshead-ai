@@ -1,0 +1,25 @@
+{
+  "task": "CP-B3",
+  "status": "BLOCKED_HOST_ACCESS",
+  "input_commit": "b0c0df5b533733ae8df6d94846c0ce985243565d",
+  "command": "python coplay-cpb3/check_host.txt coplay-cpb3",
+  "input_blobs_verified": 10,
+  "host_probe": "COMPLETED_ACCESS_CHECK_ONLY",
+  "missing_prerequisites": [
+    "Execution access to the Unity host (local Codex workspace or an explicitly connected host tool)",
+    "Two explicitly approved disposable Unity project roots and actual Editor targets",
+    "Actual installed Editor/package/server versions, source origins and resolved dependency identities",
+    "Approved loopback endpoint or observed native route and session inventory",
+    "Loaded handler compilation, command/schema and target-to-session provenance evidence"
+  ],
+  "live_pilot": "NOT_RUN",
+  "csharp_compilation": "NOT_RUN",
+  "unity_execution": "NOT_RUN",
+  "windows_execution": "NOT_RUN",
+  "executable_tests_run": 0,
+  "native_provider_mapping": "DISABLED_NOT_IMPLEMENTED",
+  "human_adoption": "PENDING",
+  "next_task": "CP-B3 remains current; use HOST_HANDOFF.md to establish actual local access",
+  "later_tasks_started": false,
+  "access_check_exit_status": 0
+}

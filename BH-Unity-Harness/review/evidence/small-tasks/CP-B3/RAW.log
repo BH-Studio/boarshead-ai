@@ -1,0 +1,41 @@
+{
+  "input_blobs_verified": 10,
+  "environment": {
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "os_name": "posix",
+    "cwd": "/workspace/scratch/301f3dd0656a",
+    "executables_on_PATH": {
+      "Unity": null,
+      "unity-editor": null,
+      "UnityHub": null,
+      "dotnet": null,
+      "csc": null,
+      "mcs": null,
+      "pwsh": null,
+      "coplay": null,
+      "unity-mcp": null
+    },
+    "tool_registry_observation": {
+      "unity_coplay_tools": [],
+      "scope": "Enabled tool registry names/descriptions; native computer APIs disabled. No local desktop or approved project connection supplied.",
+      "tree_check": {
+        "root_tree": "a88e19737a4be8f237bce5f3e4964bbf1eb9fbcc",
+        "harness_tree": "14843dba3a4734fb792e323aaf76e0d132ebe63b",
+        "truncated": false,
+        "applicable_agents": [],
+        "existing_b3": []
+      }
+    },
+    "scope": "Current cloud execution environment and enabled tool registry only; not the user Windows PC.",
+    "approved_project_roots_supplied": [],
+    "approved_endpoint_supplied": null,
+    "explicit_editor_targets_supplied": [],
+    "network_probes": 0,
+    "editors_launched": 0,
+    "software_installed": 0,
+    "limitation": "PATH absence does not prove software is absent elsewhere; no configured accessible host was supplied."
+  },
+  "status": "BLOCKED_HOST_ACCESS",
+  "live_pilot": "NOT_RUN",
+  "executable_tests_run": 0
+}
