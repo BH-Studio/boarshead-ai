@@ -1,28 +1,57 @@
 # BH Unity Harness construction checkpoint
 
-Status: UNITY OBSERVATION CODE, CONDITIONAL GUIDANCE AND AUTHORING CHECKS PUBLISHED; full revised validation still open. NOT adopted.
-Repository BH-Studio/boarshead-ai; branch harness/bh-standard-v1-20261004; PR #1 remains draft/unmerged.
-Recovery source: 7cec1860878abba4b20f38e1c48744f2f5a3472e.
-Latest functional/documentation batch: e37e103c6bbcac5de7dd771d7e1d56c5aa0867e6.
+Status: SMALL-TASK EXECUTION QUEUE ESTABLISHED; candidate validation remains open. NOT adopted.
+Repository: BH-Studio/boarshead-ai
+Branch: harness/bh-standard-v1-20261004; PR #1 must remain draft and unmerged.
+State reconciled from current GitHub records at: 2478e805a9d89196d5cc8097a77812d6e41b0eec.
+Latest recorded functional/documentation batch: e37e103c6bbcac5de7dd771d7e1d56c5aa0867e6.
+Prior recovery source: 7cec1860878abba4b20f38e1c48744f2f5a3472e.
+The complete preceding checkpoint remains in commit 2478e805a9d89196d5cc8097a77812d6e41b0eec. This file changes the execution order and stopping discipline, not scope or historical evidence.
 
-## Read first
-Read UNITY_INCORPORATION_STATUS.md, optional/unity-observation/README.md, its PROVIDER_PROTOCOL.md, and review/evidence/unity-closure-20261005/VERIFICATION.md (paths relative to BH-Unity-Harness except review records). Inspect current branch head before writes. Do not recover from an old ZIP, rebuild the runtime, repeat completed source reviews or restore game-specific defaults.
+## Latest human instruction — governs continuation
+Repeated responses failed. The human explicitly requested smaller tasks. Do ONE bounded subtask per response, then publish its actual result, update this checkpoint, read back the commit/diff and STOP. Do not interpret a bare Resume as permission to attempt the entire remaining build in one response.
 
-## Durable progress in this resume
-- Recovered the exact 24-file template from source7cec, including runtime ca2bc04487a4cacba042bbbb9c8ff0bd9168a083, optional reducer548992178c51f51ffab74e82462aa281ce56d34a and job runner8f64e722acc78f9d9a0809b039ee8e333ed7ae57. All identity checks matched; older archives supplied unchanged bytes only.
-- Reran all37 Unity observation cases across10 completed partitions, identical source maps, zero failures/errors/skips. Published exact concatenated logs at daaa413f90d26db1732908d63ab52f3b4da18bb4 and verification identities at f0b0fae07c30c4d265f7209306f3c21dab74ef4b. The interrupted initial partition is not a pass; individual receipts/earlier attempts remain supplemental local files.
-- Published setup/protocol/disabled configuration, optional explicit Auditor procedure, one conditional installed Unity guide and four targeted skill links. Root AGENTS and game/runtime code unchanged by this documentation batch. Default installation is25 files and five core skills; no optional provider or Auditor skill is auto-installed.
-- Added check_unity_authoring.py and13 tests. All13 tests and56 authoring-subset checks passed. Exact raw log is AUTHORING.log. This is a restricted BH metadata/reference validator, not a general YAML parser or native skill activation proof.
-- Readback of installed/optional/contracts/installer trees and new validator/test/manifest blobs matched recomputed local bytes. Original root directories and existing Readme.md remain unchanged. No live game/GPT/dependency installation, paid spend, merge or release.
+For a test subtask, use one named module or a deterministic partition of at most 20 cases. Pin inputs and record exact case IDs, source hashes, command, raw output and exit status. A small case count is an authoring batch size, not a timeout guarantee or a weakened acceptance standard. Do not combine research, new integration code, full regression and final publication into one turn.
 
-## Exact remaining construction
-Run the existing84 runtime,20 installer and32 efficiency tests against the current candidate, then the44 package/design/static cases and complete assembled-package checks. All files must match the current branch; missing full-method/knowledge bytes must be recovered by their exact recorded identities rather than invented. The new37 observation and13 authoring cases are separate named-module runs, not an invented230-test full-suite pass. Publish actual logs/fingerprints, reconcile operating/verification/assurance/manifest records, and update/read back the draft PR.
+For a repair, address one demonstrated defect and its focused regressions; do not add neighboring features. A failed batch ends with actual failure evidence and a separate bounded repair item. Never fabricate a log from a summary. No unattended/background continuation is implied. Preserve complete required coverage across batches.
 
-The local working directory is /mnt/data/bh-resume-20261005/BH-Unity-Harness; it is not yet a full current authoring checkout. Exact installed, optional, contracts and installer bytes are present. Some unused tests/tools and design files still come from the older archive or are missing. Do not run them as current without reconciliation. Current efficiency test blobs: test_efficiency_runtime.py211a847da9799820fd39bc8c142e3ac9129da362; test_efficiency_views.py3a378b784e02bab0d17452f6f97bcb80a40b1f48. Static modules: test_package.py93cd672ba878db7da76b31628efcc2b55bc4ffc3; test_game_agnostic.py4c69a3a553f0f5fedf77d7e537a3dc278b67cc22; test_review_amendments.py91dcfdd4ca172fa47657491030906a86f49a55f1.
+## Current repository state, not a new test result
+Read UNITY_INCORPORATION_STATUS.md for UR-01 through UR-07 dispositions. The optional observation reducer/job runner, provider protocol, disabled configuration, Auditor procedure, conditional installed UNITY_PROCEDURES guide and authoring validator are already published. Preserve them; do not build them again.
 
-## Explicit limitations and dispositions
-The BH provider protocol and reducers are implemented and synthetically tested; a native Unity/Pipeline/MCP mapping is NOT_IMPLEMENTED or configured here. It must be authored from actual host discovery and tested before adoption. Historical status/return receipts are not a continuous live-state check. Windows/PowerShell, real Unity/C# helper, native Codex, configured design GPT/Project, player validation and billed-credit comparisons remain NOT_RUN.
+Recorded prior results: 37 Unity observation cases in ten completed partitions; separately, 13 authoring tests and 56 authoring-subset checks. Evidence: review/evidence/unity-closure-20261005/VERIFICATION.md and AUTHORING.log. Exact logs were published at daaa413f90d26db1732908d63ab52f3b4da18bb4; verification identities at f0b0fae07c30c4d265f7209306f3c21dab74ef4b. These results were NOT rerun during the small-task planning update and do not establish the full revised suite.
 
-Content-preserving checkpoint-commit continuation and machine-declared prerequisite scheduling are explicitly deferred/not implemented for v1 as described in UNITY_INCORPORATION_STATUS.md. HEAD stays strict; approved ordered fail-fast staging remains available. Do not claim these proposed savings delivered or bypass executable review. Human adoption remains PENDING.
+Current recorded installation: 25 files and five core skills. Optional providers, job runner, reducer and Auditor skill are not auto-installed. Historical efficiency and older 148/136-test reports remain pinned evidence, not current full-suite proof.
 
-Continue coherent candidate-only commits with raw evidence and an exact next action. Never force-push. The connector again rejected expected_sha at argument binding; branch head was rechecked and the non-force update succeeded. Do not claim a server-side lease. Repository artifacts are durable; temporary archives/logs are supplemental.
+## Bounded work queue
+Each lettered subtask below is a separate response/commit boundary. Update its status and exact continuation when executed; do not silently advance to its neighbors.
+
+| ID | Status | Scope and stopping point |
+|---|---|---|
+| B00 | State read; queue authored | Read current branch, checkpoint, incorporation status and PR metadata. Publish this queue and verify the resulting single-file diff. No implementation or test execution. |
+| B01 | NEXT | Inspect PACKAGE_FILES.json at the current head; reconcile and hash-check only its 25 installed files. Record exact missing/mismatched paths. If retrieval itself needs splitting, checkpoint the remaining paths rather than start tests with mixed versions. No runtime changes. |
+| B02a-e | PENDING | Reconcile the current runtime test module/support and its required inputs, then run the recorded 84 runtime cases in five deterministic partitions of at most 20 cases; one partition per response. Rediscover counts first and record any change. |
+| B03 | PENDING | Current installer module: the recorded 20 cases, exact inputs and raw evidence only. Split further if an observed failure needs repair. |
+| B04a-c | PENDING | Current efficiency views (recorded 11 cases), then efficiency runtime (recorded 21 cases split into two partitions). One module/partition per response. |
+| B05a+ | PENDING | Reconcile required exact knowledge/reference/tool bytes in small named-file batches, then run test_package.py, test_game_agnostic.py and test_review_amendments.py separately, splitting any module over 20 cases. Recorded total is 44; do not treat it as an observed current pass. |
+| B06a-b | PENDING | First reconcile operating/consumer guidance and related manifests; separately reconcile design setup/knowledge consistency. Small related-file batches only. Preserve original design method and avoid repeating completed source research. |
+| B07a+ | PENDING | Strict assembled-package checks and final regression coverage ledger on pinned final inputs. Revalidate earlier evidence against final input hashes; rerun affected/stale/missing partitions, including observation/authoring modules when required. Never sum incompatible historical runs into a full-suite claim. |
+| B08 | PENDING | Final candidate tree/manifests and complete scope diff; current verification/assurance record and PR metadata/readback. No new functionality in this task. Keep PR draft. |
+
+If an item requires more than its stated scope, write a smaller child item and stop at the recoverable boundary. A mere plan/checkpoint commit never counts as implementation or a passed check.
+
+## Exact next action
+B01 ONLY: recheck current branch head, read the current PACKAGE_FILES.json and validate its installed-file identities. Save the result under a new review/evidence/small-tasks/B01/ path, update B01 and the next exact item here, commit/read back, then stop. Do not launch the full test suite, reopen source reviews, or implement new Unity features in the same response.
+
+The previous local path /mnt/data/bh-resume-20261005/BH-Unity-Harness is untrusted until its existence and bytes are checked. It was not a complete current authoring checkout. Old archives may supply unchanged bytes only when exact current hashes agree; unavailable content must be retrieved, not reconstructed from summaries.
+
+## Remaining scope and limits
+Native Unity/Pipeline/MCP provider mapping is NOT_IMPLEMENTED/configured. The BH provider protocol is not a native Unity command and fixture success is not a usable live integration. Author a mapping only from actual host command/result discovery in a separately scoped pilot. Historical status/return validates prior observations, not continuous live state.
+
+Content-preserving checkpoint-commit continuation and machine-declared prerequisites remain explicitly deferred/NOT_IMPLEMENTED for v1 per UNITY_INCORPORATION_STATUS.md. Strict HEAD matching and approved ordered fail-fast staging remain. Do not claim those savings delivered, or silently waive their review. Stable reviewed runners versus mutable tests/data remain the supported pattern; changed executables still require review.
+
+Windows/PowerShell, actual Unity/C# helper, native Codex, configured design GPT/Project, player validation and billed-credit comparisons remain NOT_RUN. Human adoption PENDING. These host-specific tasks are distinct from B01-B08, which are candidate construction/validation.
+
+## Publication and recovery rules
+All writes remain under BH-Unity-Harness. Preserve original directories, existing Readme.md, historical evidence and intervening contributor work. Recheck head and current file SHA before writes, never force-push, and verify the actual resulting commit/diff. Do not claim a server-side lease not provided by a successful operation.
+
+No live game/GPT changes, installation, dependency purchase, paid spend, repository security change, merge or release. Keep this construction checkpoint outside the game-installed task state. Progress summaries must distinguish published code, source review, tests actually run, live integration and human adoption.
