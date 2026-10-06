@@ -1,0 +1,233 @@
+{
+  "status": "PASS",
+  "files": 421,
+  "python_syntax_files": 63,
+  "python_syntax_roster": [
+    "examples/round-trip/behavior-contradicts-design/Tests/fixture_driver.py",
+    "examples/round-trip/behavior-contradicts-design/Tools/BH/bh.py",
+    "examples/round-trip/behavior-contradicts-design/Tools/BH/check_release_profile.py",
+    "examples/round-trip/positive-human-pending/Tests/fixture_driver.py",
+    "examples/round-trip/positive-human-pending/Tools/BH/bh.py",
+    "examples/round-trip/positive-human-pending/Tools/BH/check_release_profile.py",
+    "installer/install.py",
+    "optional/unity-observation/unity_evidence.py",
+    "optional/unity-observation/unity_jobs.py",
+    "project-template/Tools/BH/bh.py",
+    "project-template/Tools/BH/check_release_profile.py",
+    "project-template/Tools/BH/views.py",
+    "review/evidence/small-tasks/B01/validate.py",
+    "review/evidence/small-tasks/B02a/discover.py",
+    "review/evidence/small-tasks/B02a/run_partition.py",
+    "review/evidence/small-tasks/B02b/discover.py",
+    "review/evidence/small-tasks/B02b/run_partition.py",
+    "review/evidence/small-tasks/B02c/discover.py",
+    "review/evidence/small-tasks/B02c/run_partition.py",
+    "review/evidence/small-tasks/B02d/discover.py",
+    "review/evidence/small-tasks/B02d/run_partition.py",
+    "review/evidence/small-tasks/B02e/discover.py",
+    "review/evidence/small-tasks/B02e/run_partition.py",
+    "review/evidence/small-tasks/B03/discover.py",
+    "review/evidence/small-tasks/B03/prepare_b03.py",
+    "review/evidence/small-tasks/B03/run_partition.py",
+    "review/evidence/small-tasks/B04a/discover.py",
+    "review/evidence/small-tasks/B04a/prepare_b04a.py",
+    "review/evidence/small-tasks/B04a/run_partition.py",
+    "review/evidence/small-tasks/B04b/discover.py",
+    "review/evidence/small-tasks/B04b/prepare_b04b.py",
+    "review/evidence/small-tasks/B04b/run_partition.py",
+    "review/evidence/small-tasks/B04c/discover.py",
+    "review/evidence/small-tasks/B04c/prepare_b04c.py",
+    "review/evidence/small-tasks/B04c/run_partition.py",
+    "review/evidence/small-tasks/B05a/b05a_reconcile.py",
+    "review/evidence/small-tasks/B05b/b05b_reconcile.py",
+    "review/evidence/small-tasks/B05c/b05c_reconcile.py",
+    "review/evidence/small-tasks/B05d/b05d_reconcile.py",
+    "review/evidence/small-tasks/B05e1/b05e1_reconcile.py",
+    "review/evidence/small-tasks/B05e2/b05e2_reconcile.py",
+    "review/evidence/small-tasks/B05f1/b05f1_reconcile.py",
+    "review/tools/measure_codex_overhead.py",
+    "review/tools/measure_efficiency_revision.py",
+    "tests/fixture_driver.py",
+    "tests/support.py",
+    "tests/test_efficiency_runtime.py",
+    "tests/test_efficiency_views.py",
+    "tests/test_game_agnostic.py",
+    "tests/test_installer.py",
+    "tests/test_package.py",
+    "tests/test_review_amendments.py",
+    "tests/test_runtime.py",
+    "tests/test_unity_authoring.py",
+    "tests/test_unity_observation.py",
+    "tests/unity_provider_fixture.py",
+    "tools/assemble_candidate.py",
+    "tools/build_consumer_guide.py",
+    "tools/build_contract.py",
+    "tools/check_package.py",
+    "tools/check_unity_authoring.py",
+    "tools/export_examples.py",
+    "tools/run_tests.py"
+  ],
+  "new_python_paths_since_B05c": [
+    "review/evidence/small-tasks/B05c/b05c_reconcile.py",
+    "review/evidence/small-tasks/B05d/b05d_reconcile.py",
+    "review/evidence/small-tasks/B05e1/b05e1_reconcile.py",
+    "review/evidence/small-tasks/B05e2/b05e2_reconcile.py",
+    "review/evidence/small-tasks/B05f1/b05f1_reconcile.py"
+  ],
+  "completed_remaining_rosters": [
+    {
+      "id": "B05f1",
+      "count": 10,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "contracts/CODEX_CONSUMER.md",
+        "contracts/INTERFACE.md",
+        "examples/profiles/README.md",
+        "examples/profiles/synthetic-continuous-state.json",
+        "examples/profiles/synthetic-discrete-state.json",
+        "optional/bh-procedural-regression/SKILL.md",
+        "optional/bh-unity-project-audit/SKILL.md",
+        "optional/bh-unity-project-audit/agents/openai.yaml",
+        "optional/unity-editor-build/BHBuild.cs",
+        "optional/unity-editor-build/README.md"
+      ]
+    },
+    {
+      "id": "B05f2",
+      "count": 10,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "optional/unity-observation/PROVIDER_PROTOCOL.md",
+        "optional/unity-observation/README.md",
+        "optional/unity-observation/provider.disabled.json",
+        "optional/unity-observation/unity_evidence.py",
+        "optional/unity-observation/unity_jobs.py",
+        "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+        "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+        "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+        "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+        "project-template/.agents/skills/bh-systematic-debug/SKILL.md"
+      ]
+    },
+    {
+      "id": "B05f3",
+      "count": 10,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+        "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+        "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+        "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+        "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+        "project-template/.bh/GITIGNORE_MERGE.txt",
+        "project-template/.bh/bindings.json",
+        "project-template/.bh/local.json",
+        "project-template/.bh/project.json",
+        "project-template/.bh/schema.json"
+      ]
+    },
+    {
+      "id": "B05f4",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "project-template/.bh/skill-registry.json",
+        "project-template/AGENTS.md",
+        "project-template/Docs/Harness/CODEX_CONSUMER.md",
+        "project-template/Docs/Harness/INTERFACE.md",
+        "project-template/Docs/Harness/OPERATING_GUIDE.md",
+        "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+        "project-template/Tools/BH/Invoke-BH.ps1",
+        "project-template/Tools/BH/views.py"
+      ]
+    },
+    {
+      "id": "B05g1",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "examples/round-trip/behavior-contradicts-design/Tests/fixture_driver.py",
+        "examples/round-trip/behavior-contradicts-design/Tools/BH/bh.py",
+        "examples/round-trip/behavior-contradicts-design/Tools/BH/check_release_profile.py",
+        "examples/round-trip/positive-human-pending/Tests/fixture_driver.py",
+        "examples/round-trip/positive-human-pending/Tools/BH/bh.py",
+        "examples/round-trip/positive-human-pending/Tools/BH/check_release_profile.py",
+        "review/evidence/small-tasks/B01/validate.py",
+        "review/evidence/small-tasks/B02a/discover.py"
+      ]
+    },
+    {
+      "id": "B05g2",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "review/evidence/small-tasks/B02a/run_partition.py",
+        "review/evidence/small-tasks/B02b/discover.py",
+        "review/evidence/small-tasks/B02b/run_partition.py",
+        "review/evidence/small-tasks/B02c/discover.py",
+        "review/evidence/small-tasks/B02c/run_partition.py",
+        "review/evidence/small-tasks/B02d/discover.py",
+        "review/evidence/small-tasks/B02d/run_partition.py",
+        "review/evidence/small-tasks/B02e/discover.py"
+      ]
+    },
+    {
+      "id": "B05g3",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "review/evidence/small-tasks/B02e/run_partition.py",
+        "review/evidence/small-tasks/B03/discover.py",
+        "review/evidence/small-tasks/B03/prepare_b03.py",
+        "review/evidence/small-tasks/B03/run_partition.py",
+        "review/evidence/small-tasks/B04a/discover.py",
+        "review/evidence/small-tasks/B04a/prepare_b04a.py",
+        "review/evidence/small-tasks/B04a/run_partition.py",
+        "review/evidence/small-tasks/B04b/discover.py"
+      ]
+    },
+    {
+      "id": "B05g4",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "review/evidence/small-tasks/B04b/prepare_b04b.py",
+        "review/evidence/small-tasks/B04b/run_partition.py",
+        "review/evidence/small-tasks/B04c/discover.py",
+        "review/evidence/small-tasks/B04c/prepare_b04c.py",
+        "review/evidence/small-tasks/B04c/run_partition.py",
+        "review/evidence/small-tasks/B05a/b05a_reconcile.py",
+        "review/evidence/small-tasks/B05b/b05b_reconcile.py",
+        "review/tools/measure_codex_overhead.py"
+      ]
+    },
+    {
+      "id": "B05g5",
+      "count": 8,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "review/tools/measure_efficiency_revision.py",
+        "tests/test_efficiency_runtime.py",
+        "tests/test_efficiency_views.py",
+        "tests/test_installer.py",
+        "tests/test_runtime.py",
+        "tests/test_unity_authoring.py",
+        "tests/test_unity_observation.py",
+        "tests/unity_provider_fixture.py"
+      ]
+    },
+    {
+      "id": "B05g6",
+      "count": 4,
+      "status": "PASS_CURRENT_IDENTITIES",
+      "paths": [
+        "tools/build_consumer_guide.py",
+        "tools/build_contract.py",
+        "tools/check_unity_authoring.py",
+        "tools/export_examples.py"
+      ]
+    }
+  ],
+  "installed_and_selected_and_preserved_identities": "PASS",
+  "research_repeated": false
+}

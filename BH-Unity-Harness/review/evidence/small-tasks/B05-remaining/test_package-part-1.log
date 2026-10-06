@@ -1,0 +1,8 @@
+test_release_empty_policy_blocks (test_package.PackageTests.test_release_empty_policy_blocks) ... ok
+test_release_no_match_narrow_only (test_package.PackageTests.test_release_no_match_narrow_only) ... ok
+test_seed_project_schema_valid (test_package.PackageTests.test_seed_project_schema_valid) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+OK

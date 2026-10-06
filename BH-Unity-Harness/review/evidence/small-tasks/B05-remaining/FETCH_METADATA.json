@@ -1,0 +1,2431 @@
+{
+  "reused": [
+    {
+      "path": "PACKAGE_FILES.json",
+      "blob": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "bytes": 4520,
+      "reused_from": "b02c-work/BH-Unity-Harness/PACKAGE_FILES.json"
+    },
+    {
+      "path": "PRESERVED_REFERENCES.json",
+      "blob": "66891dc1c72fdc60b1a15d3162ac2bf5f5b10a11",
+      "bytes": 3482,
+      "reused_from": "b05c-work/BH-Unity-Harness/PRESERVED_REFERENCES.json"
+    },
+    {
+      "path": "contracts/CODEX_CONSUMER.md",
+      "blob": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "bytes": 5557,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/CODEX_CONSUMER.md"
+    },
+    {
+      "path": "contracts/INTERFACE.md",
+      "blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "bytes": 13085,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/INTERFACE.md"
+    },
+    {
+      "path": "contracts/schema.json",
+      "blob": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "bytes": 56860,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/schema.json"
+    },
+    {
+      "path": "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+      "blob": "2e52b3762b1680d1f6479a9c1379fc0fcf6bc3d3",
+      "bytes": 7842,
+      "reused_from": "b05c-work/BH-Unity-Harness/design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md"
+    },
+    {
+      "path": "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "blob": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+      "bytes": 21396,
+      "reused_from": "b05e1-work/BH-Unity-Harness/design-gpt/01_GPT_INSTRUCTIONS_FULL.md"
+    },
+    {
+      "path": "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+      "blob": "34c7d68b86d81ac454d86825e3661b1d01fe28aa",
+      "bytes": 2307,
+      "reused_from": "b05c-work/BH-Unity-Harness/design-gpt/02_NAME_DESCRIPTION_STARTERS.md"
+    },
+    {
+      "path": "design-gpt/INSTRUCTION_METRICS.json",
+      "blob": "a4f54c9d7c86ef37c4ae307caec0d4154ff0d6c4",
+      "bytes": 240,
+      "reused_from": "b05c-work/BH-Unity-Harness/design-gpt/INSTRUCTION_METRICS.json"
+    },
+    {
+      "path": "design-gpt/KNOWLEDGE_MANIFEST.json",
+      "blob": "b41bb46ac7a9e2c97d215256a64611d19c660d69",
+      "bytes": 4254,
+      "reused_from": "b05c-work/BH-Unity-Harness/design-gpt/KNOWLEDGE_MANIFEST.json"
+    },
+    {
+      "path": "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+      "blob": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "bytes": 56860,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/schema.json"
+    },
+    {
+      "path": "design-gpt/Knowledge/BH_INTERFACE.md",
+      "blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "bytes": 13085,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/INTERFACE.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "blob": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+      "bytes": 12451,
+      "reused_from": "b05e1-work/BH-Unity-Harness/design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+      "blob": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+      "bytes": 19893,
+      "reused_from": "b05e1-work/BH-Unity-Harness/design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+      "blob": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+      "bytes": 19988,
+      "reused_from": "b05e1-work/BH-Unity-Harness/design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+      "blob": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+      "bytes": 21381,
+      "reused_from": "b05e1-work/BH-Unity-Harness/design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+      "blob": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+      "bytes": 19721,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+      "blob": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+      "bytes": 21641,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+      "blob": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+      "bytes": 2995,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+      "blob": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+      "bytes": 4677,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+      "blob": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+      "bytes": 3875,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+      "blob": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+      "bytes": 3112,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+      "blob": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+      "bytes": 6138,
+      "reused_from": "b05d-work/BH-Unity-Harness/design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+      "blob": "3c49836814386569b0f862c1843fe43f94305be8",
+      "bytes": 13744,
+      "reused_from": "b05d-work/BH-Unity-Harness/design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md"
+    },
+    {
+      "path": "design-gpt/evaluation/REGRESSION_CASES.md",
+      "blob": "2785eb573534683ddc9fba7ef3555602ee19ff87",
+      "bytes": 6140,
+      "reused_from": "b05c-work/BH-Unity-Harness/design-gpt/evaluation/REGRESSION_CASES.md"
+    },
+    {
+      "path": "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md",
+      "blob": "a0f3ed05af3145388505c953a9f554120917ef00",
+      "bytes": 8500,
+      "reused_from": "b05e2-work/BH-Unity-Harness/design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md"
+    },
+    {
+      "path": "examples/profiles/README.md",
+      "blob": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+      "bytes": 1030,
+      "reused_from": "b05f1-work/BH-Unity-Harness/examples/profiles/README.md"
+    },
+    {
+      "path": "examples/profiles/synthetic-continuous-state.json",
+      "blob": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+      "bytes": 1273,
+      "reused_from": "b05f1-work/BH-Unity-Harness/examples/profiles/synthetic-continuous-state.json"
+    },
+    {
+      "path": "examples/profiles/synthetic-discrete-state.json",
+      "blob": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+      "bytes": 1227,
+      "reused_from": "b05f1-work/BH-Unity-Harness/examples/profiles/synthetic-discrete-state.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "blob": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "bytes": 152,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "blob": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "bytes": 142,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-review-handoff/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "blob": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "bytes": 144,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "blob": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "bytes": 143,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "blob": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "bytes": 140,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-verify/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/GITIGNORE_MERGE.txt",
+      "blob": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "bytes": 282,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/GITIGNORE_MERGE.txt"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/skill-registry.json",
+      "blob": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "bytes": 1692,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/skill-registry.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Docs/Harness/OPERATING_GUIDE.md",
+      "blob": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "bytes": 15544,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/OPERATING_GUIDE.md"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Tests/fixture_driver.py",
+      "blob": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "bytes": 2004,
+      "reused_from": "b02c-work/BH-Unity-Harness/tests/fixture_driver.py"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Tools/BH/Invoke-BH.ps1",
+      "blob": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "bytes": 755,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/Invoke-BH.ps1"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Tools/BH/check_release_profile.py",
+      "blob": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "bytes": 2723,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/check_release_profile.py"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "blob": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "bytes": 152,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "blob": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "bytes": 142,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-review-handoff/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "blob": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "bytes": 144,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "blob": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "bytes": 143,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "blob": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "bytes": 140,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-verify/agents/openai.yaml"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/GITIGNORE_MERGE.txt",
+      "blob": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "bytes": 282,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/GITIGNORE_MERGE.txt"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/skill-registry.json",
+      "blob": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "bytes": 1692,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/skill-registry.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Docs/Harness/OPERATING_GUIDE.md",
+      "blob": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "bytes": 15544,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/OPERATING_GUIDE.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Tests/fixture_driver.py",
+      "blob": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "bytes": 2004,
+      "reused_from": "b02c-work/BH-Unity-Harness/tests/fixture_driver.py"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Tools/BH/Invoke-BH.ps1",
+      "blob": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "bytes": 755,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/Invoke-BH.ps1"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Tools/BH/check_release_profile.py",
+      "blob": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "bytes": 2723,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/check_release_profile.py"
+    },
+    {
+      "path": "installer/install.py",
+      "blob": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "bytes": 12192,
+      "reused_from": "b02c-work/BH-Unity-Harness/installer/install.py"
+    },
+    {
+      "path": "optional/bh-procedural-regression/SKILL.md",
+      "blob": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+      "bytes": 1250,
+      "reused_from": "b05f1-work/BH-Unity-Harness/optional/bh-procedural-regression/SKILL.md"
+    },
+    {
+      "path": "optional/bh-unity-project-audit/SKILL.md",
+      "blob": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+      "bytes": 1748,
+      "reused_from": "b05f1-work/BH-Unity-Harness/optional/bh-unity-project-audit/SKILL.md"
+    },
+    {
+      "path": "optional/bh-unity-project-audit/agents/openai.yaml",
+      "blob": "3fc511d46946d1225de4c817206974b1647d6a12",
+      "bytes": 159,
+      "reused_from": "b05f1-work/BH-Unity-Harness/optional/bh-unity-project-audit/agents/openai.yaml"
+    },
+    {
+      "path": "optional/unity-editor-build/BHBuild.cs",
+      "blob": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+      "bytes": 6019,
+      "reused_from": "b05f1-work/BH-Unity-Harness/optional/unity-editor-build/BHBuild.cs"
+    },
+    {
+      "path": "optional/unity-editor-build/README.md",
+      "blob": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+      "bytes": 2946,
+      "reused_from": "b05f1-work/BH-Unity-Harness/optional/unity-editor-build/README.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "blob": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+      "bytes": 1906,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-implement-approved-slice/SKILL.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "blob": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "bytes": 152,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+      "blob": "870e46e38301836801a0ef1a357609598bb7a0ca",
+      "bytes": 1677,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-review-handoff/SKILL.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "blob": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "bytes": 142,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-review-handoff/agents/openai.yaml"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+      "blob": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+      "bytes": 2063,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-systematic-debug/SKILL.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "blob": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "bytes": 144,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+      "blob": "2e4106c465ddc326b5a6f4b83aa55c57581b6b3e",
+      "bytes": 1547,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-preflight/SKILL.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "blob": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "bytes": 143,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+      "blob": "2ff6099ee2f5f27ff18b80f9814736318f63439d",
+      "bytes": 2233,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-verify/SKILL.md"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "blob": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "bytes": 140,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.agents/skills/bh-unity-verify/agents/openai.yaml"
+    },
+    {
+      "path": "project-template/.bh/GITIGNORE_MERGE.txt",
+      "blob": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "bytes": 282,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/GITIGNORE_MERGE.txt"
+    },
+    {
+      "path": "project-template/.bh/bindings.json",
+      "blob": "8f1c79c7aae5146a3f9c0e81e17db7696b6787e6",
+      "bytes": 73,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/bindings.json"
+    },
+    {
+      "path": "project-template/.bh/local.json",
+      "blob": "440956805b38377506b3d3aa11463578f343664c",
+      "bytes": 143,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/local.json"
+    },
+    {
+      "path": "project-template/.bh/project.json",
+      "blob": "f015e1d3727c425327dc6d3caf7dc6adb5df8057",
+      "bytes": 668,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/project.json"
+    },
+    {
+      "path": "project-template/.bh/schema.json",
+      "blob": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "bytes": 56860,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/schema.json"
+    },
+    {
+      "path": "project-template/.bh/skill-registry.json",
+      "blob": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "bytes": 1692,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/.bh/skill-registry.json"
+    },
+    {
+      "path": "project-template/AGENTS.md",
+      "blob": "4a548d17132e1185af67dcbcd7f69d95beccad35",
+      "bytes": 4119,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/AGENTS.md"
+    },
+    {
+      "path": "project-template/Docs/Harness/CODEX_CONSUMER.md",
+      "blob": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "bytes": 5557,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/CODEX_CONSUMER.md"
+    },
+    {
+      "path": "project-template/Docs/Harness/INTERFACE.md",
+      "blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "bytes": 13085,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/INTERFACE.md"
+    },
+    {
+      "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+      "blob": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "bytes": 15544,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/OPERATING_GUIDE.md"
+    },
+    {
+      "path": "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+      "blob": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+      "bytes": 6223,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Docs/Harness/UNITY_PROCEDURES.md"
+    },
+    {
+      "path": "project-template/Tools/BH/Invoke-BH.ps1",
+      "blob": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "bytes": 755,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/Invoke-BH.ps1"
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "blob": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "bytes": 79390,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/bh.py"
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "blob": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "bytes": 2723,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/check_release_profile.py"
+    },
+    {
+      "path": "project-template/Tools/BH/views.py",
+      "blob": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+      "bytes": 7123,
+      "reused_from": "b02c-work/BH-Unity-Harness/project-template/Tools/BH/views.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B01/RAW.log",
+      "blob": "967d168dbd929d18501ba84e97da26afe0f2d14b",
+      "bytes": 4358,
+      "reused_from": "b01-evidence-raw.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B01/RESULT.json",
+      "blob": "b04891c7a50d5e706580267d116c556151eba4a6",
+      "bytes": 17322,
+      "reused_from": "b01-evidence/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B01/validate.py",
+      "blob": "9b59663cd4922fdfeee40afb9a748531051ad4c6",
+      "bytes": 4789,
+      "reused_from": "b01_validate.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/DISCOVERY.log",
+      "blob": "8c4abbfa3bf45c30c124be23ae79f94fab024f3e",
+      "bytes": 4760,
+      "reused_from": "b02c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/PARTITIONS.json",
+      "blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+      "bytes": 5860,
+      "reused_from": "b02c-work/EXPECTED_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/RAW.log",
+      "blob": "dd98fe6760add4e56054e50a03ba7688cc9e00a3",
+      "bytes": 2967,
+      "reused_from": "b02a-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/RESULT.json",
+      "blob": "bfc7d9bf86ca4d8897493291f450eaeb31ccfdef",
+      "bytes": 16979,
+      "reused_from": "b02a-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/SOURCES.json",
+      "blob": "e5da5b4a77e629a4b992441e76c4e400515f3f65",
+      "bytes": 9728,
+      "reused_from": "b02a-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/discover.py",
+      "blob": "8a62ab02c10736a00684391946cd155360246166",
+      "bytes": 1260,
+      "reused_from": "b02c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/run_partition.py",
+      "blob": "bdf406762f4c1106660252947c483ff56e8d58c1",
+      "bytes": 3359,
+      "reused_from": "b02a-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/DISCOVERY.log",
+      "blob": "8c4abbfa3bf45c30c124be23ae79f94fab024f3e",
+      "bytes": 4760,
+      "reused_from": "b02c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/PARTITIONS.json",
+      "blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+      "bytes": 5860,
+      "reused_from": "b02c-work/EXPECTED_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/RAW.log",
+      "blob": "5b93b5b4d3796337621acf92292c8445b92f21e6",
+      "bytes": 3207,
+      "reused_from": "b02b-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/RECONCILIATION.json",
+      "blob": "27380fbb891fe821e5a9b3710039a5ac43aec2ae",
+      "bytes": 853,
+      "reused_from": "b02b-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/RECONCILIATION.log",
+      "blob": "ceb394185a1bd39476d156b76b2096767ec5f14e",
+      "bytes": 5417,
+      "reused_from": "b02b-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/RESULT.json",
+      "blob": "56fb6f968d4e9ac47f8f44d423ea6e5356f01a0e",
+      "bytes": 17059,
+      "reused_from": "b02b-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/SOURCES.json",
+      "blob": "b799c9f08dd66a21bedd19e312acfcc1b439ab7f",
+      "bytes": 11452,
+      "reused_from": "b02b-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/discover.py",
+      "blob": "8a62ab02c10736a00684391946cd155360246166",
+      "bytes": 1260,
+      "reused_from": "b02c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/run_partition.py",
+      "blob": "3c635478e6611680f22c5cafd30e45cf7f9fc544",
+      "bytes": 3359,
+      "reused_from": "b02b-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/DISCOVERY.log",
+      "blob": "8c4abbfa3bf45c30c124be23ae79f94fab024f3e",
+      "bytes": 4760,
+      "reused_from": "b02c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/PARTITIONS.json",
+      "blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+      "bytes": 5860,
+      "reused_from": "b02c-work/EXPECTED_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/RAW.log",
+      "blob": "426f4bbf33a0c1de94a47161524d9cbced8090dd",
+      "bytes": 3261,
+      "reused_from": "b02c-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/RECONCILIATION.json",
+      "blob": "b7420e06629833f651e5bb04b307dc9ce8e5a80a",
+      "bytes": 853,
+      "reused_from": "b02c-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/RECONCILIATION.log",
+      "blob": "d2a56338167dd07db8c534042cc25f48f7a24e6c",
+      "bytes": 5417,
+      "reused_from": "b02c-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/RESULT.json",
+      "blob": "916e30453932d9c83617ee12ce57ae0a02d2be9f",
+      "bytes": 17077,
+      "reused_from": "b02c-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/SOURCES.json",
+      "blob": "a2ca149cd9bf42ef9fd893ea0cca19938a09a748",
+      "bytes": 11452,
+      "reused_from": "b02c-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/discover.py",
+      "blob": "8a62ab02c10736a00684391946cd155360246166",
+      "bytes": 1260,
+      "reused_from": "b02c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/run_partition.py",
+      "blob": "9e7d8df7a664626269df0d15a14df8e21d0b1aab",
+      "bytes": 3359,
+      "reused_from": "b02c-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/DISCOVERY.log",
+      "blob": "8c4abbfa3bf45c30c124be23ae79f94fab024f3e",
+      "bytes": 4760,
+      "reused_from": "b02c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/PARTITIONS.json",
+      "blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+      "bytes": 5860,
+      "reused_from": "b02c-work/EXPECTED_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/RAW.log",
+      "blob": "e5c3e2ce2b5fe76623b89148fc1992049eb37754",
+      "bytes": 3363,
+      "reused_from": "b02d-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/RECONCILIATION.json",
+      "blob": "274d13a1880c4efa8a0a861ed1bd89861e2a7ee5",
+      "bytes": 851,
+      "reused_from": "b02d-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/RECONCILIATION.log",
+      "blob": "5cf5ebca47f91b424dddcecc46c904f2a1911ea5",
+      "bytes": 5417,
+      "reused_from": "b02d-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/RESULT.json",
+      "blob": "7f715c5f1507639e5da0b44770ab8da21db9b544",
+      "bytes": 17108,
+      "reused_from": "b02d-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/SOURCES.json",
+      "blob": "cfca18bb78be2895d059288c84c333e5c0a44a38",
+      "bytes": 11452,
+      "reused_from": "b02d-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/discover.py",
+      "blob": "8a62ab02c10736a00684391946cd155360246166",
+      "bytes": 1260,
+      "reused_from": "b02c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/run_partition.py",
+      "blob": "d5672ca8738315caab274f59072f86a49e54627d",
+      "bytes": 3357,
+      "reused_from": "b02d-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/DISCOVERY.log",
+      "blob": "8c4abbfa3bf45c30c124be23ae79f94fab024f3e",
+      "bytes": 4760,
+      "reused_from": "b02c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/PARTITIONS.json",
+      "blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+      "bytes": 5860,
+      "reused_from": "b02c-work/EXPECTED_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/RAW.log",
+      "blob": "4d31c4d5390e805831887ff64bf84845e95e3a2f",
+      "bytes": 839,
+      "reused_from": "b02e-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/RECONCILIATION.json",
+      "blob": "2318f0efdc25654b4400a13ef7b9f721416f1b44",
+      "bytes": 856,
+      "reused_from": "b02e-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/RECONCILIATION.log",
+      "blob": "ca7f74b6138eb7f080d20c2bf2eeba9758e4c96b",
+      "bytes": 5417,
+      "reused_from": "b02e-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/RESULT.json",
+      "blob": "8dfa0b87fa269dd60d914759fd743ae94477a3b3",
+      "bytes": 16083,
+      "reused_from": "b02e-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/SOURCES.json",
+      "blob": "f120b9f30cdc6752cfbf1b771f392998cfdd6def",
+      "bytes": 11452,
+      "reused_from": "b02e-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/discover.py",
+      "blob": "8a62ab02c10736a00684391946cd155360246166",
+      "bytes": 1260,
+      "reused_from": "b02c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/run_partition.py",
+      "blob": "af7d770cea9f6412d489a43ffe898250062344b2",
+      "bytes": 3348,
+      "reused_from": "b02e-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/DISCOVERY.log",
+      "blob": "cf9fcc699377e9f92764a068d7ec3d9c972aef76",
+      "bytes": 1331,
+      "reused_from": "b03-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/PARTITIONS.json",
+      "blob": "5f63c5500bae555bbf73986e92ce88d2838f9bf1",
+      "bytes": 1678,
+      "reused_from": "b03-work/PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/RAW.log",
+      "blob": "d9fd44635e743a4ae9249224fe4458fe5b157746",
+      "bytes": 3479,
+      "reused_from": "b03-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/RECONCILIATION.json",
+      "blob": "9825fa0c2239d7f920dcc4068e14b0373cc2cfb6",
+      "bytes": 851,
+      "reused_from": "b03-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/RECONCILIATION.log",
+      "blob": "4c630eda8e204a6da70cf3a2da9bdc9e57ebad43",
+      "bytes": 5183,
+      "reused_from": "b03-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/RESULT.json",
+      "blob": "40b381574b968aa690ba66a71027e6a6aaf00737",
+      "bytes": 16721,
+      "reused_from": "b03-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/SOURCES.json",
+      "blob": "494be899d074d2311b12872730ce8b5d8edccabf",
+      "bytes": 9427,
+      "reused_from": "b03-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/discover.py",
+      "blob": "345b40fc5c4aacf9fa4e00a740d103d290b6ed3c",
+      "bytes": 1298,
+      "reused_from": "b03-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/prepare_b03.py",
+      "blob": "56ac472b9dd35c8492954ab60b57f6369a4aadd8",
+      "bytes": 1841,
+      "reused_from": "prepare_b03.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/run_partition.py",
+      "blob": "86805b1200ee6087637abb0e51ec8ed5b861eaab",
+      "bytes": 3346,
+      "reused_from": "b03-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/COMMANDS.json",
+      "blob": "a192c403bee5811dcac1f9d15612f2e829b86568",
+      "bytes": 598,
+      "reused_from": "b04a-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/DISCOVERY.log",
+      "blob": "2ab1f8928d1f2097b7fddaae801db5a0bb2fa1d2",
+      "bytes": 1144,
+      "reused_from": "b04a-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/PARTITIONS.json",
+      "blob": "19f0eeccb6666c88a9f9ba1432ca6249e22e469d",
+      "bytes": 1410,
+      "reused_from": "b04a-work/PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/RAW.log",
+      "blob": "b53fed931838ae0e26bed72012838b39633948ba",
+      "bytes": 2962,
+      "reused_from": "b04a-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/README.md",
+      "blob": "e8055636a145d2fc55f191e664e98d32ffe4b7f1",
+      "bytes": 1934,
+      "reused_from": "b04a-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/RECONCILIATION.json",
+      "blob": "95c4cc5a1e955ad633b0d1f504daf9909a067e14",
+      "bytes": 1018,
+      "reused_from": "b04a-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/RECONCILIATION.log",
+      "blob": "2ba3e141b11a453b047e2c77572ccd733503f713",
+      "bytes": 5342,
+      "reused_from": "b04a-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/RESULT.json",
+      "blob": "69b65986465ce344d05a9322baea3c8b4f414a2c",
+      "bytes": 16973,
+      "reused_from": "b04a-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/SOURCES.json",
+      "blob": "e2f0e049c05f45771a3a7e2f69b30fda8e7d14ac",
+      "bytes": 10794,
+      "reused_from": "b04a-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/discover.py",
+      "blob": "14f6e6d15b10e67c8f3dff0e42f53cd96e67dfa4",
+      "bytes": 1328,
+      "reused_from": "b04a-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/prepare_b04a.py",
+      "blob": "3c306aaf93476de75edde865dc42b5d0870b6430",
+      "bytes": 3543,
+      "reused_from": "prepare_b04a.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04a/run_partition.py",
+      "blob": "d63ee8886962b4fc454451091034cd19a96ea5eb",
+      "bytes": 3380,
+      "reused_from": "b04a-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/COMMANDS.json",
+      "blob": "58efefe3563ce5cc42679f2d736d23a1de4e4894",
+      "bytes": 598,
+      "reused_from": "b04b-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/DISCOVERY.log",
+      "blob": "0f3829e878bcd5011879e44973fe89160e34523f",
+      "bytes": 2203,
+      "reused_from": "b04b-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/PARTITIONS.json",
+      "blob": "6d9b752ca158da17d393952dc99da19e187de35c",
+      "bytes": 2604,
+      "reused_from": "b04c-work/PRIOR_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/RAW.log",
+      "blob": "771872e7ff48d67e4ae0c12b8cc8a806e8840486",
+      "bytes": 5419,
+      "reused_from": "b04b-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/README.md",
+      "blob": "5a3e9e7898c052f5a994c3769824feed414dbed2",
+      "bytes": 2107,
+      "reused_from": "b04b-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/RECONCILIATION.json",
+      "blob": "7e1688355a7c3e2bf7801eb4ca7ed490b00df80c",
+      "bytes": 1056,
+      "reused_from": "b04b-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/RECONCILIATION.log",
+      "blob": "86c4034a2e5fee502e81458b6dee30c7bce2e147",
+      "bytes": 5344,
+      "reused_from": "b04b-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/RESULT.json",
+      "blob": "23a6222207c8b2a196bfe5374b34f7cad42d9fa9",
+      "bytes": 17997,
+      "reused_from": "b04b-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/SOURCES.json",
+      "blob": "0977978de0c0234ecfd188bf479c90f33d0afa45",
+      "bytes": 10797,
+      "reused_from": "b04b-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/discover.py",
+      "blob": "9545d64e30a8e2aae2f40ce902283b7fd07326ea",
+      "bytes": 1304,
+      "reused_from": "b04b-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/prepare_b04b.py",
+      "blob": "9cea5518524c84c9ed3bee2f35229f5e40ce43af",
+      "bytes": 3583,
+      "reused_from": "prepare_b04b.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04b/run_partition.py",
+      "blob": "5b369cc2e49d098657c26f69a8bd26ec2344c056",
+      "bytes": 3397,
+      "reused_from": "b04b-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/COMMANDS.json",
+      "blob": "e403ba0524ffa366f8490d4c18f0276c40fd466e",
+      "bytes": 598,
+      "reused_from": "b04c-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/DISCOVERY.log",
+      "blob": "50a9d249481f80c21809ae242902f0654198a4ef",
+      "bytes": 2279,
+      "reused_from": "b04c-work/DISCOVERY.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/PARTITIONS.json",
+      "blob": "6d9b752ca158da17d393952dc99da19e187de35c",
+      "bytes": 2604,
+      "reused_from": "b04c-work/PRIOR_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/PRIOR_PARTITIONS.json",
+      "blob": "6d9b752ca158da17d393952dc99da19e187de35c",
+      "bytes": 2604,
+      "reused_from": "b04c-work/PRIOR_PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/RAW.log",
+      "blob": "7c2f116c21745418dbe79444a3f35e6f88cb2955",
+      "bytes": 505,
+      "reused_from": "b04c-work/RAW.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/README.md",
+      "blob": "1de00eaec141ef7fa8650f1dc6a4dd33abcd6756",
+      "bytes": 2376,
+      "reused_from": "b04c-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/RECONCILIATION.json",
+      "blob": "2c2053b05b0b66a9f35ce81eb9baf068d498ae9c",
+      "bytes": 1274,
+      "reused_from": "b04c-work/RECONCILIATION.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/RECONCILIATION.log",
+      "blob": "e5d7ff0bcba0a92f1bf2d2a351bc2bbcd5feab36",
+      "bytes": 6050,
+      "reused_from": "b04c-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/RESULT.json",
+      "blob": "c6710184c09b61ebf898b0890df5acd01cd5a366",
+      "bytes": 16035,
+      "reused_from": "b04c-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/SOURCES.json",
+      "blob": "1dbc05324e06521d247e86a1cb7f697e44b0e618",
+      "bytes": 11403,
+      "reused_from": "b04c-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/discover.py",
+      "blob": "b63c74886bcdd38637c44edbfafc9d0b256832de",
+      "bytes": 1541,
+      "reused_from": "b04c-work/discover.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/prepare_b04c.py",
+      "blob": "c1515d89cfdd7628f2efe73c83429b45a9de824f",
+      "bytes": 4093,
+      "reused_from": "prepare_b04c.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B04c/run_partition.py",
+      "blob": "e95c1c5bb8c463c32083b243c633cb0cf9e1a70a",
+      "bytes": 3414,
+      "reused_from": "b04c-work/run_partition.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/COMMANDS.json",
+      "blob": "11682013dd2de57a04a5d96b8b8c91d7ff5d5cc2",
+      "bytes": 283,
+      "reused_from": "b05a-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/DEPENDENCIES.json",
+      "blob": "1c61ee0b2b6d3d519ef9de6b70afcbb9d36245e2",
+      "bytes": 20543,
+      "reused_from": "b05a-work/DEPENDENCIES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/FETCH_METADATA.json",
+      "blob": "7f04b6dfb70821e2f561fd869ffcd181b9cd93aa",
+      "bytes": 1375,
+      "reused_from": "b05a-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/RAW.log",
+      "blob": "0328c0f46dd8010d6f58c5bc9e4eafed05c14a1f",
+      "bytes": 809,
+      "reused_from": "b05a-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/README.md",
+      "blob": "b55f5e488301d61ec692434ef232b410cfa30562",
+      "bytes": 2532,
+      "reused_from": "b05a-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/RESULT.json",
+      "blob": "9602f00d2c3733f13164a69db41cac729bdd8542",
+      "bytes": 879,
+      "reused_from": "b05a-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/SOURCES.json",
+      "blob": "a9260af686dedb18e63ddd590781246af8cdad17",
+      "bytes": 1174,
+      "reused_from": "b05a-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/SOURCE_FACTS.json",
+      "blob": "e18a46451daee020f14f4bfd007740865f78bff9",
+      "bytes": 13514,
+      "reused_from": "b05a-work/SOURCE_FACTS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05a/b05a_reconcile.py",
+      "blob": "954be3d1d9398ae2ef075c0dddde6299a7e42c26",
+      "bytes": 4353,
+      "reused_from": "b05a_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/COMMANDS.json",
+      "blob": "8ddad9fca3ffde15649e00852dc102a608161a5e",
+      "bytes": 290,
+      "reused_from": "b05b-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/DEPENDENCIES.json",
+      "blob": "25e03fdbc71752039e868fec609b7757e75d74f2",
+      "bytes": 27133,
+      "reused_from": "b05b-work/DEPENDENCIES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/FETCH_METADATA.json",
+      "blob": "500ca595f45101fecec8ea03d69e879639409e08",
+      "bytes": 2855,
+      "reused_from": "b05b-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/RAW.log",
+      "blob": "9bab40e7e0028806091005077703c83601e1b580",
+      "bytes": 1968,
+      "reused_from": "b05b-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/README.md",
+      "blob": "e33ea2490f53d2e75954a41686e275a6b5f5939f",
+      "bytes": 2704,
+      "reused_from": "b05b-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/RESULT.json",
+      "blob": "b58fa9a2496cc0716a7cfc7a4686f761d86e8b32",
+      "bytes": 926,
+      "reused_from": "b05b-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/SOURCES.json",
+      "blob": "f639dfc6e435422a77370d7a3741f57ff4f74a7e",
+      "bytes": 2922,
+      "reused_from": "b05b-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/SOURCE_FACTS.json",
+      "blob": "c5030084c40f3c91dc8f811bc088e8cd53d9327a",
+      "bytes": 28067,
+      "reused_from": "b05b-work/SOURCE_FACTS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05b/b05b_reconcile.py",
+      "blob": "9aee4a8284f841d8dfff50e2dd255a289f583f35",
+      "bytes": 4079,
+      "reused_from": "b05b_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/COMMANDS.json",
+      "blob": "b3c45eefd0c68fb19d795ae7698c9fadc1559ef4",
+      "bytes": 290,
+      "reused_from": "b05c-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/DEPENDENCIES.json",
+      "blob": "9727a14c3b28e37ab1141e1023d76cc0a6112d3b",
+      "bytes": 69239,
+      "reused_from": "b05c-work/DEPENDENCIES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/FETCH_METADATA.json",
+      "blob": "cdcd133a561740d639886049cacf81203f68afe8",
+      "bytes": 2935,
+      "reused_from": "b05c-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/MANIFEST_FINDINGS.json",
+      "blob": "8edf462fd75c128f422349c7ab6c1fd99e5781b3",
+      "bytes": 1050,
+      "reused_from": "b05c-work/MANIFEST_FINDINGS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/RAW.log",
+      "blob": "c5addd44a35c3ca66bdaac907c8650eacb16b969",
+      "bytes": 1681,
+      "reused_from": "b05c-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/README.md",
+      "blob": "3145e21e0c9e439b60ca1408b1bd294058a2fc4b",
+      "bytes": 2935,
+      "reused_from": "b05c-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/RESULT.json",
+      "blob": "89a8b040a604837f41eeb652693e7823b08fd87c",
+      "bytes": 866,
+      "reused_from": "b05c-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/SOURCES.json",
+      "blob": "9f8b4bee9c8c5c4838b8cf1861418fef30c3d22e",
+      "bytes": 2924,
+      "reused_from": "b05c-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05c/b05c_reconcile.py",
+      "blob": "9f5a71c44dc001d59b901b363f4c4d674df86db0",
+      "bytes": 6037,
+      "reused_from": "b05c_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/COMMANDS.json",
+      "blob": "68148643d6a2da407d177b5b231f3503a33012fc",
+      "bytes": 920,
+      "reused_from": "b05d-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/FETCH_METADATA.json",
+      "blob": "e46b5577a535e6a476bce625ff41cdec0fa4dd38",
+      "bytes": 4881,
+      "reused_from": "b05d-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/FINDINGS.json",
+      "blob": "4fac09f4086d8a0b9a6fa53af8ce130272dc8311",
+      "bytes": 2459,
+      "reused_from": "b05d-work/FINDINGS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/RAW.log",
+      "blob": "675957d76770283b9b1f9b293b37d3340f43c842",
+      "bytes": 867,
+      "reused_from": "b05d-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/README.md",
+      "blob": "01067f972e6776ea8cf057632cf72d704e70abe9",
+      "bytes": 1324,
+      "reused_from": "b05d-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/RESULT.json",
+      "blob": "7d9fc553ab818eea2c5dd2eb355be6cfd13e7e22",
+      "bytes": 303,
+      "reused_from": "b05d-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/SOURCES.json",
+      "blob": "cb73577afb205ffadada17a06de8c5b9fe063a16",
+      "bytes": 1988,
+      "reused_from": "b05d-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05d/b05d_reconcile.py",
+      "blob": "80941062b1339d9603a0ab88e1053889b4239f9b",
+      "bytes": 5966,
+      "reused_from": "b05d_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/COMMANDS.json",
+      "blob": "adbe0c4213be7108e0591035037bb7d80d4de331",
+      "bytes": 870,
+      "reused_from": "b05e1-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/FETCH_METADATA.json",
+      "blob": "9812b2eb9d66e2b654f519368422676bc52d3982",
+      "bytes": 7793,
+      "reused_from": "b05e1-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/FINDINGS.json",
+      "blob": "eaf77d589b4a6a93d1f10631c5e7ee6deb20cb7b",
+      "bytes": 1691,
+      "reused_from": "b05e1-work/FINDINGS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/RAW.log",
+      "blob": "1de4b328fa6700ab7ae6645bac39c69dc4facc36",
+      "bytes": 1777,
+      "reused_from": "b05e1-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/README.md",
+      "blob": "5a62d54c1709ee074b2cb941920388533beacbb8",
+      "bytes": 1466,
+      "reused_from": "b05e1-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/RESULT.json",
+      "blob": "8da1091473d71fb10c53b4cce8aacd932cbf5009",
+      "bytes": 304,
+      "reused_from": "b05e1-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/SOURCES.json",
+      "blob": "4a7962fc442522f78f8dd6bf2928867dffe1a5fb",
+      "bytes": 6514,
+      "reused_from": "b05e1-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e1/b05e1_reconcile.py",
+      "blob": "9888b83d64fa76043001f94948de8ee4517ad519",
+      "bytes": 5509,
+      "reused_from": "b05e1_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/COMMANDS.json",
+      "blob": "d57ef5f5bb333e7a9c3a84c6bbdbf8a010a0be01",
+      "bytes": 858,
+      "reused_from": "b05e2-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/FETCH_METADATA.json",
+      "blob": "90af196128b7806fe405eee61f7da40a7cb1a3d6",
+      "bytes": 8540,
+      "reused_from": "b05e2-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/FINDINGS.json",
+      "blob": "219e2d9c37773ced6dfec9001b4831bf4d63f111",
+      "bytes": 1268,
+      "reused_from": "b05e2-work/FINDINGS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/RAW.log",
+      "blob": "710544878ac41b19f0d50e255a68b73a77adf522",
+      "bytes": 1882,
+      "reused_from": "b05e2-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/README.md",
+      "blob": "c0caeb1293f0ef51c592ab481b799c83e74a0690",
+      "bytes": 1442,
+      "reused_from": "b05e2-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/RESULT.json",
+      "blob": "4117c42ce099a75931d89155e1f24f3ffd53230a",
+      "bytes": 304,
+      "reused_from": "b05e2-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/SOURCES.json",
+      "blob": "c384a8778c3f1a808be3dd223b25d257631f1294",
+      "bytes": 6889,
+      "reused_from": "b05e2-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05e2/b05e2_reconcile.py",
+      "blob": "64b3abfbd94cd662c231d1a28d1e2405953c3501",
+      "bytes": 5309,
+      "reused_from": "b05e2_reconcile.py"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/COMMANDS.json",
+      "blob": "ed2adf4818e59ee5e215a969cd3c16d300a7f513",
+      "bytes": 902,
+      "reused_from": "b05f1-work/COMMANDS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/FETCH_METADATA.json",
+      "blob": "2e2e114f69ea262448e7900c167f4102d33e65b3",
+      "bytes": 10300,
+      "reused_from": "b05f1-work/FETCH_METADATA.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/FINDINGS.json",
+      "blob": "ed999185fa01a192b6ba9727ec8608e5905d08eb",
+      "bytes": 2251,
+      "reused_from": "b05f1-work/FINDINGS.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/RAW.log",
+      "blob": "72d3cfdf05eaff4c3747d36d165e41c9d28f1e5f",
+      "bytes": 2383,
+      "reused_from": "b05f1-reconciliation.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/README.md",
+      "blob": "97ea41236a526d28f8405a82e45c25976165bef7",
+      "bytes": 1441,
+      "reused_from": "b05f1-work/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/RESULT.json",
+      "blob": "04b94e064934197be5a3b92dc8e997fbc5e31b7e",
+      "bytes": 340,
+      "reused_from": "b05f1-work/RESULT.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/SOURCES.json",
+      "blob": "0610fdf7ee2bed3401ec91b9fae88f1565cc9fab",
+      "bytes": 4408,
+      "reused_from": "b05f1-work/SOURCES.json"
+    },
+    {
+      "path": "review/evidence/small-tasks/B05f1/b05f1_reconcile.py",
+      "blob": "8e4b59592e70246f8ddacd30358cade69579593b",
+      "bytes": 4848,
+      "reused_from": "b05f1_reconcile.py"
+    },
+    {
+      "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+      "blob": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+      "bytes": 5965,
+      "reused_from": "b05d-work/BH-Unity-Harness/review/reference-only/K11_SOURCE_LESSONS.md"
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "blob": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "bytes": 2004,
+      "reused_from": "b02c-work/BH-Unity-Harness/tests/fixture_driver.py"
+    },
+    {
+      "path": "tests/support.py",
+      "blob": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "bytes": 9166,
+      "reused_from": "b02c-work/BH-Unity-Harness/tests/support.py"
+    },
+    {
+      "path": "tests/test_efficiency_runtime.py",
+      "blob": "211a847da9799820fd39bc8c142e3ac9129da362",
+      "bytes": 10125,
+      "reused_from": "b04c-work/BH-Unity-Harness/tests/test_efficiency_runtime.py"
+    },
+    {
+      "path": "tests/test_efficiency_views.py",
+      "blob": "3a378b784e02bab0d17452f6f97bcb80a40b1f48",
+      "bytes": 4965,
+      "reused_from": "b04a-work/BH-Unity-Harness/tests/test_efficiency_views.py"
+    },
+    {
+      "path": "tests/test_game_agnostic.py",
+      "blob": "4c69a3a553f0f5fedf77d7e537a3dc278b67cc22",
+      "bytes": 9030,
+      "reused_from": "b05a-work/BH-Unity-Harness/tests/test_game_agnostic.py"
+    },
+    {
+      "path": "tests/test_installer.py",
+      "blob": "5b8a23b96c8467ca49fe3acd9da2f0378985d26e",
+      "bytes": 4877,
+      "reused_from": "b03-work/BH-Unity-Harness/tests/test_installer.py"
+    },
+    {
+      "path": "tests/test_package.py",
+      "blob": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+      "bytes": 7703,
+      "reused_from": "b05a-work/BH-Unity-Harness/tests/test_package.py"
+    },
+    {
+      "path": "tests/test_review_amendments.py",
+      "blob": "91dcfdd4ca172fa47657491030906a86f49a55f1",
+      "bytes": 2433,
+      "reused_from": "b05a-work/BH-Unity-Harness/tests/test_review_amendments.py"
+    },
+    {
+      "path": "tests/test_runtime.py",
+      "blob": "f367d87ec3a407df286e21154883df7eb8d88c19",
+      "bytes": 16906,
+      "reused_from": "b02c-work/BH-Unity-Harness/tests/test_runtime.py"
+    },
+    {
+      "path": "tools/assemble_candidate.py",
+      "blob": "830c2792f0288c39df2a6591c0b21080090eeb3e",
+      "bytes": 3722,
+      "reused_from": "b05b-work/BH-Unity-Harness/tools/assemble_candidate.py"
+    },
+    {
+      "path": "tools/check_package.py",
+      "blob": "e1c02d0963937a215ef896f539002066e1b3a2af",
+      "bytes": 5181,
+      "reused_from": "b05b-work/BH-Unity-Harness/tools/check_package.py"
+    },
+    {
+      "path": "tools/run_tests.py",
+      "blob": "191d538607c24967e5bb0cc5472f6d9c4aa3fab5",
+      "bytes": 2413,
+      "reused_from": "b05b-work/BH-Unity-Harness/tools/run_tests.py"
+    }
+  ],
+  "retrieved_unique_blobs": [
+    {
+      "path": "CHANGELOG.md",
+      "blob": "2a4dbbb8e1ab09e7baf27c320fa77c92383bb2d0",
+      "bytes": 1977,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/CHANGELOG.md"
+    },
+    {
+      "path": "DELIVERY_AND_CONTINUATION.md",
+      "blob": "e303576fd581e3d1b4ab93c21af439573c62a8b5",
+      "bytes": 3252,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/DELIVERY_AND_CONTINUATION.md"
+    },
+    {
+      "path": "DELIVERY_MANIFEST.json",
+      "blob": "3a67cd2a61201f8cf2572d714588b408ed0710c0",
+      "bytes": 34206,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/DELIVERY_MANIFEST.json"
+    },
+    {
+      "path": "QUICKSTART.md",
+      "blob": "0cd0e0e5d532adac2da94f068cb59c55515b012b",
+      "bytes": 3780,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/QUICKSTART.md"
+    },
+    {
+      "path": "Readme.md",
+      "blob": "df10f4364219edd7ae4edcf8652215c868ee9da3",
+      "bytes": 104,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/Readme.md"
+    },
+    {
+      "path": "design-gpt/REVIEW_AND_SETUP.md",
+      "blob": "822860df267028727ca2020101a9fe1c289a4c3a",
+      "bytes": 11053,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/design-gpt/REVIEW_AND_SETUP.md"
+    },
+    {
+      "path": "examples/round-trip/README.md",
+      "blob": "7faf09ec389e0904549bbca79cb804c75f2d71cf",
+      "bytes": 1031,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/README.md"
+    },
+    {
+      "path": "review/evidence/roundtrip-export.log",
+      "blob": "d7bdcadbca355847dabf5cc64766e070ec715853",
+      "bytes": 1926,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/roundtrip-export.log"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "blob": "4225e4e503fc2c14eb3fa8f2655a72beac9eeea5",
+      "bytes": 1498,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.agents/skills/bh-implement-approved-slice/SKILL.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-review-handoff/SKILL.md",
+      "blob": "b2f803f40c7ad6a709e5e9eca175c2838d09e0bf",
+      "bytes": 1461,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.agents/skills/bh-review-handoff/SKILL.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-systematic-debug/SKILL.md",
+      "blob": "1dbdb023f810a810187dfa92ab09bcb273009afe",
+      "bytes": 1533,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.agents/skills/bh-systematic-debug/SKILL.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-unity-preflight/SKILL.md",
+      "blob": "9367d61f034ce7eb4910985438be13aed913149a",
+      "bytes": 1306,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.agents/skills/bh-unity-preflight/SKILL.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.agents/skills/bh-unity-verify/SKILL.md",
+      "blob": "9be6c704943a85085308d28c3914ab5dc8ec8449",
+      "bytes": 1564,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.agents/skills/bh-unity-verify/SKILL.md"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/CHECKPOINT.md",
+      "blob": "e2bf70420c717c14d29a9f91dfc732e9101e4f3d",
+      "bytes": 1247,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/CHECKPOINT.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/SYNTHETIC_FIXTURE",
+      "blob": "9aadc31d27bd9c6c5a6e3bdc3e1bb99d23ff0e8e",
+      "bytes": 32,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/SYNTHETIC_FIXTURE"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/bindings.json",
+      "blob": "d514fdf091d61202d2acbb4b87dda49b490fbafb",
+      "bytes": 1181,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/bindings.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/exports/task-01/RETURN.json",
+      "blob": "62a9bfe715d34dbf232ef574103f0e76f1e7c262",
+      "bytes": 5044,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/exports/task-01/RETURN.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/exports/task-01/RETURN.md",
+      "blob": "405e6d410c9fe2d48e772f242e5c0f19b78c6d38",
+      "bytes": 617,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/exports/task-01/RETURN.md"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/local.json",
+      "blob": "75d220e0d836ed7b27ac2ac5bd0c9138af003693",
+      "bytes": 423,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/local.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/project.json",
+      "blob": "afe5a62d53bbf1e579ed20800565b6d41e323204",
+      "bytes": 699,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/project.json"
+    },
+    {
+      "path": "review/evidence/efficiency-2/AFTER.json",
+      "blob": "26b2b12860c1e0cfaf9c4a3777eaded65f63f626",
+      "bytes": 1098,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/AFTER.json"
+    },
+    {
+      "path": "review/evidence/efficiency-2/BATCH.json",
+      "blob": "6acc5656bc53e81fdbfb4327ed95c84f8f9c7df5",
+      "bytes": 6934,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/BATCH.json"
+    },
+    {
+      "path": "review/evidence/efficiency-2/test_efficiency_runtime.log",
+      "blob": "78107d193cc467c191dea71cf4cebd0ac6d0c1b6",
+      "bytes": 3338,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/test_efficiency_runtime.log"
+    },
+    {
+      "path": "review/evidence/efficiency-2/test_efficiency_views.log",
+      "blob": "5d800dbb97ff94b942e25a2a7f5d6c627713ffa5",
+      "bytes": 1728,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/test_efficiency_views.log"
+    },
+    {
+      "path": "review/evidence/efficiency-2/test_installer.log",
+      "blob": "c7f22e1c7b5e254f87b2c6c705ae2a53f50d6916",
+      "bytes": 2025,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/test_installer.log"
+    },
+    {
+      "path": "review/evidence/efficiency-2/test_runtime.log",
+      "blob": "04678c45cc3aac2c13fe4431327bbed4f975eb39",
+      "bytes": 7496,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-2/test_runtime.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-1/part-0-of-6.json",
+      "blob": "8afaaca58ba52f53b33cafa7cd1b43ff38483436",
+      "bytes": 4345,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-1/part-0-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-1/part-0-of-6.log",
+      "blob": "bff62a1b08f1927f1fb48fff5cdb83d51a357cc6",
+      "bytes": 5914,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-1/part-0-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-0-of-6.json",
+      "blob": "a917634942178c1853c9b265a5523d27435a12b6",
+      "bytes": 4350,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-0-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-0-of-6.log",
+      "blob": "334c1c23aa35a40ec67d35b14dee7acebafb5674",
+      "bytes": 1940,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-0-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-1-of-6.json",
+      "blob": "e37583f8bbe14925f17fa24a65e0e193d9990827",
+      "bytes": 4352,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-1-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-1-of-6.log",
+      "blob": "66bb7eb6b06808219e8682be56c071b79ee96493",
+      "bytes": 1944,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-1-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-2-of-6.json",
+      "blob": "69d9d1ddf63dcf680c4630c77d1c037e896292c5",
+      "bytes": 4412,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-2-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-2-of-6.log",
+      "blob": "fca3f23f66483964e99b287731b3feda9880abdb",
+      "bytes": 2063,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-2-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-3-of-6.json",
+      "blob": "844c1a4e13c1aa8e5deb1e65f9112dd9b2b185fe",
+      "bytes": 4361,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-3-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-3-of-6.log",
+      "blob": "cec64e9bad538aa7d6f5e1a0b40a118dbcb23b27",
+      "bytes": 1962,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-3-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-4-of-6.json",
+      "blob": "54f6314988231dbb5744c37486fbce8d7a6c00f6",
+      "bytes": 4333,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-4-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-4-of-6.log",
+      "blob": "a1d62023c2f70e881e3c00811c58fa3951e774ea",
+      "bytes": 1910,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-4-of-6.log"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-5-of-6.json",
+      "blob": "64e45260fdfa275534a3d9c0beebdab4bdd969ec",
+      "bytes": 4404,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-5-of-6.json"
+    },
+    {
+      "path": "review/evidence/final-attempt-2/part-5-of-6.log",
+      "blob": "acf32409665fa213e06f71ec346807a777780362",
+      "bytes": 2085,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/final-attempt-2/part-5-of-6.log"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/ASSEMBLY.json",
+      "blob": "317275b5787a16bd7ae56c6a9fd7e60e0e30afe3",
+      "bytes": 2805,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/ASSEMBLY.json"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/PARTITIONS.json",
+      "blob": "613927a7d7e755fa2906e4ad6b270e0a873de3dd",
+      "bytes": 2689,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/PARTITIONS.json"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/POST_DOCUMENTATION_CHECK.json",
+      "blob": "1ed2c532054111659cff409a5c48df949c42f970",
+      "bytes": 859,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/POST_DOCUMENTATION_CHECK.json"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/RESULTS.md",
+      "blob": "e1a318f0af98f71fb2dab5c98945adba1f6855d1",
+      "bytes": 15873,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/RESULTS.md"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/SUMMARY.json",
+      "blob": "81e96d7f115f5fc660cae0f2c2884940877b5589",
+      "bytes": 1728,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/SUMMARY.json"
+    },
+    {
+      "path": "review/evidence/game-agnostic-publication/post-documentation-focused.log",
+      "blob": "4128f06ca1d4f1ab2da24f63fd9b275829e83217",
+      "bytes": 5484,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/game-agnostic-publication/post-documentation-focused.log"
+    },
+    {
+      "path": "review/evidence/recovered-runtime.log",
+      "blob": "a9d883b9d79d951e594b4a8bd72b01c3f8be281e",
+      "bytes": 3986,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/recovered-runtime.log"
+    },
+    {
+      "path": "review/evidence/recovery-stage-VERIFICATION_REPORT.md",
+      "blob": "a43aa9b28d78c1c67befb9c6f52ee609f3576aef",
+      "bytes": 5325,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/recovery-stage-VERIFICATION_REPORT.md"
+    },
+    {
+      "path": "review/evidence/resume-20261004-summary.json",
+      "blob": "8f795476e90d102d06f8ea3bb82e2e6738ada107",
+      "bytes": 2254,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/resume-20261004-summary.json"
+    },
+    {
+      "path": "review/evidence/resume-20261004.log",
+      "blob": "7f2e44f558e664b93f97d5494400e79780c53ed1",
+      "bytes": 12590,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/resume-20261004.log"
+    },
+    {
+      "path": "review/evidence/small-tasks/B01/README.md",
+      "blob": "d1cca5d6954c5f1a2f3330b927c65ec191a8578e",
+      "bytes": 2891,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B01/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02a/README.md",
+      "blob": "9cef5080d4ea8b9f4a3cdfdb6790c2cea3ebb2ff",
+      "bytes": 3325,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B02a/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02b/README.md",
+      "blob": "66e92d1d80b7e3a77430270f3bb7670d1b7042d4",
+      "bytes": 3367,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B02b/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02c/README.md",
+      "blob": "f5146022f62e83258ca8d396f5276ae7d6b73366",
+      "bytes": 2941,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B02c/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02d/README.md",
+      "blob": "5c6efb92557a722541e5adb673d2ec0fd9edf1bc",
+      "bytes": 2963,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B02d/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B02e/README.md",
+      "blob": "6a1e5505c1daf1635fa5a1531e45834929ccf1cf",
+      "bytes": 3185,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B02e/README.md"
+    },
+    {
+      "path": "review/evidence/small-tasks/B03/README.md",
+      "blob": "334d315ffdf226e1bd546e75cff3482f7b343284",
+      "bytes": 3538,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/small-tasks/B03/README.md"
+    },
+    {
+      "path": "review/evidence/source-retention-20261004-cases.txt",
+      "blob": "8998d0be02e80b2335a09ed505735c264b6e64ce",
+      "bytes": 8133,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/source-retention-20261004-cases.txt"
+    },
+    {
+      "path": "review/evidence/source-retention-20261004.json",
+      "blob": "9176eed7f24cc32f12bf87e8adf4407de69bcb22",
+      "bytes": 2981,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/source-retention-20261004.json"
+    },
+    {
+      "path": "review/evidence/tests-part-0-of-4.json",
+      "blob": "3a7af1f94452c2603f6b1b8144aa64c251a3737e",
+      "bytes": 1600,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/tests-part-0-of-4.json"
+    },
+    {
+      "path": "review/evidence/tests-part-0-of-4.log",
+      "blob": "9e9da22cf6f1e099acd6ab1c428f12a615a6f1a0",
+      "bytes": 2033,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/tests-part-0-of-4.log"
+    },
+    {
+      "path": "review/evidence/tests-part-1-of-4.json",
+      "blob": "5c647585eb6a39054c447d8e5ab41dc55ea6c0d2",
+      "bytes": 1577,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/tests-part-1-of-4.json"
+    },
+    {
+      "path": "review/evidence/tests-part-1-of-4.log",
+      "blob": "b38a7633261df8a270bd564aa2562690f1d7f28f",
+      "bytes": 2593,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/tests-part-1-of-4.log"
+    },
+    {
+      "path": "review/evidence/unity-closure-20261005/AUTHORING.log",
+      "blob": "77d64a98a3a49d5087a626bdc5fb53a74a4d8154",
+      "bytes": 1699,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/unity-closure-20261005/AUTHORING.log"
+    },
+    {
+      "path": "review/evidence/unity-closure-20261005/RESULTS.log",
+      "blob": "0bcf5f5ee456aa142aafbbe9972ab8aa5323095e",
+      "bytes": 6492,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/unity-closure-20261005/RESULTS.log"
+    },
+    {
+      "path": "review/evidence/unity-closure-20261005/VERIFICATION.md",
+      "blob": "18d2cda435049d90f702fb16843b0c564cb2c81b",
+      "bytes": 2952,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/unity-closure-20261005/VERIFICATION.md"
+    },
+    {
+      "path": "review/evidence/unity-incorporation/RESULTS.md",
+      "blob": "c293981ea7edb36df1a67e52c61404dc534cac27",
+      "bytes": 3290,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/unity-incorporation/RESULTS.md"
+    },
+    {
+      "path": "review/evidence/unity-incorporation/unity-tests.log",
+      "blob": "7697124e5b87502c72fa0cd3acc0a7193abd2c7b",
+      "bytes": 5366,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/unity-incorporation/unity-tests.log"
+    },
+    {
+      "path": "review/tools/measure_codex_overhead.py",
+      "blob": "9d9026ee719e99ed044fe16d9727d9e766d56897",
+      "bytes": 9468,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/tools/measure_codex_overhead.py"
+    },
+    {
+      "path": "review/tools/measure_efficiency_revision.py",
+      "blob": "d2849633489c1fb95ba183a6b5809341eae6ce30",
+      "bytes": 3105,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/tools/measure_efficiency_revision.py"
+    },
+    {
+      "path": "tests/test_unity_authoring.py",
+      "blob": "1ff544f1c3dc7c70e1595e483a56c5efee8886f0",
+      "bytes": 4779,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tests/test_unity_authoring.py"
+    },
+    {
+      "path": "tests/test_unity_observation.py",
+      "blob": "f93ed56464e458821f3e960f235fc28fae456cea",
+      "bytes": 18652,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tests/test_unity_observation.py"
+    },
+    {
+      "path": "tests/unity_provider_fixture.py",
+      "blob": "30ede0cc41467c651615484cb104bbfa15f662c2",
+      "bytes": 5139,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tests/unity_provider_fixture.py"
+    },
+    {
+      "path": "tools/build_consumer_guide.py",
+      "blob": "cd4ecbde7ebb5aaf9320ef5da59b9ca7a44d68fc",
+      "bytes": 347,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tools/build_consumer_guide.py"
+    },
+    {
+      "path": "tools/build_contract.py",
+      "blob": "8d9507be743aaf727febdeeb49d3ec592c79bb0f",
+      "bytes": 9850,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tools/build_contract.py"
+    },
+    {
+      "path": "tools/check_unity_authoring.py",
+      "blob": "c4f5a6f322cf20accff5b2c347770c14658e763a",
+      "bytes": 7669,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tools/check_unity_authoring.py"
+    },
+    {
+      "path": "tools/export_examples.py",
+      "blob": "fd8eba1397357b365c77d43fd4a462750fc75447",
+      "bytes": 4062,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/tools/export_examples.py"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/CHECK-01/process.log",
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/CHECK-01/process.log"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/CHECK-01/result.json",
+      "blob": "2e423a73cc2b1efb54c9ac20d923520dcdfeb24e",
+      "bytes": 135,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/CHECK-01/result.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/pending.json",
+      "blob": "da20a4edb723d72c4a434fd68bbd8f9c5e5cb210",
+      "bytes": 157,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/pending.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/receipt.json",
+      "blob": "c2428447a1265ce32d59db02d5d27ff4aacb8a01",
+      "bytes": 7124,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/receipt.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/schema.json",
+      "blob": "0d7b7f9e601b8a9ce3939f6d8c923d48c8fc492e",
+      "bytes": 56715,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/schema.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/state.json",
+      "blob": "3b27426118e9014cdb02bcb627eff8a3c20bf109",
+      "bytes": 2550,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/state.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/approve.json",
+      "blob": "df436393464bde5c0d3a75d319caffe45d852125",
+      "bytes": 515,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/approve.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/plans/f8221e49ebdc487ef9bc0c424b8ecf23ccde301811a61e487b75f1f30809d9c7.json",
+      "blob": "05c8356a1766fbb890ca18150f676d23c60f220e",
+      "bytes": 5237,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/plans/f8221e49ebdc487ef9bc0c424b8ecf23ccde301811a61e487b75f1f30809d9c7.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/proposal.json",
+      "blob": "6fa821113f021e68ad6dcf0bc40f271c503c13b7",
+      "bytes": 585,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/.bh/tasks/task-01/proposal.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.gitignore",
+      "blob": "0fabfe20d19f6fe5460294a6e4ca23b37c609a9c",
+      "bytes": 107,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.gitignore"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/AGENTS.md",
+      "blob": "1a0a16239256873f1d60da40412d7044f2ac666f",
+      "bytes": 3637,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/AGENTS.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Docs/Harness/INTERFACE.md",
+      "blob": "51d79d0745f6ea4b33d7d4800ce2f95fec15f302",
+      "bytes": 11460,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Docs/Harness/INTERFACE.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Handoff/DESIGN.md",
+      "blob": "753ed295b1a3b887d467388d8d6e892c1e9bf556",
+      "bytes": 107,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Handoff/DESIGN.md"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Handoff/criteria.json",
+      "blob": "904bede28fbac5c6bb53ff12bb74cc4848334106",
+      "bytes": 444,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/Handoff/criteria.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Handoff/handoff.json",
+      "blob": "a678f646ffd8a6d9413973bab9df17b80be66f97",
+      "bytes": 3023,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/Handoff/handoff.json"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Handoff/overlay.json",
+      "blob": "16c8126b632a4837b2b6997b3d65b6a80738e49c",
+      "bytes": 464,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/Handoff/overlay.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Source/unrelated.txt",
+      "blob": "a78f373aab5d333ef8dabc3b0ab74cf0afb4cc4b",
+      "bytes": 25,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Source/unrelated.txt"
+    },
+    {
+      "path": "examples/round-trip/behavior-contradicts-design/Source/value.json",
+      "blob": "1046640cfabbad9787a2191f0fb1d7db1d883c8c",
+      "bytes": 18,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/behavior-contradicts-design/Source/value.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Tools/BH/bh.py",
+      "blob": "6339680c38eb5b887f450c04d02caf27da5fa78a",
+      "bytes": 72378,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Tools/BH/bh.py"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/OBSERVED_RESULTS.json",
+      "blob": "33fb414fbb1a1e5b78b955fecf222e8a30796744",
+      "bytes": 866,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/OBSERVED_RESULTS.json"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/dropped-acceptance.json",
+      "blob": "b33064f05bd3aef678ea03da4469211f05b6919d",
+      "bytes": 3045,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/dropped-acceptance.json"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/lost-project-invariant.json",
+      "blob": "c11d8e5f7ddc71e3705fa07f4c37ddba8c6f97c2",
+      "bytes": 3045,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/lost-project-invariant.json"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/missing-design-approval.json",
+      "blob": "6d50e17d4bd1c6b81608db7ed3810629a7663812",
+      "bytes": 2520,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/missing-design-approval.json"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/source-manifest-mismatch.json",
+      "blob": "6cff5e5b56669d068e853f77787e7458f3fb6dd0",
+      "bytes": 3061,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/source-manifest-mismatch.json"
+    },
+    {
+      "path": "examples/round-trip/negative-inputs/unsupported-version.json",
+      "blob": "367d8cccad7ef9025b8a746a3ee9e7f46df8b6c4",
+      "bytes": 3062,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/negative-inputs/unsupported-version.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/CHECKPOINT.md",
+      "blob": "7c1fccc405eb5866d542a8b488ba4da365df9aae",
+      "bytes": 1226,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/CHECKPOINT.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/bindings.json",
+      "blob": "e166b39912fa6f6b1029721267eaf8399d240f54",
+      "bytes": 1180,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/bindings.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/exports/task-01/RETURN.json",
+      "blob": "b11ebaf4fb1e53186478ad0e4747e76dc022dcfd",
+      "bytes": 5008,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/exports/task-01/RETURN.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/exports/task-01/RETURN.md",
+      "blob": "7859d85fa2f604218dc3b9af265e8e859974fb0c",
+      "bytes": 580,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/exports/task-01/RETURN.md"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/local.json",
+      "blob": "1a181871a3a39b65bac6e4be350970f06ba694fd",
+      "bytes": 422,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/local.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/project.json",
+      "blob": "fca291f4037fd3cf47f1ed184d5931691e05e39f",
+      "bytes": 697,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/project.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/CHECK-01/result.json",
+      "blob": "cf4d435270206c2792f786499edec6073c05d670",
+      "bytes": 133,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/CHECK-01/result.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/pending.json",
+      "blob": "709fc227933cb9b06aa5dc44a98f13acb017f045",
+      "bytes": 156,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/pending.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/receipt.json",
+      "blob": "993e650b1ee33b74c594568ae54b02ca837b5fcc",
+      "bytes": 7095,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/runs/run-f7aa472cae7c4576bb4cd20935ed3c90/receipt.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/state.json",
+      "blob": "b5f6c7fe00bf296d401918d5bea43bdabb2c367f",
+      "bytes": 2498,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/state.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/tasks/task-01/approve.json",
+      "blob": "de20c93074f74f50ccbc7a6be5200b960f2856af",
+      "bytes": 514,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/tasks/task-01/approve.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/tasks/task-01/plans/cc3f5d9c4686bf4377af847678627879f4b98cf13c30e35e17aaf12093482839.json",
+      "blob": "2cddc808ce550815ad33644c834ca7d6a758a29c",
+      "bytes": 5235,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/tasks/task-01/plans/cc3f5d9c4686bf4377af847678627879f4b98cf13c30e35e17aaf12093482839.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/.bh/tasks/task-01/proposal.json",
+      "blob": "3ef7fbb3defc93666c48bee223f3cf281297a644",
+      "bytes": 584,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/.bh/tasks/task-01/proposal.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Handoff/criteria.json",
+      "blob": "d8d6c74716140a43b15f923b3294fd5d9c42693b",
+      "bytes": 443,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Handoff/criteria.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Handoff/handoff.json",
+      "blob": "9e0751892f42327dfc61d579f5bd9d37b6132d3f",
+      "bytes": 3021,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Handoff/handoff.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Handoff/overlay.json",
+      "blob": "89e0a773cd359bb3271462eec28bb31b82a270b5",
+      "bytes": 463,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Handoff/overlay.json"
+    },
+    {
+      "path": "examples/round-trip/positive-human-pending/Source/value.json",
+      "blob": "c4bd5689cfbcf6b4c647e649d81b749a53726dca",
+      "bytes": 17,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/examples/round-trip/positive-human-pending/Source/value.json"
+    },
+    {
+      "path": "optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "blob": "c97ed5e248a07dfb5056fabd37de970d12122e39",
+      "bytes": 7284,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/optional/unity-observation/PROVIDER_PROTOCOL.md"
+    },
+    {
+      "path": "optional/unity-observation/README.md",
+      "blob": "2e5a36e09c8588c3d4d10464f3cccd41440d9e0e",
+      "bytes": 4562,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/optional/unity-observation/README.md"
+    },
+    {
+      "path": "optional/unity-observation/provider.disabled.json",
+      "blob": "8f46497b4c54987ec15e696482bba2513648e7a6",
+      "bytes": 546,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/optional/unity-observation/provider.disabled.json"
+    },
+    {
+      "path": "optional/unity-observation/unity_evidence.py",
+      "blob": "548992178c51f51ffab74e82462aa281ce56d34a",
+      "bytes": 18961,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/optional/unity-observation/unity_evidence.py"
+    },
+    {
+      "path": "optional/unity-observation/unity_jobs.py",
+      "blob": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+      "bytes": 15627,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/optional/unity-observation/unity_jobs.py"
+    },
+    {
+      "path": "review/ASSURANCE.md",
+      "blob": "6b9914b428aff8696408e815e61599e3955b65d9",
+      "bytes": 6580,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/ASSURANCE.md"
+    },
+    {
+      "path": "review/BUILD_CHECKPOINT.md",
+      "blob": "1145164a9f727f6002f8680dd58689bdcde5a303",
+      "bytes": 34088,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/BUILD_CHECKPOINT.md"
+    },
+    {
+      "path": "review/CODEX_EFFICIENCY_REVIEW.md",
+      "blob": "a8f9e2e4b92650de6d7956b9feafc2209a98e347",
+      "bytes": 21868,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/CODEX_EFFICIENCY_REVIEW.md"
+    },
+    {
+      "path": "review/COST_AND_HOST_GUIDANCE.md",
+      "blob": "7059b4400e880f372b22d115b2b60326c7a08779",
+      "bytes": 3715,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/COST_AND_HOST_GUIDANCE.md"
+    },
+    {
+      "path": "review/CURRENT_ARTIFACT_STATE.json",
+      "blob": "9eb01e10fdf6867612ca7eac78f12473b165754c",
+      "bytes": 4434,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/CURRENT_ARTIFACT_STATE.json"
+    },
+    {
+      "path": "review/CURRENT_REVIEW.md",
+      "blob": "e688e9b4865a6f3e605d4477020006426c480b6b",
+      "bytes": 6543,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/CURRENT_REVIEW.md"
+    },
+    {
+      "path": "review/DESIGN_SOURCE_REVIEW.md",
+      "blob": "e3890d58f9910896526954ade1446fe3e48d655e",
+      "bytes": 9141,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/DESIGN_SOURCE_REVIEW.md"
+    },
+    {
+      "path": "review/EFFICIENCY_IMPLEMENTATION.md",
+      "blob": "03fb0f4a5f1e002dcfbb3c76adbb0dabd510737f",
+      "bytes": 4531,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EFFICIENCY_IMPLEMENTATION.md"
+    },
+    {
+      "path": "review/EFFICIENCY_PUBLICATION.md",
+      "blob": "c04822d614d7480c119c65ea6c7e5adbf9d7ebef",
+      "bytes": 2909,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EFFICIENCY_PUBLICATION.md"
+    },
+    {
+      "path": "review/EXTERNAL_OPTIONAL_REVIEW.md",
+      "blob": "cd1f3f26e7668d51f3df70f42e7ade30b3ce653b",
+      "bytes": 6695,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EXTERNAL_OPTIONAL_REVIEW.md"
+    },
+    {
+      "path": "review/EXTERNAL_SOURCES.md",
+      "blob": "74a021e6eb72ea8dac333ff39815aa999e1f66e0",
+      "bytes": 5959,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EXTERNAL_SOURCES.md"
+    },
+    {
+      "path": "review/EXTERNAL_UNITY_REVIEW.md",
+      "blob": "dab2e20a8ffe8ae607548cbe52137a9edf2ea00a",
+      "bytes": 6431,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EXTERNAL_UNITY_REVIEW.md"
+    },
+    {
+      "path": "review/EXTERNAL_WORKFLOW_REVIEW.md",
+      "blob": "ba227677579dfaa5d7d29d0ec47ff79c4255cac4",
+      "bytes": 4821,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/EXTERNAL_WORKFLOW_REVIEW.md"
+    },
+    {
+      "path": "review/FINAL_PUBLICATION_REVIEW.md",
+      "blob": "f9f44660f51682dc118c619f88fce58969320f4b",
+      "bytes": 3656,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/FINAL_PUBLICATION_REVIEW.md"
+    },
+    {
+      "path": "review/IMPLEMENTATION_PLAN.md",
+      "blob": "78c07177e9043925a727d215412faf1c8b83021d",
+      "bytes": 3074,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/IMPLEMENTATION_PLAN.md"
+    },
+    {
+      "path": "review/LEGACY_SKILL_REVIEW.md",
+      "blob": "2210a357d7e086ae54c30f88e4afc720bd94d5ca",
+      "bytes": 5640,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/LEGACY_SKILL_REVIEW.md"
+    },
+    {
+      "path": "review/LEGACY_SOURCE_REVIEW.md",
+      "blob": "213886d19ee3eef8786a04b2374f4973e66fcf3d",
+      "bytes": 10746,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/LEGACY_SOURCE_REVIEW.md"
+    },
+    {
+      "path": "review/LOCAL_INTEGRATION_TEST.md",
+      "blob": "975cb4c2cddcae54273a1d592b4367f76dc6bdaa",
+      "bytes": 5751,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/LOCAL_INTEGRATION_TEST.md"
+    },
+    {
+      "path": "review/RECOVERY_ARTIFACTS.json",
+      "blob": "f6e27a2d17aaa3294dfe5b5b47986eb6d5d9b35d",
+      "bytes": 626,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/RECOVERY_ARTIFACTS.json"
+    },
+    {
+      "path": "review/RECOVERY_DELIVERY.md",
+      "blob": "07a0d1f35a5b936aa3077ef3efcf7d4e22a549c1",
+      "bytes": 3310,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/RECOVERY_DELIVERY.md"
+    },
+    {
+      "path": "review/REQUIREMENTS_AND_MIGRATION.md",
+      "blob": "5f2f0da8043107d811b3c68beaf4f3936a3e4d6e",
+      "bytes": 10594,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/REQUIREMENTS_AND_MIGRATION.md"
+    },
+    {
+      "path": "review/RESUME_CLOSURE_20261005.md",
+      "blob": "361280e1047d69b9657c695b9d352844abded666",
+      "bytes": 2284,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/RESUME_CLOSURE_20261005.md"
+    },
+    {
+      "path": "review/RESUME_RECONCILIATION.md",
+      "blob": "ef59c6bdab4c415959963a0699d1d2302815a371",
+      "bytes": 4919,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/RESUME_RECONCILIATION.md"
+    },
+    {
+      "path": "review/SOURCE_INVENTORY.json",
+      "blob": "0491672a9d98f0109d8346c1025ffae264ebec38",
+      "bytes": 7381,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/SOURCE_INVENTORY.json"
+    },
+    {
+      "path": "review/UNITY_CORE_INTEGRATION.patch",
+      "blob": "dd74f6ab21c3edf424e54cdb4c6d7714afaab12c",
+      "bytes": 3049,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_CORE_INTEGRATION.patch"
+    },
+    {
+      "path": "review/UNITY_INCORPORATION.md",
+      "blob": "8925e7fff4d8aeba100f8d84bd7cebd8bf8b7d84",
+      "bytes": 2060,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_INCORPORATION.md"
+    },
+    {
+      "path": "review/UNITY_INCORPORATION_STATUS.md",
+      "blob": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+      "bytes": 6500,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_INCORPORATION_STATUS.md"
+    },
+    {
+      "path": "review/UNITY_REFERENCE_DEEP_REVIEW.md",
+      "blob": "ed74686b0f3138bd9c203a0e79a6e7ec82b43f82",
+      "bytes": 30327,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_REFERENCE_DEEP_REVIEW.md"
+    },
+    {
+      "path": "review/UNITY_REFERENCE_INVENTORY.json",
+      "blob": "385fc14b9eb188dfc202fb7eeef4559f56ad3ff5",
+      "bytes": 9891,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_REFERENCE_INVENTORY.json"
+    },
+    {
+      "path": "review/UNITY_RESUME_TEST_PLAN.md",
+      "blob": "6376cb0598835e6b44986b6afe5321a4efd20d63",
+      "bytes": 3294,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/UNITY_RESUME_TEST_PLAN.md"
+    },
+    {
+      "path": "review/VERIFICATION_REPORT.md",
+      "blob": "d64565ad654daf684247b9fba22d8b22ac3d6a2e",
+      "bytes": 4637,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/VERIFICATION_REPORT.md"
+    },
+    {
+      "path": "review/evidence/codex-efficiency/MEASUREMENTS.json",
+      "blob": "0093c7d3b9121d60fa40c2f0bc1e626aabd16c21",
+      "bytes": 6437,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/codex-efficiency/MEASUREMENTS.json"
+    },
+    {
+      "path": "review/evidence/efficiency-1/BATCH.json",
+      "blob": "269005d0c4ea45c50660686baae24c37663bdbc6",
+      "bytes": 2042,
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/8a48b8b52d3e427a4e53beb731bd13aaaccd7ada/BH-Unity-Harness/review/evidence/efficiency-1/BATCH.json"
+    }
+  ],
+  "full_tree_truncated": false
+}

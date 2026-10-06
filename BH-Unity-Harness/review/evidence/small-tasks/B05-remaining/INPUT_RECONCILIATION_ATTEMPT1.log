@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/301f3dd0656a/reconcile_remaining.txt", line 46, in <module>
+    save('INPUT_CLOSURE.json',{'status':'PASS','files':len(ledger),'python_syntax_files':len(syntax),'python_syntax_roster':syntax,'new_python_paths_since_B05c':sorted(set(syntax)-set(dep['current_python_roster'])),'completed_remaining_rosters':batches,'installed_and_selected_and_preserved_identities':'PASS','research_repeated':False})
+                                                                                                                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unhashable type: 'dict'

@@ -1,0 +1,22 @@
+test_uncertain_terminal_states_retain_ownership (test_unity_observation.UnityJobTests.test_uncertain_terminal_states_retain_ownership) ... ok
+test_unknown_reuse_policy_rejected (test_unity_observation.UnityJobTests.test_unknown_reuse_policy_rejected) ... ok
+test_capture_digest_and_source_and_paths (test_unity_observation.UnityReducerTests.test_capture_digest_and_source_and_paths) ... ok
+test_csv_quoted_fields_and_header_validation (test_unity_observation.UnityReducerTests.test_csv_quoted_fields_and_header_validation) ... ok
+test_empty_rosters_rejected_before_execution (test_unity_observation.UnityReducerTests.test_empty_rosters_rejected_before_execution) ... ok
+test_frozen_and_failed_conditions_are_observed_not_invented (test_unity_observation.UnityReducerTests.test_frozen_and_failed_conditions_are_observed_not_invented) ... ok
+test_incomplete_search_is_never_labeled_complete (test_unity_observation.UnityReducerTests.test_incomplete_search_is_never_labeled_complete) ... ok
+test_mandatory_expectations_and_type_checks (test_unity_observation.UnityReducerTests.test_mandatory_expectations_and_type_checks) ... ok
+test_missing_asset_or_unsaved_binding_is_failure (test_unity_observation.UnityReducerTests.test_missing_asset_or_unsaved_binding_is_failure) ... ok
+test_missing_locale_empty_translation_and_code_site (test_unity_observation.UnityReducerTests.test_missing_locale_empty_translation_and_code_site) ... ok
+test_no_result_is_not_universal_absence (test_unity_observation.UnityReducerTests.test_no_result_is_not_universal_absence) ... ok
+test_outside_scope_duplicate_and_missing_properties_rejected (test_unity_observation.UnityReducerTests.test_outside_scope_duplicate_and_missing_properties_rejected) ... ok
+test_reducers_never_mark_human_accepted (test_unity_observation.UnityReducerTests.test_reducers_never_mark_human_accepted) ... ok
+test_run_file_rejects_symlink (test_unity_observation.UnityReducerTests.test_run_file_rejects_symlink) ... ok
+test_search_counts_and_scoped_properties (test_unity_observation.UnityReducerTests.test_search_counts_and_scoped_properties) ... ok
+test_unknown_fields_nonfinite_and_oversize_rejected (test_unity_observation.UnityReducerTests.test_unknown_fields_nonfinite_and_oversize_rejected) ... ok
+test_unknown_locale_duplicate_pair_and_unknown_code_site_rejected (test_unity_observation.UnityReducerTests.test_unknown_locale_duplicate_pair_and_unknown_code_site_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 3.229s
+
+OK

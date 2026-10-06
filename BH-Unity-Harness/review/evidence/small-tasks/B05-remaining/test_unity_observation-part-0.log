@@ -1,0 +1,25 @@
+test_bad_process_output_is_not_evidence (test_unity_observation.UnityJobTests.test_bad_process_output_is_not_evidence) ... ok
+test_changed_provider_executable_input_blocks_before_submit (test_unity_observation.UnityJobTests.test_changed_provider_executable_input_blocks_before_submit) ... ok
+test_confirmed_stopped_states_release_ownership_without_pass (test_unity_observation.UnityJobTests.test_confirmed_stopped_states_release_ownership_without_pass) ... ok
+test_disabled_config_never_starts_provider (test_unity_observation.UnityJobTests.test_disabled_config_never_starts_provider) ... ok
+test_every_operation_runs_actual_provider_and_parser (test_unity_observation.UnityJobTests.test_every_operation_runs_actual_provider_and_parser) ... ok
+test_explicit_fresh_verification_from_ready (test_unity_observation.UnityJobTests.test_explicit_fresh_verification_from_ready) ... ok
+test_frozen_smoke_fails_despite_capture (test_unity_observation.UnityJobTests.test_frozen_smoke_fails_despite_capture) ... ok
+test_identity_changes_rejected_and_ownership_retained (test_unity_observation.UnityJobTests.test_identity_changes_rejected_and_ownership_retained) ... ok
+test_invalid_spec_never_starts_provider (test_unity_observation.UnityJobTests.test_invalid_spec_never_starts_provider) ... ok
+test_lost_submit_retains_ownership_and_blocks_resubmit (test_unity_observation.UnityJobTests.test_lost_submit_retains_ownership_and_blocks_resubmit) ... ok
+test_missing_capability_never_submits (test_unity_observation.UnityJobTests.test_missing_capability_never_submits) ... ok
+test_missing_coverage_expectation_blocks_before_submit (test_unity_observation.UnityJobTests.test_missing_coverage_expectation_blocks_before_submit) ... ok
+test_never_reuse_live_observation (test_unity_observation.UnityJobTests.test_never_reuse_live_observation) ... ok
+test_partial_search_fails_coverage_expectation (test_unity_observation.UnityJobTests.test_partial_search_fails_coverage_expectation) ... ok
+test_persistence_and_localization_failures_propagate (test_unity_observation.UnityJobTests.test_persistence_and_localization_failures_propagate) ... ok
+test_poll_budget_stops_without_claiming_cancellation (test_unity_observation.UnityJobTests.test_poll_budget_stops_without_claiming_cancellation) ... ok
+test_probe_not_ready_never_submits (test_unity_observation.UnityJobTests.test_probe_not_ready_never_submits) ... ok
+test_source_mutation_during_observation_invalidates_run (test_unity_observation.UnityJobTests.test_source_mutation_during_observation_invalidates_run) ... ok
+test_success_one_submit_local_poll_and_human_pending (test_unity_observation.UnityJobTests.test_success_one_submit_local_poll_and_human_pending) ... ok
+test_timeout_is_not_server_cancellation (test_unity_observation.UnityJobTests.test_timeout_is_not_server_cancellation) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 31.372s
+
+OK
