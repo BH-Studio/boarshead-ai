@@ -1,0 +1,10 @@
+{
+  "task": "B05d",
+  "command": "python3 b05d_reconcile.py > b05d-reconciliation.log 2>&1",
+  "working_directory": "/workspace/scratch/301f3dd0656a",
+  "actual_exit_status": 0,
+  "raw_output_file": "RAW.log",
+  "execution": "Only the committed reconciliation helper executed; no imports or invocations of candidate code/tests.",
+  "input_export": "b05d-input.json is a scratch transport export of current immutable GitHub content, not an archive or reconstructed source. Recreate using FETCH_METADATA.json identities: head/root/harness tree, exact three fetch_file UTF-8 responses with tree entries, B05c DEPENDENCIES.json as prior_dependencies, checkpoint/dependency/status blob SHAs. Helper writes separate UTF-8 snapshots and verifies their exact bytes.",
+  "evidence_helper_freshness": "The published helper adds one Python path; include it when refreshing the package checker syntax roster at test/final heads."
+}

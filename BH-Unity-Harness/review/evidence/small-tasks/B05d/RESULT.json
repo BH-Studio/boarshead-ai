@@ -1,0 +1,13 @@
+{
+  "task": "B05d",
+  "input_head": "93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b",
+  "status": "PASS",
+  "assigned": 3,
+  "reconciled": 3,
+  "missing": [],
+  "mismatched": [],
+  "tests": "NOT_RUN",
+  "command_exit_status": 0,
+  "later_batches": "NOT_STARTED",
+  "candidate_implementation_changes": false
+}

@@ -1,0 +1,44 @@
+{
+  "task": "B05d",
+  "review_type": "bounded identity and source-retention scope review; not original design/framework research",
+  "historical_K11": {
+    "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+    "role": "preserved reference only; excluded from selected knowledge",
+    "observed_sections": [
+      "Purpose",
+      "7. Resource envelopes must be explicit and project-specific",
+      "8. Representative-scale tests change architectural confidence"
+    ],
+    "finding": "Retains historical project examples and expressly prohibits copying their implementation details or CPU percentage into unrelated projects. No historical requirement was imported."
+  },
+  "generalized_K11": {
+    "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+    "role": "selected knowledge",
+    "observed_sections": [
+      "Purpose",
+      "7. Resource envelopes must be explicit and project-specific",
+      "8. Representative-scale tests change architectural confidence",
+      "13. Design authority and implementation authority should remain distinct"
+    ],
+    "finding": "Retains fifteen generalized lessons; purpose rejects source names/mechanics/genre/player-count/middleware/pipeline/numerical defaults. Scale counts and budgets derive from current project artifacts."
+  },
+  "K12": {
+    "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+    "role": "selected compiler/handoff/returned-evidence knowledge",
+    "observed_sections": [
+      "3. Milestone question and approval gates",
+      "4. Implementation Package Compiler",
+      "7. Returned-results review order and verdicts",
+      "10. Change request and feedback transport",
+      "11. Source-retained detail checks (retrieve only when applicable)",
+      "12. Game-agnostic compilation boundary"
+    ],
+    "finding": "Preserves v3 design method and human authority, separate milestone/plan approval, design versus implementation, pinned package/handoff, retrieved raw evidence and human closure. Source-retained detail checks are conditional; historical records are outside Instructions/knowledge uploads and current approved artifacts supply project defaults."
+  },
+  "limits": [
+    "No source content changed.",
+    "No tests, runtime discovery, package checker, assembler, runner, installer or game process ran.",
+    "No later batch content retrieved.",
+    "No configured host, Unity, adoption or full-package validation claim."
+  ]
+}

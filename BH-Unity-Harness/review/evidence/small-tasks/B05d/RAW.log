@@ -1,0 +1,5 @@
+PASS review/reference-only/K11_SOURCE_LESSONS.md: 5965 bytes; blob 63acdd18ea244f1be1ef67e707dcc955c96848b5; sha256 e259eb5de5cf2264907a9fdde7a18bb0c1546003873f10292d30f91df61f5bbf; applicable manifest identities matched
+PASS design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md: 6138 bytes; blob 0fc64e9c06474019c1a08c5278fdcc1b09bff851; sha256 c0da552043bfb6593a7c632cd7098e30f5636b78659a7178fe92eedc16c42d6a; applicable manifest identities matched
+PASS design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md: 13744 bytes; blob 3c49836814386569b0f862c1843fe43f94305be8; sha256 339f44b60795b028cb028abdfe6efb28724175bb5886d4a80fee89e4da18c915; applicable manifest identities matched
+PASS reference-only / selected-knowledge scope reconciliation; no source-game defaults imported
+B05d PASS: 3/3 identities. Tests NOT_RUN; later batches NOT_STARTED.
