@@ -1,0 +1,555 @@
+{
+  "review_id": "CP-R01",
+  "input_commit": "357d154e2d0e4a633096ac746af7b538f78f8256",
+  "reference_root": "Reference/CoplayDev/unity-mcp-beta",
+  "reference_tree_sha": "b3ec16283d5ce88e7576fbe2eacf2d2eb9bdf1dc",
+  "inventory_truncated": false,
+  "inventory_entries": 2559,
+  "inventory_files": 2313,
+  "scope": "Focused source review. Full tree metadata inventoried; selected source contents retrieved; relevant implementation sections and test patterns inspected. No exhaustive source/security audit.",
+  "vendor_files": [
+    {
+      "path": "README.md",
+      "git_blob_sha": "10afbd7d1216cb98c8560aaea692bbf666ae9bcd",
+      "tree_blob_sha": "10afbd7d1216cb98c8560aaea692bbf666ae9bcd",
+      "bytes": 5278,
+      "sha256": "648caa9a0aa0b3b92dd918f3284d2d135e58fc2cd8e63b6e7fdf527bcb7fb4db",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "LICENSE",
+      "git_blob_sha": "e7f878d1da6b4d9488058157ce6b48cb584460b1",
+      "tree_blob_sha": "e7f878d1da6b4d9488058157ce6b48cb584460b1",
+      "bytes": 1066,
+      "sha256": "6efe650c965012ac418238dcd6b9116e4130a5220717ef0dfb539dd159c4245c",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "unity-mcp-skill/SKILL.md",
+      "git_blob_sha": "38d3c89353d032391df2fe54ceb944380572b515",
+      "tree_blob_sha": "38d3c89353d032391df2fe54ceb944380572b515",
+      "bytes": 15298,
+      "sha256": "1d8a3f126c5bb525ab08626428a05c75539418454b2bd65a9c0eea6b397619c0",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/pyproject.toml",
+      "git_blob_sha": "83800f55c65984102b61a035613a2ca40459eb91",
+      "tree_blob_sha": "83800f55c65984102b61a035613a2ca40459eb91",
+      "bytes": 2566,
+      "sha256": "82c77092090d2208da31a989943b8003be57f24d7b8203fcee7cd498d611baa2",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/package.json",
+      "git_blob_sha": "ca3b386117dbccce89a09a17afa1f8db63ec92a8",
+      "tree_blob_sha": "ca3b386117dbccce89a09a17afa1f8db63ec92a8",
+      "bytes": 1346,
+      "sha256": "e5670ce802500b1ebe7457e15cee97716ba8ffc9114971d8dda513893f9227c3",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/manage_tools.py",
+      "git_blob_sha": "b8875e4d5fd3673c26063c26681b31fb43703fd3",
+      "tree_blob_sha": "b8875e4d5fd3673c26063c26681b31fb43703fd3",
+      "bytes": 6295,
+      "sha256": "f478e6a47be344439b321c87de9afde224c63d83c0f3b8a0bd9169b36a58f871",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/batch_execute.py",
+      "git_blob_sha": "2c717d9c45cc25b2be878bda7eb76db580becdfb",
+      "tree_blob_sha": "2c717d9c45cc25b2be878bda7eb76db580becdfb",
+      "bytes": 5733,
+      "sha256": "c2253e3f0d96d27dc717880c2f010a2206d17ebe7d14d268eaf598a6d9ed923f",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/preflight.py",
+      "git_blob_sha": "6817eb8201908689ba719eb19ba74095ff6ee202",
+      "tree_blob_sha": "6817eb8201908689ba719eb19ba74095ff6ee202",
+      "bytes": 4162,
+      "sha256": "d27be8d0199931d206a29d476bfbf2a648e7d952e246fb24174bb187f4a56601",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/resources/editor_state.py",
+      "git_blob_sha": "26d5b36c7083d072aa5a3926e51d19fb323c24f6",
+      "tree_blob_sha": "26d5b36c7083d072aa5a3926e51d19fb323c24f6",
+      "bytes": 11156,
+      "sha256": "0c2451ff7fbfd8e8e0a88ca4190c656c3b98f65fb450fc94d1e33be83e128992",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/run_tests.py",
+      "git_blob_sha": "4994b2491397f3bad42480ac9968758b0fc09196",
+      "tree_blob_sha": "4994b2491397f3bad42480ac9968758b0fc09196",
+      "bytes": 19987,
+      "sha256": "084502e1a4eb681a01c6071199b77383047db315a87e9d651af6e14d6c2f4400",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/refresh_unity.py",
+      "git_blob_sha": "2c92831b9e1ac75d1b2956cb99f9fb72334f15e1",
+      "tree_blob_sha": "2c92831b9e1ac75d1b2956cb99f9fb72334f15e1",
+      "bytes": 11198,
+      "sha256": "0f5c3e684212f9cc03286a92165c4f9aa4b13dbfde04fa80fc0cb1a3bee8b312",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/read_console.py",
+      "git_blob_sha": "6a642dcec9b83ef6a5915de5b76585bfbc977d4d",
+      "tree_blob_sha": "6a642dcec9b83ef6a5915de5b76585bfbc977d4d",
+      "bytes": 6939,
+      "sha256": "a5d45eb40fe39976f8e9b2593ee719256389b0630922bfdefd1b641ee6b9f0fb",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/set_active_instance.py",
+      "git_blob_sha": "b11530d4846fe43b03b2f0f9f4cc67542e0d8335",
+      "tree_blob_sha": "b11530d4846fe43b03b2f0f9f4cc67542e0d8335",
+      "bytes": 6014,
+      "sha256": "409978af5da9ce787bfa3a2e2ec52acb7984b42dc33521dc1a4f50ae35a51b53",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/utils/connection.py",
+      "git_blob_sha": "b2a0a42defd730091523b0ec35ff2cac4328d334",
+      "tree_blob_sha": "b2a0a42defd730091523b0ec35ff2cac4328d334",
+      "bytes": 8123,
+      "sha256": "7f1da8dc9f4023a1dd482eab4432a1e8a3bcb0f9815a4cd1f84958d5d0e485eb",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/commands/batch.py",
+      "git_blob_sha": "f4be5ced578efa667267e99de7a84299e4f44014",
+      "tree_blob_sha": "f4be5ced578efa667267e99de7a84299e4f44014",
+      "bytes": 5388,
+      "sha256": "74b7102eadd220c408465d88c92ec26971780972d709f400d673d09ed5de4965",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/unity_reflect.py",
+      "git_blob_sha": "ce28da409b01ad907d0450dc885867e29f22630d",
+      "tree_blob_sha": "ce28da409b01ad907d0450dc885867e29f22630d",
+      "bytes": 3587,
+      "sha256": "3ca37b28635dc771187875dc3fbbb6c394bf083453c4a807a9c8b570bb09d58e",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/manage_build.py",
+      "git_blob_sha": "426d4263dc955671b265a94775898fa7170ead00",
+      "tree_blob_sha": "426d4263dc955671b265a94775898fa7170ead00",
+      "bytes": 4799,
+      "sha256": "7e6c1768847ecad85d5e0322d67428d06b27707d809c42e20808272920bf6a99",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/manage_profiler.py",
+      "git_blob_sha": "321f903098ff25a10e0e224843114d36b6f2b091",
+      "tree_blob_sha": "321f903098ff25a10e0e224843114d36b6f2b091",
+      "bytes": 4871,
+      "sha256": "726310f272e49de2f53b1b548dcdec91400951ba00a33dc6883bd8cca1b05380",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Tools/BatchExecute.cs",
+      "git_blob_sha": "aca4a1994a4dd2857e132b9f068146bc4d8960ff",
+      "tree_blob_sha": "aca4a1994a4dd2857e132b9f068146bc4d8960ff",
+      "bytes": 8448,
+      "sha256": "98e0e2c04a8be9dd7506e9ff6f8f791ad860964d9d48081ae47abea6a062ed74",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Services/TestJobManager.cs",
+      "git_blob_sha": "b20b2f7cf05f8dd254200a94d49521a6630f85a6",
+      "tree_blob_sha": "b20b2f7cf05f8dd254200a94d49521a6630f85a6",
+      "bytes": 29819,
+      "sha256": "2935f5ffac796a4f4cda810de1802ac1b37cc69cfbc3ac3dbb889f2795fcd062",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Services/TestRunnerNoThrottle.cs",
+      "git_blob_sha": "b1a1dbfefad9a11ab7efc4f7050ca496e3908ba7",
+      "tree_blob_sha": "b1a1dbfefad9a11ab7efc4f7050ca496e3908ba7",
+      "bytes": 6370,
+      "sha256": "2e24d0ddc7a1d60b646b33e4e8d95e7e28880351520ff02b0136d77dcc18ba51",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Helpers/McpJobStateStore.cs",
+      "git_blob_sha": "5db093b359515f6df593761e9f15ed22b05918ca",
+      "tree_blob_sha": "5db093b359515f6df593761e9f15ed22b05918ca",
+      "bytes": 1867,
+      "sha256": "d6a606ffb7afeb0564af22c73d049b80aa8261f821b29505d8a988b058f8f321",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Services/EditorStateCache.cs",
+      "git_blob_sha": "1efb8b9a6fbadfc33c79ee3513176a26c328fcf8",
+      "tree_blob_sha": "1efb8b9a6fbadfc33c79ee3513176a26c328fcf8",
+      "bytes": 24612,
+      "sha256": "b0ff9eee0e4888ef04541cb6abbf49845315ac50eda34993918a2676d55c47a3",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/__init__.py",
+      "git_blob_sha": "b587663d29ebc95d4162dba5c2d322f864647c62",
+      "tree_blob_sha": "b587663d29ebc95d4162dba5c2d322f864647c62",
+      "bytes": 11627,
+      "sha256": "a42ea49cbf9303f5dd6973f3f30d342dfcc240cc87e39294dd378b7d406882a2",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/state/external_changes_scanner.py",
+      "git_blob_sha": "303998e64364dc9408ec24efcec1a4061f27be7f",
+      "tree_blob_sha": "303998e64364dc9408ec24efcec1a4061f27be7f",
+      "bytes": 9052,
+      "sha256": "6625eef1970ae41fa1bfb09a24b9a71086bd271ce0381a5d9abb110d8d9e2b92",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/resources/gameobject.py",
+      "git_blob_sha": "d4e1a253796b5f46afeeb124c6577c6a85a25a6d",
+      "tree_blob_sha": "d4e1a253796b5f46afeeb124c6577c6a85a25a6d",
+      "bytes": 9374,
+      "sha256": "58796215858c7aec555ca40150fa93fbc699a9888ade68387f2859da74b22958",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/find_gameobjects.py",
+      "git_blob_sha": "606a45a12d124c4386a3812c297ce77f03fe6c25",
+      "tree_blob_sha": "606a45a12d124c4386a3812c297ce77f03fe6c25",
+      "bytes": 4493,
+      "sha256": "350c71a67302f4bce6645d19e68199666ff1f59799a727f33bf5b7befe3eb1ec",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/unity_docs.py",
+      "git_blob_sha": "5349daaf19955953ff3eb40665fb782344844e32",
+      "tree_blob_sha": "5349daaf19955953ff3eb40665fb782344844e32",
+      "bytes": 31315,
+      "sha256": "b6d17f0683bb179c9b81f01995f21c12bb20f3f5c798066909128a8b504d5ccd",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/manage_script.py",
+      "git_blob_sha": "2bd62f8ea925931b78cb9c4a0d0b89d3e378d081",
+      "tree_blob_sha": "2bd62f8ea925931b78cb9c4a0d0b89d3e378d081",
+      "bytes": 31370,
+      "sha256": "7405bb8204fd74cfd5906abddb9d01783a443be475437f313719dd966e497fe1",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/core/telemetry.py",
+      "git_blob_sha": "7ef64547125ac85bdb762169f2c4bd2993ac7197",
+      "tree_blob_sha": "7ef64547125ac85bdb762169f2c4bd2993ac7197",
+      "bytes": 20426,
+      "sha256": "cc88e640a50d5b44bcdb64929645f28e3088b97d19a524da64fe29014d2b0a3c",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/core/config.py",
+      "git_blob_sha": "b06d26f98d693ce6e13045e39f0ccf555028e057",
+      "tree_blob_sha": "b06d26f98d693ce6e13045e39f0ccf555028e057",
+      "bytes": 3505,
+      "sha256": "289bc5e442695c02d2680491f880b5fdb04bb651af27b7304bf7246dee0419fa",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/tools/generate_image.py",
+      "git_blob_sha": "81be15169796359f6fa08f74f9c137c6cb0787db",
+      "tree_blob_sha": "81be15169796359f6fa08f74f9c137c6cb0787db",
+      "bytes": 4584,
+      "sha256": "ca8025e3aa01e75654c76c7355415521aee658d553d0e3da5a4ef856b37fe862",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/integration/test_domain_reload_resilience.py",
+      "git_blob_sha": "803eec7b0f793a57fe2aeb5dd2a7d90755eed95e",
+      "tree_blob_sha": "803eec7b0f793a57fe2aeb5dd2a7d90755eed95e",
+      "bytes": 9944,
+      "sha256": "2ecc28a41415b7eaca4ba041c469d1a254e5ed9e9d6a83373f1709d879514c59",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/integration/test_run_tests_async.py",
+      "git_blob_sha": "79bd24af705f6f0536cc403d2f63f435582ebdc5",
+      "tree_blob_sha": "79bd24af705f6f0536cc403d2f63f435582ebdc5",
+      "bytes": 7467,
+      "sha256": "b346963c3fe3ed857127ec614a3697fe139d2dd34743d50ce41e7888106892ce",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/integration/test_wait_for_editor_ready.py",
+      "git_blob_sha": "8661f97e32b6548cb0b073ac61702c74107b8fdf",
+      "tree_blob_sha": "8661f97e32b6548cb0b073ac61702c74107b8fdf",
+      "bytes": 8306,
+      "sha256": "82248f85b6dc1f0460ccecf935a777cb4ecb0e5b3df9604a0ab65dc598102f1c",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/integration/test_instance_routing_comprehensive.py",
+      "git_blob_sha": "ecfceb7ecf04709bc1582daa3a2b2aed2f0bef97",
+      "tree_blob_sha": "ecfceb7ecf04709bc1582daa3a2b2aed2f0bef97",
+      "bytes": 17899,
+      "sha256": "1eb03c60c28539ab4259ebee0e6c904074372f8ed9507fcce9ad94cdf0af4d45",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/test_tool_annotations.py",
+      "git_blob_sha": "933259ce48987dcc1a0716ff5c22aacf4f400a0a",
+      "tree_blob_sha": "933259ce48987dcc1a0716ff5c22aacf4f400a0a",
+      "bytes": 6553,
+      "sha256": "ae6010545fa18bd8d5d4126645c8d0398c730dc92952496eaac0d5f5275a1ecb",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/main.py",
+      "git_blob_sha": "7c106ff5d84c31a533fab1f8275b4cb9b0bf63c2",
+      "tree_blob_sha": "7c106ff5d84c31a533fab1f8275b4cb9b0bf63c2",
+      "bytes": 9135,
+      "sha256": "269462cc3a9a0ed68874d460b9fd84cd879b339254be80a7f9bf95a5233b38fb",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/commands/editor.py",
+      "git_blob_sha": "5b0dce7955ee865182b6ce34c8888b7e72513470",
+      "tree_blob_sha": "5b0dce7955ee865182b6ce34c8888b7e72513470",
+      "bytes": 14937,
+      "sha256": "2f5cf8241e7d55b9cb34dadc842e18ff805af25833f26ab4b755cb0290749fd4",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/commands/instance.py",
+      "git_blob_sha": "bd39ede6e8e91a06a423ae3884fe25940d8abaeb",
+      "tree_blob_sha": "bd39ede6e8e91a06a423ae3884fe25940d8abaeb",
+      "bytes": 2780,
+      "sha256": "e6a609b69b4e1460b37e15c43083e8118709b6990a95f33be9dab7ea2fd92b9b",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/cli/utils/output.py",
+      "git_blob_sha": "b7dc2d69ed1b4c861b4998a9b4b9d774400f7915",
+      "tree_blob_sha": "b7dc2d69ed1b4c861b4998a9b4b9d774400f7915",
+      "bytes": 6370,
+      "sha256": "f7a75a539e6d6bf865ed478e84d879232ece278a6c6dd47d35fc75faada4df10",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "unity-mcp-skill/references/workflows.md",
+      "git_blob_sha": "08d56c16d27a1ee7acb17164fa784a73893566db",
+      "tree_blob_sha": "08d56c16d27a1ee7acb17164fa784a73893566db",
+      "bytes": 74646,
+      "sha256": "b19818a5bbca2412fb7e78b5089b9f64c4a8bd4cee46d91058d8fb17020577a2",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "unity-mcp-skill/references/resources-reference.md",
+      "git_blob_sha": "a2aa74e3e68a765e869a352854c54dc9ea4b32af",
+      "tree_blob_sha": "a2aa74e3e68a765e869a352854c54dc9ea4b32af",
+      "bytes": 13708,
+      "sha256": "5f39dbe1bf53bde80f5c1729a0f5ad2c956eca640084241d92aed61f0d28ddce",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/main.py",
+      "git_blob_sha": "b057f3d96c0632692fae01dd21b0be71534c087e",
+      "tree_blob_sha": "b057f3d96c0632692fae01dd21b0be71534c087e",
+      "bytes": 42204,
+      "sha256": "c75148c2dae3207c1bbdb3786eaac13eb1c0310ef7dd0712f7d325d22d53d978",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/transport/legacy/unity_connection.py",
+      "git_blob_sha": "986781bed0dc031d1151a697b34cc07842256d37",
+      "tree_blob_sha": "986781bed0dc031d1151a697b34cc07842256d37",
+      "bytes": 44613,
+      "sha256": "8bdc1a3f028e871865c1f61b380f442b6114a50bb105a884b0e63851d5bc5f4b",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/src/services/registry/tool_registry.py",
+      "git_blob_sha": "3b79a94789a434296146d5611403e368fec4d174",
+      "tree_blob_sha": "3b79a94789a434296146d5611403e368fec4d174",
+      "bytes": 5098,
+      "sha256": "d8ab45814128f78bac138132c7754a9d62b777b2b399c9050ca1bef5798b7231",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Tools/UnityReflect.cs",
+      "git_blob_sha": "236b743425aff3ff6f0300b9b68750bafe0b47df",
+      "tree_blob_sha": "236b743425aff3ff6f0300b9b68750bafe0b47df",
+      "bytes": 31765,
+      "sha256": "b42f5b8de353eec2e6ce26bbfa72a4e235ecedcf7fabffbda548244f10f838ef",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Tools/ManageBuild.cs",
+      "git_blob_sha": "8b5c89ac305c5cbd0bd39af693f197e8f4dac078",
+      "tree_blob_sha": "8b5c89ac305c5cbd0bd39af693f197e8f4dac078",
+      "bytes": 27342,
+      "sha256": "a752fedcf916d377d6b0d33067b8c6c2204ff0fba98d8fa745e30f5f02ead154",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "MCPForUnity/Editor/Tools/Profiler/ManageProfiler.cs",
+      "git_blob_sha": "606b53abd68ec5bb5a94fd59d70510f691393023",
+      "tree_blob_sha": "606b53abd68ec5bb5a94fd59d70510f691393023",
+      "bytes": 3608,
+      "sha256": "d86d20956884a145103121f158c00e6bd09ac196a66747508a6592afef7a05e8",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/test_test_job_focus_policy.py",
+      "git_blob_sha": "50efe9d80872adff4dd461c504633f6842517eaa",
+      "tree_blob_sha": "50efe9d80872adff4dd461c504633f6842517eaa",
+      "bytes": 16487,
+      "sha256": "2ea4dba788beda7c8f027d6a30482e0fe89df210eb6889010045174b12f629c0",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/test_manage_build.py",
+      "git_blob_sha": "4e4d515545b7a4c80c62facca772a42e27b98566",
+      "tree_blob_sha": "4e4d515545b7a4c80c62facca772a42e27b98566",
+      "bytes": 9086,
+      "sha256": "241233a3771409b8ac09dca4473371eef46045012615aabe6e1e029b4fff3d9f",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "Server/tests/test_manage_profiler.py",
+      "git_blob_sha": "fcb652d62926a7a31fd6daa84ba9d372bb1cb861",
+      "tree_blob_sha": "fcb652d62926a7a31fd6daa84ba9d372bb1cb861",
+      "bytes": 9875,
+      "sha256": "68a7a84546b0617be15cd59aad464a5893092be87abd38de808492e99dc00e7b",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "TestProjects/UnityMCPTests/Assets/Tests/EditMode/Services/TestJobManagerLifecycleTests.cs",
+      "git_blob_sha": "8fbee8a02dce741ecbbb5a7d5386a428cb3431a9",
+      "tree_blob_sha": "8fbee8a02dce741ecbbb5a7d5386a428cb3431a9",
+      "bytes": 22018,
+      "sha256": "063faf2dfbf445c6953d121a9d707869a6701000332d2779b2e3f73dafb0f5c1",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    }
+  ],
+  "bh_files": [
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39",
+      "bytes": 7284,
+      "sha256": "c49a0c84a2a261b8f129b8fc272cd471092e4d25e6c05010c1382a421807e94e",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_jobs.py",
+      "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+      "bytes": 15627,
+      "sha256": "a43a98b01308d59d551825375a5bf3a4b5260e6c6e7c343d525ba5b1b1773f38",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "BH-Unity-Harness/project-template/Docs/Harness/UNITY_PROCEDURES.md",
+      "git_blob_sha": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+      "bytes": 6223,
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "BH-Unity-Harness/contracts/CODEX_CONSUMER.md",
+      "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "bytes": 5557,
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "BH-Unity-Harness/review/BUILD_CHECKPOINT.md",
+      "git_blob_sha": "d5eaee6a891bf510beec6cbafc44058d8edcf6da",
+      "bytes": 37497,
+      "sha256": "a900c78e337c10923265a3a6528d3b0e08fefcfdeec29d52384ed239ef4ee9aa",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    },
+    {
+      "path": "BH-Unity-Harness/review/UNITY_INCORPORATION_STATUS.md",
+      "git_blob_sha": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+      "bytes": 6500,
+      "sha256": "27a81d3099c563eca90fe075f2e15af0a2591b7300f5fe6d5699e8c4fa276152",
+      "retrieval": "full content",
+      "review_scope": "selected sections and metadata; not full-file assurance"
+    }
+  ],
+  "execution": {
+    "vendor_tests": "NOT_RUN",
+    "bh_regression": "NOT_RUN; no implementation changes",
+    "unity_editor": "NOT_RUN",
+    "integration": "NOT_IMPLEMENTED",
+    "cost_measurements": "NOT_RUN",
+    "human_adoption": "PENDING"
+  },
+  "identity_verification": {
+    "algorithm": "SHA-1(blob header + UTF-8 bytes), SHA-256(content)",
+    "vendor_matched": 53,
+    "bh_matched": 6,
+    "mismatches": [],
+    "result": "PASS"
+  },
+  "report_sha256": "cc8b758d9ab66924c8572f890576db36775d576aa830f0989de166c915488eed"
+}
