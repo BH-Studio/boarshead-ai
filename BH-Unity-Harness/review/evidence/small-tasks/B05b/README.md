@@ -1,0 +1,13 @@
+# B05b actual support/tool reconciliation
+
+Input: BH-Studio/boarshead-ai, branch harness/bh-standard-v1-20261004, head 25edd444030cc8617bbffc5437f2e540d57b770e.
+
+Exactly eight requested current files were retrieved and reconciled: support, fixture driver, installer, runtime, release filename scanner, package checker, assembler and test runner. All eight matched pinned Git blob SHA/byte length and B05a batch metadata; SHA-256 is recorded in SOURCES.json. FETCH_METADATA.json projects actual retrieval metadata. RAW.log is captured reconciliation stdout/stderr; COMMANDS.json records its actual command and shell exit 0. AST parsing succeeded for eight sources without importing or invoking them; SOURCE_FACTS.json records imports and file/tool call expressions with source lines.
+
+DEPENDENCIES.json records the statically resolved support/tool read rules, shared copies, required-artifact existence checks, and remaining manifest-driven closure. The package checker includes every package Python file in its syntax scan, including evidence helpers. At this pinned input head the tracked roster is 57 Python files, listed with metadata identities only; it is not a byte-reconciled or executed whole-package scan. Future evidence commits can add Python files, so re-enumerate that roster at actual test/final heads. The run_tests source hash excludes evidence, and the copied-package negative excludes evidence; those rules must not be confused with the checker's syntax scan.
+
+The eight-file B05c manifest/schema/policy batch adds design-gpt/INSTRUCTION_METRICS.json to B05a's provisional seven-file list. Manifest contents and downstream selected knowledge/reference/active-resource bytes remain pending. The assembler test cases use temporary synthetic packages and Git repositories, so they do not require actual candidate assembly or historical archive restoration. Existing report files are checked for presence only by the package checker and never establish current test proof.
+
+No test module, package checker, assembler, run_tests program, installer, release scanner or fixture driver ran. No B05c/d content was fetched. Complete candidate byte closure, full regression, native Unity/Windows/Codex/design-host/player verification, billed-credit measurement and human adoption remain open. No implementation/game defaults changed. PR #1 must remain draft and unmerged.
+
+The executed b05b_reconcile.py expects the original b05b-input.json GitHub export and B05a batch metadata; it writes b05b-work/. To reproduce, retrieve those exact eight files and pinned Git-tree metadata, construct that export and run the recorded command. It hashes and AST-parses source data without import or execution.

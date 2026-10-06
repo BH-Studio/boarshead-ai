@@ -1,0 +1,60 @@
+{
+  "task": "B05b",
+  "input_head": "25edd444030cc8617bbffc5437f2e540d57b770e",
+  "retrieval_tool": "GitHub fetch_file",
+  "request_ref": "25edd444030cc8617bbffc5437f2e540d57b770e",
+  "projection": "Captured structured retrieval metadata; fetched contents independently hash-reconciled and omitted from this receipt.",
+  "files": [
+    {
+      "path": "tests/support.py",
+      "sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/tests/support.py"
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/tests/fixture_driver.py"
+    },
+    {
+      "path": "installer/install.py",
+      "sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/installer/install.py"
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/project-template/Tools/BH/bh.py"
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/project-template/Tools/BH/check_release_profile.py"
+    },
+    {
+      "path": "tools/check_package.py",
+      "sha": "e1c02d0963937a215ef896f539002066e1b3a2af",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/tools/check_package.py"
+    },
+    {
+      "path": "tools/assemble_candidate.py",
+      "sha": "830c2792f0288c39df2a6591c0b21080090eeb3e",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/tools/assemble_candidate.py"
+    },
+    {
+      "path": "tools/run_tests.py",
+      "sha": "191d538607c24967e5bb0cc5472f6d9c4aa3fab5",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/25edd444030cc8617bbffc5437f2e540d57b770e/BH-Unity-Harness/tools/run_tests.py"
+    }
+  ],
+  "root_tree": "77d8caf39319e277154c29acda26b5a4af4e14db",
+  "harness_tree": "345cad474f0399234013978c288f6181287ed276",
+  "git_tree_truncated": false
+}

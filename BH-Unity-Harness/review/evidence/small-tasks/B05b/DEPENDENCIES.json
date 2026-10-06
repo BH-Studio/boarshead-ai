@@ -1,0 +1,641 @@
+{
+  "task": "B05b",
+  "input_head": "25edd444030cc8617bbffc5437f2e540d57b770e",
+  "method": "Static source reading plus AST parse of eight reconciled files; functions/modules not invoked.",
+  "completed_byte_sources": [
+    "tests/support.py",
+    "tests/fixture_driver.py",
+    "installer/install.py",
+    "project-template/Tools/BH/bh.py",
+    "project-template/Tools/BH/check_release_profile.py",
+    "tools/check_package.py",
+    "tools/assemble_candidate.py",
+    "tools/run_tests.py"
+  ],
+  "findings": [
+    {
+      "source": "tests/support.py",
+      "closure": "Imports project-template/Tools/BH/bh.py and installer/install.py; Fixture copies every template file and reads tests/fixture_driver.py. Runtime schema/config/local/bindings/registry and core instruction/tool/skill bytes therefore come from the full installed template; fixture-generated approvals/config/data are explicitly synthetic."
+    },
+    {
+      "source": "tests/fixture_driver.py",
+      "closure": "Standard-library process reads synthetic Source/value.json and writes synthetic NUnit/JSON results. No external package or Unity host required for these offline cases; process was not run in B05b."
+    },
+    {
+      "source": "installer/install.py",
+      "closure": "Imports bh.py. distribution reads PACKAGE_FILES.json and every declared template file, verifies version/path/hash/ownership. The three B05 modules do not request a real installation."
+    },
+    {
+      "source": "project-template/Tools/BH/bh.py",
+      "closure": "Standard-library runtime; Harness reads .bh/schema.json, project.json, local.json and bindings.json in the fixture. preflight reads skill-registry.json and skill definitions. harness_hash recursively hashes Tools/BH and .agents/skills plus AGENTS/schema; snapshot checks synthetic Git inputs. Configured optional observation adapter paths are conditional; core offline fixtures do not imply live provider activation."
+    },
+    {
+      "source": "project-template/Tools/BH/check_release_profile.py",
+      "closure": "Imports bh. Tests pass temporary synthetic build directories/policy dictionaries; real build directory and policy-file arguments are CLI-only and not B05 inputs. Filename scan does not prove assembly/content neutrality."
+    },
+    {
+      "source": "tools/check_package.py",
+      "closure": "Reads contracts schema/interface and their two shipped copies, official instructions/metrics, package manifest and exact template roster, knowledge manifest plus all selected files, preserved manifest plus all listed files, skill metadata/openai.yaml; AST-parses all package .py files, including evidence scripts; tests twelve paths for existence. Does not import those parsed .py files."
+    },
+    {
+      "source": "tools/assemble_candidate.py",
+      "closure": "Tests explicitly supply small temporary synthetic packages and Git blob repositories. Reads their temporary PRESERVED_REFERENCES.json and copies their temporary package files; does not assemble the real candidate in those cases. Real candidate assembly remains a separate later check."
+    },
+    {
+      "source": "tools/run_tests.py",
+      "closure": "The imported source_hashes function hashes a supplied temporary root in the B05 game-agnostic test. It excludes __pycache__, evidence and .git path components. __main__ discovers/runs all modules only if invoked as a program; do not invoke it for these bounded B05 tasks."
+    }
+  ],
+  "shared_copy_groups": [
+    {
+      "canonical": "contracts/schema.json",
+      "copies": [
+        "project-template/.bh/schema.json",
+        "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json"
+      ]
+    },
+    {
+      "canonical": "contracts/INTERFACE.md",
+      "copies": [
+        "project-template/Docs/Harness/INTERFACE.md",
+        "design-gpt/Knowledge/BH_INTERFACE.md"
+      ]
+    }
+  ],
+  "manifest_roster_rules": [
+    {
+      "manifest": "PACKAGE_FILES.json",
+      "rule": "files[].path resolves below project-template; exact actual recursive file roster (exclude __pycache__) and SHA-256/ownership/version checks."
+    },
+    {
+      "manifest": "design-gpt/KNOWLEDGE_MANIFEST.json",
+      "rule": "knowledge_files[].path resolves below design-gpt; count/basename constraints and SHA-256 or Git blob check; contents await B05c."
+    },
+    {
+      "manifest": "PRESERVED_REFERENCES.json",
+      "rule": "files[].path resolves below package; hash every present exact Git blob and record missing entries. Real source blobs are reference inputs only; contents await B05c."
+    },
+    {
+      "manifest": "design-gpt/INSTRUCTION_METRICS.json",
+      "rule": "Compare character count, headroom, official instruction SHA-256 and UTF-8 bytes; added to B05c."
+    }
+  ],
+  "python_scan": {
+    "source": "tools/check_package.py",
+    "rule": "P.rglob('*.py'); skip __pycache__ only. Include review/evidence .py; parse syntax without import. Re-enumerate at the actual test head, since later evidence commits can add helpers.",
+    "current_tracked_file_count": 57,
+    "current_tracked_files": [
+      {
+        "path": "examples/round-trip/behavior-contradicts-design/Tests/fixture_driver.py",
+        "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+        "bytes": 2004,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "examples/round-trip/behavior-contradicts-design/Tools/BH/bh.py",
+        "git_blob_sha": "6339680c38eb5b887f450c04d02caf27da5fa78a",
+        "bytes": 72378,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "examples/round-trip/behavior-contradicts-design/Tools/BH/check_release_profile.py",
+        "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+        "bytes": 2723,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "examples/round-trip/positive-human-pending/Tests/fixture_driver.py",
+        "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+        "bytes": 2004,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "examples/round-trip/positive-human-pending/Tools/BH/bh.py",
+        "git_blob_sha": "6339680c38eb5b887f450c04d02caf27da5fa78a",
+        "bytes": 72378,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "examples/round-trip/positive-human-pending/Tools/BH/check_release_profile.py",
+        "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+        "bytes": 2723,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "installer/install.py",
+        "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+        "bytes": 12192,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "optional/unity-observation/unity_evidence.py",
+        "git_blob_sha": "548992178c51f51ffab74e82462aa281ce56d34a",
+        "bytes": 18961,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "optional/unity-observation/unity_jobs.py",
+        "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+        "bytes": 15627,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "project-template/Tools/BH/bh.py",
+        "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+        "bytes": 79390,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "project-template/Tools/BH/check_release_profile.py",
+        "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+        "bytes": 2723,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "project-template/Tools/BH/views.py",
+        "git_blob_sha": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+        "bytes": 7123,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B01/validate.py",
+        "git_blob_sha": "9b59663cd4922fdfeee40afb9a748531051ad4c6",
+        "bytes": 4789,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02a/discover.py",
+        "git_blob_sha": "8a62ab02c10736a00684391946cd155360246166",
+        "bytes": 1260,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02a/run_partition.py",
+        "git_blob_sha": "bdf406762f4c1106660252947c483ff56e8d58c1",
+        "bytes": 3359,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02b/discover.py",
+        "git_blob_sha": "8a62ab02c10736a00684391946cd155360246166",
+        "bytes": 1260,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02b/run_partition.py",
+        "git_blob_sha": "3c635478e6611680f22c5cafd30e45cf7f9fc544",
+        "bytes": 3359,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02c/discover.py",
+        "git_blob_sha": "8a62ab02c10736a00684391946cd155360246166",
+        "bytes": 1260,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02c/run_partition.py",
+        "git_blob_sha": "9e7d8df7a664626269df0d15a14df8e21d0b1aab",
+        "bytes": 3359,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02d/discover.py",
+        "git_blob_sha": "8a62ab02c10736a00684391946cd155360246166",
+        "bytes": 1260,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02d/run_partition.py",
+        "git_blob_sha": "d5672ca8738315caab274f59072f86a49e54627d",
+        "bytes": 3357,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02e/discover.py",
+        "git_blob_sha": "8a62ab02c10736a00684391946cd155360246166",
+        "bytes": 1260,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B02e/run_partition.py",
+        "git_blob_sha": "af7d770cea9f6412d489a43ffe898250062344b2",
+        "bytes": 3348,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B03/discover.py",
+        "git_blob_sha": "345b40fc5c4aacf9fa4e00a740d103d290b6ed3c",
+        "bytes": 1298,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B03/prepare_b03.py",
+        "git_blob_sha": "56ac472b9dd35c8492954ab60b57f6369a4aadd8",
+        "bytes": 1841,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B03/run_partition.py",
+        "git_blob_sha": "86805b1200ee6087637abb0e51ec8ed5b861eaab",
+        "bytes": 3346,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04a/discover.py",
+        "git_blob_sha": "14f6e6d15b10e67c8f3dff0e42f53cd96e67dfa4",
+        "bytes": 1328,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04a/prepare_b04a.py",
+        "git_blob_sha": "3c306aaf93476de75edde865dc42b5d0870b6430",
+        "bytes": 3543,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04a/run_partition.py",
+        "git_blob_sha": "d63ee8886962b4fc454451091034cd19a96ea5eb",
+        "bytes": 3380,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04b/discover.py",
+        "git_blob_sha": "9545d64e30a8e2aae2f40ce902283b7fd07326ea",
+        "bytes": 1304,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04b/prepare_b04b.py",
+        "git_blob_sha": "9cea5518524c84c9ed3bee2f35229f5e40ce43af",
+        "bytes": 3583,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04b/run_partition.py",
+        "git_blob_sha": "5b369cc2e49d098657c26f69a8bd26ec2344c056",
+        "bytes": 3397,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04c/discover.py",
+        "git_blob_sha": "b63c74886bcdd38637c44edbfafc9d0b256832de",
+        "bytes": 1541,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04c/prepare_b04c.py",
+        "git_blob_sha": "c1515d89cfdd7628f2efe73c83429b45a9de824f",
+        "bytes": 4093,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B04c/run_partition.py",
+        "git_blob_sha": "e95c1c5bb8c463c32083b243c633cb0cf9e1a70a",
+        "bytes": 3414,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/evidence/small-tasks/B05a/b05a_reconcile.py",
+        "git_blob_sha": "954be3d1d9398ae2ef075c0dddde6299a7e42c26",
+        "bytes": 4353,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/tools/measure_codex_overhead.py",
+        "git_blob_sha": "9d9026ee719e99ed044fe16d9727d9e766d56897",
+        "bytes": 9468,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "review/tools/measure_efficiency_revision.py",
+        "git_blob_sha": "d2849633489c1fb95ba183a6b5809341eae6ce30",
+        "bytes": 3105,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/fixture_driver.py",
+        "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+        "bytes": 2004,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/support.py",
+        "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+        "bytes": 9166,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_efficiency_runtime.py",
+        "git_blob_sha": "211a847da9799820fd39bc8c142e3ac9129da362",
+        "bytes": 10125,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_efficiency_views.py",
+        "git_blob_sha": "3a378b784e02bab0d17452f6f97bcb80a40b1f48",
+        "bytes": 4965,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_game_agnostic.py",
+        "git_blob_sha": "4c69a3a553f0f5fedf77d7e537a3dc278b67cc22",
+        "bytes": 9030,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_installer.py",
+        "git_blob_sha": "5b8a23b96c8467ca49fe3acd9da2f0378985d26e",
+        "bytes": 4877,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_package.py",
+        "git_blob_sha": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+        "bytes": 7703,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_review_amendments.py",
+        "git_blob_sha": "91dcfdd4ca172fa47657491030906a86f49a55f1",
+        "bytes": 2433,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_runtime.py",
+        "git_blob_sha": "f367d87ec3a407df286e21154883df7eb8d88c19",
+        "bytes": 16906,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_unity_authoring.py",
+        "git_blob_sha": "1ff544f1c3dc7c70e1595e483a56c5efee8886f0",
+        "bytes": 4779,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/test_unity_observation.py",
+        "git_blob_sha": "f93ed56464e458821f3e960f235fc28fae456cea",
+        "bytes": 18652,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tests/unity_provider_fixture.py",
+        "git_blob_sha": "30ede0cc41467c651615484cb104bbfa15f662c2",
+        "bytes": 5139,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/assemble_candidate.py",
+        "git_blob_sha": "830c2792f0288c39df2a6591c0b21080090eeb3e",
+        "bytes": 3722,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/build_consumer_guide.py",
+        "git_blob_sha": "cd4ecbde7ebb5aaf9320ef5da59b9ca7a44d68fc",
+        "bytes": 347,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/build_contract.py",
+        "git_blob_sha": "8d9507be743aaf727febdeeb49d3ec592c79bb0f",
+        "bytes": 9850,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/check_package.py",
+        "git_blob_sha": "e1c02d0963937a215ef896f539002066e1b3a2af",
+        "bytes": 5181,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/check_unity_authoring.py",
+        "git_blob_sha": "c4f5a6f322cf20accff5b2c347770c14658e763a",
+        "bytes": 7669,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/export_examples.py",
+        "git_blob_sha": "fd8eba1397357b365c77d43fd4a462750fc75447",
+        "bytes": 4062,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      },
+      {
+        "path": "tools/run_tests.py",
+        "git_blob_sha": "191d538607c24967e5bb0cc5472f6d9c4aa3fab5",
+        "bytes": 2413,
+        "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED_UNLESS_IN_B05a_OR_B05b"
+      }
+    ],
+    "bytes_verified_as_complete_roster": false,
+    "execution": "NOT_RUN"
+  },
+  "active_scan": {
+    "source": "tests/test_game_agnostic.py",
+    "prefixes": [
+      "project-template",
+      "contracts",
+      "optional",
+      "installer",
+      "examples/profiles"
+    ],
+    "rule": "Recursively scan all files excluding __pycache__, plus knowledge manifest selections and three direct design policy files. Current B05a metadata roster must be revalidated at actual execution head.",
+    "execution": "NOT_RUN"
+  },
+  "package_presence_checks": {
+    "source": "tools/check_package.py",
+    "rule": "is_file only; these checks do not read artifact contents or validate old report claims.",
+    "tree_metadata": [
+      {
+        "path": "QUICKSTART.md",
+        "git_blob_sha": "0cd0e0e5d532adac2da94f068cb59c55515b012b",
+        "bytes": 3780,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "review/VERIFICATION_REPORT.md",
+        "git_blob_sha": "d64565ad654daf684247b9fba22d8b22ac3d6a2e",
+        "bytes": 4637,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "review/ASSURANCE.md",
+        "git_blob_sha": "6b9914b428aff8696408e815e61599e3955b65d9",
+        "bytes": 6580,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "review/REQUIREMENTS_AND_MIGRATION.md",
+        "git_blob_sha": "5f2f0da8043107d811b3c68beaf4f3936a3e4d6e",
+        "bytes": 10594,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "review/SOURCE_INVENTORY.json",
+        "git_blob_sha": "0491672a9d98f0109d8346c1025ffae264ebec38",
+        "bytes": 7381,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "review/EXTERNAL_SOURCES.md",
+        "git_blob_sha": "74a021e6eb72ea8dac333ff39815aa999e1f66e0",
+        "bytes": 5959,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "design-gpt/REVIEW_AND_SETUP.md",
+        "git_blob_sha": "822860df267028727ca2020101a9fe1c289a4c3a",
+        "bytes": 11053,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "design-gpt/evaluation/REGRESSION_CASES.md",
+        "git_blob_sha": "2785eb573534683ddc9fba7ef3555602ee19ff87",
+        "bytes": 6140,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "tools/export_examples.py",
+        "git_blob_sha": "fd8eba1397357b365c77d43fd4a462750fc75447",
+        "bytes": 4062,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "tests/test_installer.py",
+        "git_blob_sha": "5b8a23b96c8467ca49fe3acd9da2f0378985d26e",
+        "bytes": 4877,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "tests/test_package.py",
+        "git_blob_sha": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+        "bytes": 7703,
+        "content_reconciled_in_B05b": false
+      },
+      {
+        "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+        "git_blob_sha": "59151556ffeb61dc24e7e16b20e801023e875407",
+        "bytes": 15544,
+        "content_reconciled_in_B05b": false
+      }
+    ],
+    "presence_observed_in_pinned_tree": 12,
+    "checker_executed": false
+  },
+  "copy_negative": {
+    "source": "tests/test_game_agnostic.py.test_missing_nonpreserved_knowledge_cannot_pass_package_check",
+    "rule": "Copy PACKAGE excluding __pycache__ and evidence, remove generic K11, then call checker on the copy. All copied file identities/presence must be faithfully represented at execution; source retention documents remain reference data.",
+    "execution": "NOT_RUN"
+  },
+  "follow_up_batches": [
+    {
+      "id": "B05c",
+      "status": "NOT_STARTED",
+      "paths": [
+        "PACKAGE_FILES.json",
+        "PRESERVED_REFERENCES.json",
+        "contracts/schema.json",
+        "design-gpt/KNOWLEDGE_MANIFEST.json",
+        "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+        "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+        "design-gpt/evaluation/REGRESSION_CASES.md",
+        "design-gpt/INSTRUCTION_METRICS.json"
+      ],
+      "count": 8,
+      "tree_metadata": [
+        {
+          "path": "PACKAGE_FILES.json",
+          "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+          "bytes": 4520,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "PRESERVED_REFERENCES.json",
+          "git_blob_sha": "66891dc1c72fdc60b1a15d3162ac2bf5f5b10a11",
+          "bytes": 3482,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "contracts/schema.json",
+          "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+          "bytes": 56860,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/KNOWLEDGE_MANIFEST.json",
+          "git_blob_sha": "b41bb46ac7a9e2c97d215256a64611d19c660d69",
+          "bytes": 4254,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+          "git_blob_sha": "2e52b3762b1680d1f6479a9c1379fc0fcf6bc3d3",
+          "bytes": 7842,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+          "git_blob_sha": "34c7d68b86d81ac454d86825e3661b1d01fe28aa",
+          "bytes": 2307,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/evaluation/REGRESSION_CASES.md",
+          "git_blob_sha": "2785eb573534683ddc9fba7ef3555602ee19ff87",
+          "bytes": 6140,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/INSTRUCTION_METRICS.json",
+          "git_blob_sha": "a4f54c9d7c86ef37c4ae307caec0d4154ff0d6c4",
+          "bytes": 240,
+          "content_reconciled_in_B05b": false
+        }
+      ],
+      "purpose": "Eight manifests/schema/policy inputs; read manifest/metrics contents to resolve exact remaining reference/knowledge rosters. No tests or next file batch."
+    },
+    {
+      "id": "B05d",
+      "status": "NOT_STARTED",
+      "paths": [
+        "review/reference-only/K11_SOURCE_LESSONS.md",
+        "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+        "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md"
+      ],
+      "count": 3,
+      "tree_metadata": [
+        {
+          "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+          "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+          "bytes": 5965,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+          "git_blob_sha": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+          "bytes": 6138,
+          "content_reconciled_in_B05b": false
+        },
+        {
+          "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+          "git_blob_sha": "3c49836814386569b0f862c1843fe43f94305be8",
+          "bytes": 13744,
+          "content_reconciled_in_B05b": false
+        }
+      ],
+      "purpose": "Three direct lesson/reference bytes; refine after manifest inspection."
+    }
+  ],
+  "remaining_closure": "After B05c, name small explicit child batches for unreconciled selected knowledge/preserved files, active resources, shared copies and complete current package Python syntax roster. Reuse earlier local bytes only after current immutable-tree hashes match. Python scan includes evidence scripts even though the runner hash/copy-negative excludes evidence.",
+  "assurance_limits": {
+    "source_reconciliation": "8/8 only",
+    "tests_executed": 0,
+    "package_checker": "NOT_RUN",
+    "assembler": "NOT_RUN",
+    "run_tests": "NOT_RUN",
+    "manifest_contents": "NOT_READ_IN_B05b",
+    "complete_candidate_byte_closure": "PENDING",
+    "historical_reports_as_current_proof": false
+  }
+}
