@@ -1,0 +1,15 @@
+{
+  "task": "B02e",
+  "input_head": "b2fa3ad47cfd36a58b91227c594f512dfd50c5ab",
+  "reconciled_files": 30,
+  "all_sources_match_B02a_and_current_head": true,
+  "prior_source_ledger_blob": "e5da5b4a77e629a4b992441e76c4e400515f3f65",
+  "partition_roster_blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+  "partition_roster_sha256": "ef1386d4558ef4741d8ece3edd5171e906221df246f4778a2190cb24ef144711",
+  "discovery_helper_blob": "8a62ab02c10736a00684391946cd155360246166",
+  "parent_runner_blob": "d5672ca8738315caab274f59072f86a49e54627d",
+  "runner_change": "B02d -> B02e selection/task labels and scope records other modules NOT_RUN; runtime/test sources unchanged",
+  "current_runner_sha256": "0344cb6c8d81a7f393e1de608d68d55d12307feb804cf516815f7227d3d00f28",
+  "command": "python3 reconcile_b02e.py > b02e-reconciliation.log 2>&1",
+  "exit_status": 0
+}
