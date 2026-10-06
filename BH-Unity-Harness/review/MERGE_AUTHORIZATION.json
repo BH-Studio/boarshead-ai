@@ -1,0 +1,49 @@
+{
+  "date_utc": "2026-10-06",
+  "instruction": "Merge and squash all branches into main",
+  "repository": "BH-Studio/boarshead-ai",
+  "branches": [
+    {
+      "name": "harness/bh-standard-v1-20261004",
+      "sha": "6e3464ece27f1858d488248d8186238ccb766704"
+    },
+    {
+      "name": "main",
+      "sha": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8"
+    }
+  ],
+  "open_pull_requests": [
+    {
+      "number": 1,
+      "head": "harness/bh-standard-v1-20261004",
+      "base": "main"
+    }
+  ],
+  "head_before_authorization_record": "6e3464ece27f1858d488248d8186238ccb766704",
+  "main_before_merge": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "pr": 1,
+  "merge_method": "squash",
+  "premerge_review": {
+    "changed_files": 453,
+    "all_changed_paths_under": "BH-Unity-Harness/",
+    "other_repository_root_entries": "UNCHANGED_BY_EXACT_TREE_IDENTITY",
+    "github_mergeable": true,
+    "github_mergeable_state": "clean"
+  },
+  "verification": {
+    "result_path": "review/evidence/small-tasks/B05-remaining/RESULT.json",
+    "result_blob": "f50672c462ebe9db54cfe8d78c4c004cc7efd8d4",
+    "new_tests_passed": 94,
+    "earlier_cases_current_inputs_matched": 136,
+    "distinct_coverage": 230,
+    "strict_package_checks": 88,
+    "authoring_checks": 56
+  },
+  "remaining": {
+    "B06a_B06b": "PENDING operating/consumer and design setup reconciliation",
+    "B08": "PENDING final candidate assurance",
+    "live_windows_unity_native_hosts": "NOT_RUN",
+    "human_adoption": "PENDING"
+  },
+  "scope": "Authorize GitHub squash consolidation only. Do not turn merge into live installation, host activation, release or a claim that remaining construction is completed. Preserve source branch/history and existing evidence. No force push."
+}
