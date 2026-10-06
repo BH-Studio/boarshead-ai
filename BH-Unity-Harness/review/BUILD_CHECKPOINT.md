@@ -28,7 +28,7 @@ Each lettered subtask below is a separate response/commit boundary. Update its s
 | ID | Status | Scope and stopping point |
 |---|---|---|
 | B00 | State read; queue authored | Read current branch, checkpoint, incorporation status and PR metadata. Publish this queue and verify the resulting single-file diff. No implementation or test execution. |
-| B01 | NEXT | Inspect PACKAGE_FILES.json at the current head; reconcile and hash-check only its 25 installed files. Record exact missing/mismatched paths. If retrieval itself needs splitting, checkpoint the remaining paths rather than start tests with mixed versions. No runtime changes. |
+| B01 | COMPLETE — PASS, 25/25 identities | Inspect PACKAGE_FILES.json at the current head; reconcile and hash-check only its 25 installed files. Record exact missing/mismatched paths. If retrieval itself needs splitting, checkpoint the remaining paths rather than start tests with mixed versions. No runtime changes. |
 | B02a-e | PENDING | Reconcile the current runtime test module/support and its required inputs, then run the recorded 84 runtime cases in five deterministic partitions of at most 20 cases; one partition per response. Rediscover counts first and record any change. |
 | B03 | PENDING | Current installer module: the recorded 20 cases, exact inputs and raw evidence only. Split further if an observed failure needs repair. |
 | B04a-c | PENDING | Current efficiency views (recorded 11 cases), then efficiency runtime (recorded 21 cases split into two partitions). One module/partition per response. |
@@ -39,8 +39,11 @@ Each lettered subtask below is a separate response/commit boundary. Update its s
 
 If an item requires more than its stated scope, write a smaller child item and stop at the recoverable boundary. A mere plan/checkpoint commit never counts as implementation or a passed check.
 
+## B01 actual result — 2026-10-06 UTC
+Installed-file identities validated at current input head 115718aaba62f505b20771b1455cba64540c0de5 (not a historical verification claim). PACKAGE_FILES.json blob c3408ece30947c8f520c82522fa08da0f3376282; project-template tree e35bbdcc31970eb82b273e587b6ca6373764aee1. All 25 declared files matched their manifest SHA-256, pinned Git blob SHA and byte length. Missing, mismatched, duplicate and extra installed paths: none. Check command exited 0. Actual evidence: review/evidence/small-tasks/B01/RESULT.json, RAW.log, validate.py and README.md. No runtime tests or B02 work performed; runtime, design and installation content unchanged. PR #1 was confirmed open, draft and unmerged. This evidence/checkpoint commit requires publication readback; it is not full-suite proof or adoption.
+
 ## Exact next action
-B01 ONLY: recheck current branch head, read the current PACKAGE_FILES.json and validate its installed-file identities. Save the result under a new review/evidence/small-tasks/B01/ path, update B01 and the next exact item here, commit/read back, then stop. Do not launch the full test suite, reopen source reviews, or implement new Unity features in the same response.
+B02a ONLY, in the next response: recheck the branch head and reconcile the current runtime test module, support files and required inputs against that pinned head. Rediscover the exact case IDs/count (84 is historical), establish deterministic partitions of at most 20 cases, and run only the first partition. Save exact source identities, selected case IDs, command, raw output and exit status under review/evidence/small-tasks/B02a/. Update this checkpoint, commit/read back the diff, then stop. Do not run B02b or another module in that response. B02 was NOT_STARTED during B01.
 
 The previous local path /mnt/data/bh-resume-20261005/BH-Unity-Harness is untrusted until its existence and bytes are checked. It was not a complete current authoring checkout. Old archives may supply unchanged bytes only when exact current hashes agree; unavailable content must be retrieved, not reconstructed from summaries.
 
