@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "project_id": "fixture-discrete",
+  "synthetic": true,
+  "status": "SYNTHETIC",
+  "invariants": [
+    {
+      "id": "SYN-DISCRETE-TIME",
+      "text": "SYNTHETIC: state advances only on an explicit authorized step; elapsed wall-clock time alone changes nothing.",
+      "source_ref": "SYNTHETIC fixture specification; not a real project"
+    },
+    {
+      "id": "SYN-STATE-BOUNDARY",
+      "text": "SYNTHETIC: serializable state and display-only labels have separate owners; no particular game rules are implied.",
+      "source_ref": "SYNTHETIC fixture specification; not a real project"
+    }
+  ],
+  "protected_paths": [
+    "Packages",
+    "ProjectSettings"
+  ],
+  "optional_capabilities": [],
+  "open_decisions": [
+    "Real project identity, engine/packages, render pipeline, target, mechanics, ownership and budgets are intentionally unconfigured.",
+    "This fixture conveys no human approval and must not be deployed as a real project overlay."
+  ],
+  "facts": [
+    "SYNTHETIC: instructional and automated-test data only.",
+    "This fixture models discrete steps and an explicit state boundary."
+  ],
+  "source_refs": [
+    "SYNTHETIC generic contract example; no source game design"
+  ]
+}

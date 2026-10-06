@@ -1,0 +1,25 @@
+import hashlib, json, os
+from pathlib import Path
+BASE=Path(__file__).resolve().parent
+meta=json.loads((BASE/'all-current-tree.json').read_text())
+rows=[x for x in meta['tree'] if x['type']=='blob']
+assert all(x['mode']=='100644' for x in rows)
+need={x['sha'] for x in rows}; sizes={x['size'] for x in rows}
+cache={}; origins={}
+for root,dirs,files in os.walk(BASE):
+    dirs[:]=[d for d in dirs if d not in ('.git','__pycache__','remaining-tests-work')]
+    for name in files:
+        p=Path(root)/name
+        if p.is_symlink() or p.stat().st_size not in sizes:continue
+        raw=p.read_bytes(); blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+        if blob in need and blob not in cache:cache[blob]=raw;origins[blob]=str(p.relative_to(BASE))
+out=BASE/'remaining-tests-work'/'BH-Unity-Harness';out.mkdir(parents=True,exist_ok=True)
+reused=[];missing=[]
+for row in rows:
+    if row['sha'] in cache:
+        target=out/row['path'];target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(cache[row['sha']])
+        reused.append({'path':row['path'],'blob':row['sha'],'bytes':row['size'],'reused_from':origins[row['sha']]})
+    else:missing.append(row)
+(BASE/'remaining-reused.json').write_text(json.dumps(reused,indent=2)+'\n')
+(BASE/'remaining-missing.json').write_text(json.dumps(missing,indent=2)+'\n')
+print(json.dumps({'total':len(rows),'reused_current_identity':len(reused),'missing':missing}))

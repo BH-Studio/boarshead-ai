@@ -1,0 +1,81 @@
+{
+  "version": "1.0.0",
+  "harness_version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "task_id": "task-01",
+  "revision": 5,
+  "phase": "FAILED",
+  "synthetic": true,
+  "updated_utc": "2026-10-04T18:54:09.229282Z",
+  "handoff": {
+    "path": "Handoff/handoff.json",
+    "sha256": "ab8c581eda7060be3f574ca31c384fc4af42cbae2306329dc5d44ca9e0b4d718"
+  },
+  "plan": {
+    "path": ".bh/tasks/task-01/plans/f8221e49ebdc487ef9bc0c424b8ecf23ccde301811a61e487b75f1f30809d9c7.json",
+    "sha256": "b9eddbecc3ce748adbd873c0755abcec39389f621ec1942715c1bd11c49c8f41"
+  },
+  "approval": {
+    "path": ".bh/tasks/task-01/approvals/15bb1904cea65c0d0568f60dc783d2c6f53da2e0a980caf8d138b9b08ae5a912.json",
+    "sha256": "1e054ca6b101be7496ed6a3c0760cb115c67f5ff5aad898358358faba9b45dd0"
+  },
+  "acceptance_record": null,
+  "claims": [],
+  "ac_status": {
+    "AC-01": "FAIL",
+    "AC-HUMAN": "HUMAN_PENDING"
+  },
+  "runs": [
+    ".bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/receipt.json"
+  ],
+  "pending_run": null,
+  "blockers": [],
+  "next_action": "Inspect exact failed/not-run criteria; use bounded recovery or request missing binding/approval.",
+  "counters": {
+    "failed_rounds": 1,
+    "repeat_failures": 1,
+    "no_progress_rounds": 1,
+    "infrastructure_failures": 0,
+    "recovery_cycles": 0
+  },
+  "last_fingerprint": "e2caed363fc0830d5bddf469a88054c89ea51fb12633e3681f127eeff826e35a",
+  "last_passed_ids": [],
+  "events": [
+    {
+      "from": "DISCOVERY",
+      "to": "PLANNED",
+      "at": "2026-10-04T18:54:08.137913Z",
+      "reason": "Bound technical proposal to current repository/configuration"
+    },
+    {
+      "from": "PLANNED",
+      "to": "AWAITING_APPROVAL",
+      "at": "2026-10-04T18:54:08.137926Z",
+      "reason": "Capability checks and reconciliation complete"
+    },
+    {
+      "from": "AWAITING_APPROVAL",
+      "to": "APPROVED",
+      "at": "2026-10-04T18:54:08.171565Z",
+      "reason": "Recorded structurally valid human approval; authenticity remains external"
+    },
+    {
+      "from": "APPROVED",
+      "to": "EXECUTING",
+      "at": "2026-10-04T18:54:08.225925Z",
+      "reason": "Begin only the approved bounded plan"
+    },
+    {
+      "from": "EXECUTING",
+      "to": "VERIFYING",
+      "at": "2026-10-04T18:54:08.262535Z",
+      "reason": "Run approved verification; code/fixtures are not repaired during audit"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "FAILED",
+      "at": "2026-10-04T18:54:09.228460Z",
+      "reason": "Verification receipts evaluated; human acceptance remains separate"
+    }
+  ]
+}

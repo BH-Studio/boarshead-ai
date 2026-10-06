@@ -1,0 +1,150 @@
+{
+  "version": "1.0.0",
+  "harness_version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "task_id": "task-01",
+  "run_id": "run-ac62f8127f8d4e4b99dbd497db652f0d",
+  "synthetic": true,
+  "started_utc": "2026-10-04T18:54:08.262522Z",
+  "finished_utc": "2026-10-04T18:54:09.196696Z",
+  "harness_sha256": "52447f5ef9424ff9277c0d8d18f117b6f99532dfd0008f352cafa2f24e8962ec",
+  "config_sha256": "23f7dd4e810657edb25e0a6b0c7132fab67dccdf48e9181f75f9f5b642349de8",
+  "plan_sha256": "b9eddbecc3ce748adbd873c0755abcec39389f621ec1942715c1bd11c49c8f41",
+  "snapshot": {
+    "commit": "6018b69b0cd0c9d40797a3ae7eafe8de8556f949",
+    "dirty": true,
+    "status_sha256": "ab545ddeff2e2306f0827295d468d372fb745496ea2169ea1e2e2a368dadebfa",
+    "files": {
+      ".agents/skills/bh-implement-approved-slice/SKILL.md": "941590210a2fc7748833d11dae50b12f5640434d9ed5890f518650bb11842364",
+      ".agents/skills/bh-implement-approved-slice/agents/openai.yaml": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      ".agents/skills/bh-review-handoff/SKILL.md": "58f6880b23332880826ac4e987cb51f5226972e115df9a301d21412b064fec08",
+      ".agents/skills/bh-review-handoff/agents/openai.yaml": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      ".agents/skills/bh-systematic-debug/SKILL.md": "44daa7da45a919c8196aac60cba5ee7515122099716a2ca486a9ce4088abef6c",
+      ".agents/skills/bh-systematic-debug/agents/openai.yaml": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      ".agents/skills/bh-unity-preflight/SKILL.md": "6265515cf88c0a6f6bd2e4f0ad466b0cbe7f660ae0f760cef8f832a8cff4f624",
+      ".agents/skills/bh-unity-preflight/agents/openai.yaml": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      ".agents/skills/bh-unity-verify/SKILL.md": "62dee41a3bdd349569b0f651b9b4094cf8cefe1afce17d24d86790911e8d090c",
+      ".agents/skills/bh-unity-verify/agents/openai.yaml": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      ".bh/GITIGNORE_MERGE.txt": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      ".bh/SYNTHETIC_FIXTURE": "5eb15ac733b1765f5d7c1c2c2247c63e51f84614e450426c6d2f5d584807a020",
+      ".bh/bindings.json": "804456342f330f59f1fd39d69fbec2cb84f9291f933e83fa9e701f7ed836372d",
+      ".bh/local.json": "fa0aec2281b739c7325a3fe964c587083749d911e1c9cdf21bf569d875f56637",
+      ".bh/project.json": "d2d31768ebd139f1309fb203fccc634c180ec61d204fa88b13b78c19a153ef64",
+      ".bh/schema.json": "a781cccd0e652c73c0dff6809e0b3f72e7c292b39cc1ed1e1ae5f587703e438f",
+      ".bh/skill-registry.json": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      ".gitignore": "fe357b1b289900a1ddff54305e4ea72d69385186c0b90057477c18e9d0efd714",
+      "AGENTS.md": "9746e6442806355628605359623bbe13a315c2825623fc496cee39b88f5eb169",
+      "Docs/Harness/INTERFACE.md": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "Docs/Harness/OPERATING_GUIDE.md": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "Handoff/DESIGN.md": "383c48b7ccc0204f3f9e0de56ef8e5c43a310b073ddbc35d1518c5036126ddcf",
+      "Handoff/criteria.json": "9fdfae4411e8a91fe932c1f93c03606f59b667dbd84cf61e08eb78941a45baa5",
+      "Handoff/handoff.json": "ab8c581eda7060be3f574ca31c384fc4af42cbae2306329dc5d44ca9e0b4d718",
+      "Handoff/overlay.json": "417e8f98c1449d20997400d78f0b7c4bb9e690fa863bd3e6e1ae910f8dd5b1b5",
+      "Source/unrelated.txt": "3b25c3775905b672b93cae3d513bab2532833fd7757c85976636975bac0cd419",
+      "Source/value.json": "9a417b0dcebb0a218ce110b3ec2dc14271274e04ceb7c026032bdac3690b318d",
+      "Tests/fixture_driver.py": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "Tools/BH/Invoke-BH.ps1": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "Tools/BH/bh.py": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+      "Tools/BH/check_release_profile.py": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5"
+    },
+    "sha256": "418817bbd9beb9b3c80d24639244990bff0f98478420d24673421978777d773e",
+    "file_count": 31,
+    "bytes_hashed": 181796
+  },
+  "after_snapshot_sha256": "418817bbd9beb9b3c80d24639244990bff0f98478420d24673421978777d773e",
+  "environment": {
+    "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "python": "3.13.5",
+    "git": "git version 2.47.3"
+  },
+  "profile": "slice",
+  "results": [
+    {
+      "id": "CHECK-01",
+      "ac_ids": [
+        "AC-01"
+      ],
+      "required": true,
+      "adapter": "facts",
+      "status": "FAIL",
+      "reason": "Observed values contradict approved expectation",
+      "dependency_sha256": "47c379c180128772ab1a89b775a7ace219648e170b1fc89f9b87e75d3d950e95",
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "/tmp/BH synthetic project 8paqth_k/Tests/fixture_driver.py",
+        "--root",
+        "/tmp/BH synthetic project 8paqth_k",
+        "--result",
+        "/tmp/BH synthetic project 8paqth_k/.bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/CHECK-01/result.json",
+        "--project",
+        "synthetic-hdrp",
+        "--task",
+        "task-01",
+        "--run",
+        "run-ac62f8127f8d4e4b99dbd497db652f0d",
+        "--mode",
+        "facts"
+      ],
+      "working_directory": ".",
+      "tool_version": "3.13.5",
+      "exit_code": 0,
+      "duration_seconds": 0.830619,
+      "counts": {
+        "discovered": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "inconclusive": 0
+      },
+      "failed_names": [
+        "value"
+      ],
+      "observations": [
+        "value: observed=99; expected equals 1; units=counter units"
+      ],
+      "artifacts": [
+        {
+          "path": ".bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/CHECK-01/process.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": ".bh/runs/run-ac62f8127f8d4e4b99dbd497db652f0d/CHECK-01/result.json",
+          "sha256": "7d1e7750a4a79f5541067c3dee51ae7d330bb971b7b656b81054f0344352a47b"
+        }
+      ]
+    },
+    {
+      "id": "HUMAN-01",
+      "ac_ids": [
+        "AC-HUMAN"
+      ],
+      "required": true,
+      "adapter": "manual",
+      "status": "NOT_RUN",
+      "reason": "Human-only judgment remains pending; automation cannot perform it.",
+      "dependency_sha256": "47c379c180128772ab1a89b775a7ace219648e170b1fc89f9b87e75d3d950e95",
+      "command": [],
+      "working_directory": ".",
+      "tool_version": "unavailable",
+      "exit_code": null,
+      "duration_seconds": 0.0,
+      "counts": {
+        "discovered": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "inconclusive": 0
+      },
+      "failed_names": [],
+      "observations": [],
+      "artifacts": []
+    }
+  ],
+  "audit_mutations": [],
+  "independence": "deterministic-wrapper-same-workspace",
+  "limitations": [
+    "Synthetic results are not Unity evidence.",
+    "Same user can edit code and evidence; no independent attestation.",
+    "Human playtest/design quality remains unverified by automation."
+  ]
+}

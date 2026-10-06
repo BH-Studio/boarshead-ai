@@ -1,0 +1,108 @@
+{
+  "task": "B05f1",
+  "input_head": "a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a",
+  "root_tree": "baa2aa3c41225b8ac9c73df969b4fadc583d280c",
+  "harness_tree": "0276a907b424a5ca9b4a9559628deac0325eaecd",
+  "files": [
+    {
+      "path": "contracts/CODEX_CONSUMER.md",
+      "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "bytes": 5557,
+      "expected_B05c_blob": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "expected_B05c_bytes": 5557,
+      "role": "shared contract guidance",
+      "matched": true
+    },
+    {
+      "path": "contracts/INTERFACE.md",
+      "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "bytes": 13085,
+      "expected_B05c_blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "expected_B05c_bytes": 13085,
+      "role": "shared contract guidance",
+      "matched": true
+    },
+    {
+      "path": "examples/profiles/README.md",
+      "git_blob_sha": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+      "sha256": "0f671b8e0e0d30cea74e2bc812f6c0bdd017ed5e529a1e3e9485e8732f7a9bf6",
+      "bytes": 1030,
+      "expected_B05c_blob": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+      "expected_B05c_bytes": 1030,
+      "role": "synthetic example",
+      "matched": true
+    },
+    {
+      "path": "examples/profiles/synthetic-continuous-state.json",
+      "git_blob_sha": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+      "sha256": "6f0abd4537155496b83369110874ef9b228ab96ed5168a1264c5277555cdfd4a",
+      "bytes": 1273,
+      "expected_B05c_blob": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+      "expected_B05c_bytes": 1273,
+      "role": "synthetic example",
+      "matched": true
+    },
+    {
+      "path": "examples/profiles/synthetic-discrete-state.json",
+      "git_blob_sha": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+      "sha256": "65c24a023f023b64a724bc6ecee445b26e992b1e3f5e31e4b9d3a70ad9d0c72d",
+      "bytes": 1227,
+      "expected_B05c_blob": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+      "expected_B05c_bytes": 1227,
+      "role": "synthetic example",
+      "matched": true
+    },
+    {
+      "path": "optional/bh-procedural-regression/SKILL.md",
+      "git_blob_sha": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+      "sha256": "f73375b26b5f6ea829b3919dee2b6c632724cc4f93a4992c5a0002d890e4f10d",
+      "bytes": 1250,
+      "expected_B05c_blob": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+      "expected_B05c_bytes": 1250,
+      "role": "optional resource outside installed template",
+      "matched": true
+    },
+    {
+      "path": "optional/bh-unity-project-audit/SKILL.md",
+      "git_blob_sha": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+      "sha256": "f9c2a1d2540d2c78285e2337b2b9396cb87db645daf32ccf6cf2f3e98d9c051d",
+      "bytes": 1748,
+      "expected_B05c_blob": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+      "expected_B05c_bytes": 1748,
+      "role": "optional resource outside installed template",
+      "matched": true
+    },
+    {
+      "path": "optional/bh-unity-project-audit/agents/openai.yaml",
+      "git_blob_sha": "3fc511d46946d1225de4c817206974b1647d6a12",
+      "sha256": "05d87a4d93c7a5bc75f7fe6d239a93c7e59416fd60aad93024c302761748de98",
+      "bytes": 159,
+      "expected_B05c_blob": "3fc511d46946d1225de4c817206974b1647d6a12",
+      "expected_B05c_bytes": 159,
+      "role": "optional resource outside installed template",
+      "matched": true
+    },
+    {
+      "path": "optional/unity-editor-build/BHBuild.cs",
+      "git_blob_sha": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+      "sha256": "a3111638ab4450b73883394e8bb203f09d057abe9a9eeaabb93f4ea2bb10cc42",
+      "bytes": 6019,
+      "expected_B05c_blob": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+      "expected_B05c_bytes": 6019,
+      "role": "optional resource outside installed template",
+      "matched": true
+    },
+    {
+      "path": "optional/unity-editor-build/README.md",
+      "git_blob_sha": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+      "sha256": "5eda71dc96e46235b3f3d225c9fb33f6f7f6b8d4d522f512e61bf05b033b8bbe",
+      "bytes": 2946,
+      "expected_B05c_blob": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+      "expected_B05c_bytes": 2946,
+      "role": "optional resource outside installed template",
+      "matched": true
+    }
+  ]
+}

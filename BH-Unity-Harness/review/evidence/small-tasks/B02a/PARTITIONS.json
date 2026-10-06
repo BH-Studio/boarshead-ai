@@ -1,0 +1,119 @@
+{
+  "module": "tests/test_runtime.py",
+  "order": "Unicode lexical order of full unittest case ID",
+  "observed_count": 84,
+  "historical_count": 84,
+  "count_changed": false,
+  "partition_limit": 20,
+  "partitions": [
+    {
+      "id": "B02a",
+      "case_ids": [
+        "test_runtime.ProcessTests.test_audit_detects_mutation",
+        "test_runtime.ProcessTests.test_build_failure",
+        "test_runtime.ProcessTests.test_compile_error",
+        "test_runtime.ProcessTests.test_diagnostics_clean",
+        "test_runtime.ProcessTests.test_diagnostics_new",
+        "test_runtime.ProcessTests.test_facts_disagree",
+        "test_runtime.ProcessTests.test_facts_match",
+        "test_runtime.ProcessTests.test_missing_artifact",
+        "test_runtime.ProcessTests.test_nonzero_exit",
+        "test_runtime.ProcessTests.test_reviewed_narrow_dependencies",
+        "test_runtime.ProcessTests.test_skipped_required",
+        "test_runtime.ProcessTests.test_timeout",
+        "test_runtime.ProcessTests.test_two_materially_different_profiles",
+        "test_runtime.ProcessTests.test_wrong_run_identity",
+        "test_runtime.ProcessTests.test_wrong_test_name",
+        "test_runtime.ProcessTests.test_xml_entities",
+        "test_runtime.ProcessTests.test_zero_tests",
+        "test_runtime.RuntimeTests.test_approval_subject",
+        "test_runtime.RuntimeTests.test_archive_and_no_task_reuse",
+        "test_runtime.RuntimeTests.test_begin_without_approval"
+      ]
+    },
+    {
+      "id": "B02b",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_begin_without_plan",
+        "test_runtime.RuntimeTests.test_blocking_question",
+        "test_runtime.RuntimeTests.test_case_collision",
+        "test_runtime.RuntimeTests.test_concurrent_state_revision",
+        "test_runtime.RuntimeTests.test_dirty_after_plan_before_approval",
+        "test_runtime.RuntimeTests.test_draft_is_not_execution",
+        "test_runtime.RuntimeTests.test_dropped_acceptance",
+        "test_runtime.RuntimeTests.test_dropped_check",
+        "test_runtime.RuntimeTests.test_dropped_invariant",
+        "test_runtime.RuntimeTests.test_duplicate_check_id",
+        "test_runtime.RuntimeTests.test_duplicate_json_keys",
+        "test_runtime.RuntimeTests.test_duplicate_receipt_check",
+        "test_runtime.RuntimeTests.test_duplicate_skills_block",
+        "test_runtime.RuntimeTests.test_failed_then_pass_preserves_history",
+        "test_runtime.RuntimeTests.test_human_automation_rejected",
+        "test_runtime.RuntimeTests.test_illegal_transition",
+        "test_runtime.RuntimeTests.test_interrupted_run_resume",
+        "test_runtime.RuntimeTests.test_lfs_pointer_blocks",
+        "test_runtime.RuntimeTests.test_lock_serializes_writers",
+        "test_runtime.RuntimeTests.test_manifest_mismatch"
+      ]
+    },
+    {
+      "id": "B02c",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_manual_not_automated",
+        "test_runtime.RuntimeTests.test_missing_artifact",
+        "test_runtime.RuntimeTests.test_missing_configuration",
+        "test_runtime.RuntimeTests.test_missing_design_approval",
+        "test_runtime.RuntimeTests.test_missing_human_acceptance",
+        "test_runtime.RuntimeTests.test_missing_raw_artifact",
+        "test_runtime.RuntimeTests.test_missing_receipt",
+        "test_runtime.RuntimeTests.test_missing_reference",
+        "test_runtime.RuntimeTests.test_named_suite_failure_not_leaf_pass",
+        "test_runtime.RuntimeTests.test_nested_instruction_conflict",
+        "test_runtime.RuntimeTests.test_new_commit_invalidates",
+        "test_runtime.RuntimeTests.test_no_self_certification",
+        "test_runtime.RuntimeTests.test_nonfinite_json",
+        "test_runtime.RuntimeTests.test_nunit_requires_names",
+        "test_runtime.RuntimeTests.test_nunit_requires_positive_count",
+        "test_runtime.RuntimeTests.test_open_overlay_decision",
+        "test_runtime.RuntimeTests.test_out_of_scope_mutation_blocks",
+        "test_runtime.RuntimeTests.test_override_instruction_conflict",
+        "test_runtime.RuntimeTests.test_path_traversal",
+        "test_runtime.RuntimeTests.test_preflight_no_writes"
+      ]
+    },
+    {
+      "id": "B02d",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_protected_mutation_blocks",
+        "test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper",
+        "test_runtime.RuntimeTests.test_real_cli_preflight",
+        "test_runtime.RuntimeTests.test_recovery_budget",
+        "test_runtime.RuntimeTests.test_repeated_init_unchanged",
+        "test_runtime.RuntimeTests.test_required_above_profile",
+        "test_runtime.RuntimeTests.test_required_na_rejected",
+        "test_runtime.RuntimeTests.test_resume_discovery",
+        "test_runtime.RuntimeTests.test_root_count_mismatch",
+        "test_runtime.RuntimeTests.test_roundtrip_human_pending",
+        "test_runtime.RuntimeTests.test_stale_dirty_evidence",
+        "test_runtime.RuntimeTests.test_stale_human_acceptance",
+        "test_runtime.RuntimeTests.test_structural_approval_not_authentication",
+        "test_runtime.RuntimeTests.test_symlink_escape",
+        "test_runtime.RuntimeTests.test_synthetic_boundary",
+        "test_runtime.RuntimeTests.test_unbound_required_check_blocks_plan",
+        "test_runtime.RuntimeTests.test_unknown_configuration_field",
+        "test_runtime.RuntimeTests.test_unknown_schema_keyword",
+        "test_runtime.RuntimeTests.test_unlock_cannot_terminate_live_owner",
+        "test_runtime.RuntimeTests.test_unreconciled_overlay"
+      ]
+    },
+    {
+      "id": "B02e",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_wrong_design_method",
+        "test_runtime.RuntimeTests.test_wrong_harness_version",
+        "test_runtime.RuntimeTests.test_wrong_project_receipt",
+        "test_runtime.RuntimeTests.test_wrong_version"
+      ]
+    }
+  ]
+}

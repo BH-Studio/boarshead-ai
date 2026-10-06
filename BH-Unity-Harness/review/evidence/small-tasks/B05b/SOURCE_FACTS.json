@@ -1,0 +1,1167 @@
+{
+  "task": "B05b",
+  "input_head": "25edd444030cc8617bbffc5437f2e540d57b770e",
+  "method": "ast.parse only; no module import or invocation",
+  "modules": [
+    {
+      "path": "tests/support.py",
+      "imports": [
+        {
+          "line": 2,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 3,
+          "statement": "import copy, importlib.util, json, shutil, subprocess, sys, tempfile"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 6,
+          "expression": "importlib.util.spec_from_file_location('bh',PACKAGE/'project-template/Tools/BH/bh.py')"
+        },
+        {
+          "line": 7,
+          "expression": "importlib.util.spec_from_file_location('install',PACKAGE/'installer/install.py')"
+        },
+        {
+          "line": 22,
+          "expression": "shutil.copytree(PACKAGE/'project-template',self.root,dirs_exist_ok=True)"
+        },
+        {
+          "line": 27,
+          "expression": "Path(__file__).with_name('fixture_driver.py').read_text()"
+        },
+        {
+          "line": 28,
+          "expression": "bh.load_json(r/'.bh/project.json')"
+        },
+        {
+          "line": 33,
+          "expression": "bh.file_hash(exe)"
+        },
+        {
+          "line": 36,
+          "expression": "bh.file_hash(r/'Tests/fixture_driver.py')"
+        },
+        {
+          "line": 39,
+          "expression": "bh.file_hash(r/'Tests/diagnostics-baseline.json')"
+        },
+        {
+          "line": 48,
+          "expression": "bh.file_hash(r/p)"
+        },
+        {
+          "line": 55,
+          "expression": "bh.file_hash(self.root/a['path'])"
+        },
+        {
+          "line": 63,
+          "expression": "bh.load_json(h.artifact(s['plan']))"
+        },
+        {
+          "line": 70,
+          "expression": "bh.snapshot(self.root)"
+        }
+      ]
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "imports": [
+        {
+          "line": 3,
+          "statement": "import argparse, json, sys, time"
+        },
+        {
+          "line": 4,
+          "statement": "from pathlib import Path"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 8,
+          "expression": "(root/'Source/value.json').read_text()"
+        }
+      ]
+    },
+    {
+      "path": "installer/install.py",
+      "imports": [
+        {
+          "line": 6,
+          "statement": "from __future__ import annotations"
+        },
+        {
+          "line": 7,
+          "statement": "import argparse"
+        },
+        {
+          "line": 8,
+          "statement": "import importlib.util"
+        },
+        {
+          "line": 9,
+          "statement": "import json"
+        },
+        {
+          "line": 10,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 11,
+          "statement": "import shutil"
+        },
+        {
+          "line": 12,
+          "statement": "import sys"
+        },
+        {
+          "line": 13,
+          "statement": "import uuid"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 16,
+          "expression": "importlib.util.spec_from_file_location('bh_runtime', PACKAGE / 'project-template/Tools/BH/bh.py')"
+        },
+        {
+          "line": 22,
+          "expression": "bh.load_json(PACKAGE / 'PACKAGE_FILES.json')"
+        },
+        {
+          "line": 27,
+          "expression": "bh.safe(PACKAGE / 'project-template', name)"
+        },
+        {
+          "line": 28,
+          "expression": "source.is_file()"
+        },
+        {
+          "line": 28,
+          "expression": "bh.file_hash(source)"
+        },
+        {
+          "line": 40,
+          "expression": "bh.safe(p, 'ProjectSettings/ProjectVersion.txt').is_file()"
+        },
+        {
+          "line": 40,
+          "expression": "bh.safe(p, '.bh/SYNTHETIC_FIXTURE').is_file()"
+        },
+        {
+          "line": 40,
+          "expression": "bh.safe(p, 'ProjectSettings/ProjectVersion.txt')"
+        },
+        {
+          "line": 40,
+          "expression": "bh.safe(p, '.bh/SYNTHETIC_FIXTURE')"
+        },
+        {
+          "line": 48,
+          "expression": "bh.safe(root, '.bh/state.json')"
+        },
+        {
+          "line": 49,
+          "expression": "state_path.exists()"
+        },
+        {
+          "line": 50,
+          "expression": "bh.load_json(state_path)"
+        },
+        {
+          "line": 52,
+          "expression": "bh.safe(root, '.bh/install/managed.json')"
+        },
+        {
+          "line": 53,
+          "expression": "manifest.exists()"
+        },
+        {
+          "line": 53,
+          "expression": "bh.load_json(manifest)"
+        },
+        {
+          "line": 57,
+          "expression": "bh.safe(root, name)"
+        },
+        {
+          "line": 58,
+          "expression": "dest.is_file()"
+        },
+        {
+          "line": 58,
+          "expression": "bh.file_hash(dest)"
+        },
+        {
+          "line": 59,
+          "expression": "dest.is_file()"
+        },
+        {
+          "line": 59,
+          "expression": "dest.exists()"
+        },
+        {
+          "line": 84,
+          "expression": "bh.safe(root, '.bh/install/writer.lock')"
+        },
+        {
+          "line": 87,
+          "expression": "lock.open('x')"
+        },
+        {
+          "line": 92,
+          "expression": "bh.safe(root, '.bh/install/managed.json')"
+        },
+        {
+          "line": 93,
+          "expression": "prior_manifest.exists()"
+        },
+        {
+          "line": 93,
+          "expression": "bh.load_json(prior_manifest)"
+        },
+        {
+          "line": 100,
+          "expression": "bh.safe(root, f'.bh/install/{tx}/journal.json')"
+        },
+        {
+          "line": 103,
+          "expression": "bh.safe(root, row['path'])"
+        },
+        {
+          "line": 104,
+          "expression": "bh.safe(PACKAGE / 'project-template', row['path'])"
+        },
+        {
+          "line": 105,
+          "expression": "dest.exists()"
+        },
+        {
+          "line": 105,
+          "expression": "bh.file_hash(dest)"
+        },
+        {
+          "line": 106,
+          "expression": "bh.file_hash(source)"
+        },
+        {
+          "line": 108,
+          "expression": "dest.exists()"
+        },
+        {
+          "line": 110,
+          "expression": "bh.safe(root, backup)"
+        },
+        {
+          "line": 112,
+          "expression": "shutil.copyfile(dest, b)"
+        },
+        {
+          "line": 119,
+          "expression": "shutil.copyfile(source, temp)"
+        },
+        {
+          "line": 120,
+          "expression": "dest.exists()"
+        },
+        {
+          "line": 120,
+          "expression": "bh.file_hash(dest)"
+        },
+        {
+          "line": 123,
+          "expression": "temp.exists()"
+        },
+        {
+          "line": 135,
+          "expression": "lock.exists()"
+        },
+        {
+          "line": 143,
+          "expression": "bh.safe(root, f'.bh/install/{transaction}/journal.json')"
+        },
+        {
+          "line": 144,
+          "expression": "bh.load_json(journal_path)"
+        },
+        {
+          "line": 148,
+          "expression": "bh.safe(root, '.bh/state.json')"
+        },
+        {
+          "line": 149,
+          "expression": "state.exists()"
+        },
+        {
+          "line": 150,
+          "expression": "bh.safe(root, '.bh/install/managed.json')"
+        },
+        {
+          "line": 151,
+          "expression": "managed_path.exists()"
+        },
+        {
+          "line": 151,
+          "expression": "bh.load_json(managed_path)"
+        },
+        {
+          "line": 160,
+          "expression": "bh.safe(root, row['path'])"
+        },
+        {
+          "line": 161,
+          "expression": "dest.is_file()"
+        },
+        {
+          "line": 161,
+          "expression": "bh.file_hash(dest)"
+        },
+        {
+          "line": 168,
+          "expression": "bh.safe(root, row['backup'])"
+        },
+        {
+          "line": 169,
+          "expression": "b.is_file()"
+        },
+        {
+          "line": 169,
+          "expression": "bh.file_hash(b)"
+        },
+        {
+          "line": 174,
+          "expression": "bh.safe(root, '.bh/install/writer.lock')"
+        },
+        {
+          "line": 176,
+          "expression": "lock.open('x')"
+        },
+        {
+          "line": 180,
+          "expression": "bh.load_json(journal_path)"
+        },
+        {
+          "line": 181,
+          "expression": "managed_path.exists()"
+        },
+        {
+          "line": 181,
+          "expression": "bh.load_json(managed_path)"
+        },
+        {
+          "line": 185,
+          "expression": "bh.safe(root, row['path'])"
+        },
+        {
+          "line": 186,
+          "expression": "dest.is_file()"
+        },
+        {
+          "line": 186,
+          "expression": "bh.file_hash(dest)"
+        },
+        {
+          "line": 190,
+          "expression": "shutil.copyfile(bh.safe(root, row['backup']), temp)"
+        },
+        {
+          "line": 190,
+          "expression": "bh.safe(root, row['backup'])"
+        },
+        {
+          "line": 195,
+          "expression": "managed_path.exists()"
+        },
+        {
+          "line": 204,
+          "expression": "lock.exists()"
+        }
+      ]
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "imports": [
+        {
+          "line": 7,
+          "statement": "from __future__ import annotations"
+        },
+        {
+          "line": 8,
+          "statement": "import argparse"
+        },
+        {
+          "line": 9,
+          "statement": "import contextlib"
+        },
+        {
+          "line": 10,
+          "statement": "import datetime as dt"
+        },
+        {
+          "line": 11,
+          "statement": "import hashlib"
+        },
+        {
+          "line": 12,
+          "statement": "import json"
+        },
+        {
+          "line": 13,
+          "statement": "import math"
+        },
+        {
+          "line": 14,
+          "statement": "import os"
+        },
+        {
+          "line": 15,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 16,
+          "statement": "import platform"
+        },
+        {
+          "line": 17,
+          "statement": "import re"
+        },
+        {
+          "line": 18,
+          "statement": "import shutil"
+        },
+        {
+          "line": 19,
+          "statement": "import signal"
+        },
+        {
+          "line": 20,
+          "statement": "import subprocess"
+        },
+        {
+          "line": 21,
+          "statement": "import sys"
+        },
+        {
+          "line": 22,
+          "statement": "import time"
+        },
+        {
+          "line": 23,
+          "statement": "import uuid"
+        },
+        {
+          "line": 24,
+          "statement": "import xml.etree.ElementTree as ET"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 72,
+          "expression": "Path(path).open('rb')"
+        },
+        {
+          "line": 73,
+          "expression": "stream.read(1024 * 1024)"
+        },
+        {
+          "line": 80,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 89,
+          "expression": "p.read_text(encoding='utf-8-sig')"
+        },
+        {
+          "line": 113,
+          "expression": "part.exists()"
+        },
+        {
+          "line": 152,
+          "expression": "temp.open('x', encoding='utf-8', newline='\\n')"
+        },
+        {
+          "line": 158,
+          "expression": "temp.exists()"
+        },
+        {
+          "line": 257,
+          "expression": "safe(root, name, case_index=case_index)"
+        },
+        {
+          "line": 258,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 260,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 261,
+          "expression": "p.open('rb')"
+        },
+        {
+          "line": 262,
+          "expression": "stream.read(128)"
+        },
+        {
+          "line": 264,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 281,
+          "expression": "load_json(safe(self.root, '.bh/schema.json'))"
+        },
+        {
+          "line": 281,
+          "expression": "safe(self.root, '.bh/schema.json')"
+        },
+        {
+          "line": 282,
+          "expression": "self.read('.bh/project.json', 'project')"
+        },
+        {
+          "line": 283,
+          "expression": "self.read('.bh/local.json', 'local')"
+        },
+        {
+          "line": 284,
+          "expression": "self.read('.bh/bindings.json', 'bindings')"
+        },
+        {
+          "line": 290,
+          "expression": "safe(self.root, '.bh/SYNTHETIC_FIXTURE').is_file()"
+        },
+        {
+          "line": 290,
+          "expression": "safe(self.root, '.bh/SYNTHETIC_FIXTURE')"
+        },
+        {
+          "line": 297,
+          "expression": "load_json(safe(self.root, name))"
+        },
+        {
+          "line": 297,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 309,
+          "expression": "safe(self.root, entry['path'])"
+        },
+        {
+          "line": 310,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 310,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 314,
+          "expression": "file_hash(safe(self.root, x))"
+        },
+        {
+          "line": 314,
+          "expression": "safe(self.root, x)"
+        },
+        {
+          "line": 319,
+          "expression": "safe(self.root, prefix)"
+        },
+        {
+          "line": 320,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 321,
+          "expression": "p.rglob('*')"
+        },
+        {
+          "line": 323,
+          "expression": "f.is_file()"
+        },
+        {
+          "line": 324,
+          "expression": "file_hash(f)"
+        },
+        {
+          "line": 326,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 327,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 328,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 339,
+          "expression": "self.read(name, 'handoff')"
+        },
+        {
+          "line": 347,
+          "expression": "self.read(h['criteria_path'], 'criteria')"
+        },
+        {
+          "line": 349,
+          "expression": "self.read(h['overlay_path'], 'overlay')"
+        },
+        {
+          "line": 383,
+          "expression": "self.read('.bh/state.json', 'state')"
+        },
+        {
+          "line": 389,
+          "expression": "safe(self.root, '.bh/locks/writer.json')"
+        },
+        {
+          "line": 393,
+          "expression": "p.open('x', encoding='utf-8')"
+        },
+        {
+          "line": 400,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 400,
+          "expression": "load_json(p)"
+        },
+        {
+          "line": 407,
+          "expression": "self.read(s['plan']['path'], 'plan')"
+        },
+        {
+          "line": 422,
+          "expression": "safe(self.root, '.bh/CHECKPOINT.md')"
+        },
+        {
+          "line": 428,
+          "expression": "temp.exists()"
+        },
+        {
+          "line": 432,
+          "expression": "safe(self.root, '.bh/state.json')"
+        },
+        {
+          "line": 433,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 448,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 449,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 450,
+          "expression": "load_json(p)"
+        },
+        {
+          "line": 453,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 458,
+          "expression": "self.read(s['plan']['path'], 'plan')"
+        },
+        {
+          "line": 488,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 488,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 492,
+          "expression": "safe(self.root, b['working_directory'], True)"
+        },
+        {
+          "line": 511,
+          "expression": "safe(self.root, 'Temp/UnityLockfile').exists()"
+        },
+        {
+          "line": 511,
+          "expression": "safe(self.root, 'Temp/UnityLockfile')"
+        },
+        {
+          "line": 513,
+          "expression": "safe(self.root, 'ProjectSettings/ProjectVersion.txt').read_text(encoding='utf-8')"
+        },
+        {
+          "line": 513,
+          "expression": "safe(self.root, 'ProjectSettings/ProjectVersion.txt')"
+        },
+        {
+          "line": 527,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 537,
+          "expression": "load_json(safe(self.root, '.bh/skill-registry.json'))"
+        },
+        {
+          "line": 537,
+          "expression": "safe(self.root, '.bh/skill-registry.json')"
+        },
+        {
+          "line": 548,
+          "expression": "safe(self.root, '.agents/skills')"
+        },
+        {
+          "line": 549,
+          "expression": "base.glob('*/SKILL.md')"
+        },
+        {
+          "line": 551,
+          "expression": "p.read_text(encoding='utf-8')"
+        },
+        {
+          "line": 573,
+          "expression": "safe(self.root, '.bh/state.json')"
+        },
+        {
+          "line": 574,
+          "expression": "p.exists()"
+        },
+        {
+          "line": 576,
+          "expression": "file_hash(safe(self.root, name))"
+        },
+        {
+          "line": 576,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 578,
+          "expression": "safe(self.root, f'.bh/tasks/{h[\"task_id\"]}/closed')"
+        },
+        {
+          "line": 579,
+          "expression": "closed.exists()"
+        },
+        {
+          "line": 582,
+          "expression": "file_hash(safe(self.root, name))"
+        },
+        {
+          "line": 582,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 595,
+          "expression": "self.read(proposal_path, 'proposal')"
+        },
+        {
+          "line": 604,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 637,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 638,
+          "expression": "self.read(name, 'approval')"
+        },
+        {
+          "line": 650,
+          "expression": "self.read(s['approval']['path'], 'approval')"
+        },
+        {
+          "line": 652,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 658,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 681,
+          "expression": "safe(self.root, run_name + '/' + spec['id'])"
+        },
+        {
+          "line": 687,
+          "expression": "output.exists()"
+        },
+        {
+          "line": 697,
+          "expression": "log.open('xb')"
+        },
+        {
+          "line": 698,
+          "expression": "safe(self.root, b['working_directory'], True)"
+        },
+        {
+          "line": 713,
+          "expression": "log.read_bytes()"
+        },
+        {
+          "line": 715,
+          "expression": "unity_log.is_file()"
+        },
+        {
+          "line": 717,
+          "expression": "unity_log.open('rb')"
+        },
+        {
+          "line": 719,
+          "expression": "stream.read()"
+        },
+        {
+          "line": 721,
+          "expression": "output.is_file()"
+        },
+        {
+          "line": 724,
+          "expression": "output.is_file()"
+        },
+        {
+          "line": 746,
+          "expression": "path.is_file()"
+        },
+        {
+          "line": 747,
+          "expression": "file_hash(path)"
+        },
+        {
+          "line": 755,
+          "expression": "load_json(output)"
+        },
+        {
+          "line": 763,
+          "expression": "load_json(self.artifact(binding['diagnostics_baseline']))"
+        },
+        {
+          "line": 817,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 867,
+          "expression": "safe(self.root, run_name + '/pending.json')"
+        },
+        {
+          "line": 872,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 930,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 943,
+          "expression": "self.read(name, 'receipt')"
+        },
+        {
+          "line": 975,
+          "expression": "safe(self.root, result_name)"
+        },
+        {
+          "line": 1030,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 1038,
+          "expression": "safe(self.root, interrupted + '/interrupted.json')"
+        },
+        {
+          "line": 1069,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 1074,
+          "expression": "self.read(s['acceptance_record']['path'], 'approval')"
+        },
+        {
+          "line": 1084,
+          "expression": "safe(self.root, n)"
+        },
+        {
+          "line": 1085,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 1086,
+          "expression": "file_hash(p)"
+        },
+        {
+          "line": 1102,
+          "expression": "safe(self.root, name)"
+        },
+        {
+          "line": 1112,
+          "expression": "safe(self.root, f'.bh/exports/{s[\"task_id\"]}/RETURN.md')"
+        },
+        {
+          "line": 1122,
+          "expression": "snapshot(self.root)"
+        },
+        {
+          "line": 1125,
+          "expression": "self.read(name, 'approval')"
+        },
+        {
+          "line": 1145,
+          "expression": "safe(self.root, '.bh/state.json')"
+        },
+        {
+          "line": 1146,
+          "expression": "safe(self.root, '.bh/CHECKPOINT.md')"
+        },
+        {
+          "line": 1151,
+          "expression": "safe(self.root, '.bh/locks/writer.json')"
+        },
+        {
+          "line": 1152,
+          "expression": "load_json(p)"
+        },
+        {
+          "line": 1165,
+          "expression": "load_json(p)"
+        },
+        {
+          "line": 1191,
+          "expression": "Path(path).read_bytes()"
+        }
+      ]
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "imports": [
+        {
+          "line": 6,
+          "statement": "import argparse, fnmatch, json, sys"
+        },
+        {
+          "line": 7,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 9,
+          "statement": "import bh"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 24,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 36,
+          "expression": "bh.load_json(a.policy)"
+        },
+        {
+          "line": 37,
+          "expression": "out.exists()"
+        },
+        {
+          "line": 39,
+          "expression": "out.open('x',encoding='utf-8')"
+        }
+      ]
+    },
+    {
+      "path": "tools/check_package.py",
+      "imports": [
+        {
+          "line": 5,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 6,
+          "statement": "import argparse, ast, hashlib, importlib.util, json, sys"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 9,
+          "expression": "p.read_bytes()"
+        },
+        {
+          "line": 11,
+          "expression": "p.read_bytes()"
+        },
+        {
+          "line": 18,
+          "expression": "(P/src).read_bytes()"
+        },
+        {
+          "line": 18,
+          "expression": "(P/target).read_bytes()"
+        },
+        {
+          "line": 19,
+          "expression": "(P/'design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md').read_text(encoding='utf-8')"
+        },
+        {
+          "line": 20,
+          "expression": "(P/'design-gpt/INSTRUCTION_METRICS.json').read_text()"
+        },
+        {
+          "line": 23,
+          "expression": "(P/'design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md').read_bytes()"
+        },
+        {
+          "line": 24,
+          "expression": "(P/'PACKAGE_FILES.json').read_text()"
+        },
+        {
+          "line": 26,
+          "expression": "(P/'project-template').rglob('*')"
+        },
+        {
+          "line": 26,
+          "expression": "x.is_file()"
+        },
+        {
+          "line": 29,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 30,
+          "expression": "(P/'design-gpt/KNOWLEDGE_MANIFEST.json').read_text()"
+        },
+        {
+          "line": 33,
+          "expression": "(P/'PRESERVED_REFERENCES.json').read_text()"
+        },
+        {
+          "line": 36,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 40,
+          "expression": "p.is_file()"
+        },
+        {
+          "line": 45,
+          "expression": "(P/'project-template/.agents/skills').glob('*/SKILL.md')"
+        },
+        {
+          "line": 48,
+          "expression": "p.read_text()"
+        },
+        {
+          "line": 49,
+          "expression": "(p.parent/'agents/openai.yaml').read_text()"
+        },
+        {
+          "line": 50,
+          "expression": "(P/'project-template/.agents/skills/bh-procedural-regression').exists()"
+        },
+        {
+          "line": 51,
+          "expression": "P.rglob('*.py')"
+        },
+        {
+          "line": 52,
+          "expression": "ast.parse(p.read_text(encoding='utf-8'),filename=str(p))"
+        },
+        {
+          "line": 52,
+          "expression": "p.read_text(encoding='utf-8')"
+        },
+        {
+          "line": 54,
+          "expression": "(P/name).is_file()"
+        }
+      ]
+    },
+    {
+      "path": "tools/assemble_candidate.py",
+      "imports": [
+        {
+          "line": 5,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 6,
+          "statement": "import argparse, hashlib, json, os, re, shutil, subprocess, sys, tempfile"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 19,
+          "expression": "output.exists()"
+        },
+        {
+          "line": 28,
+          "expression": "(package/'PRESERVED_REFERENCES.json').read_text(encoding='utf-8')"
+        },
+        {
+          "line": 40,
+          "expression": "package.rglob('*')"
+        },
+        {
+          "line": 42,
+          "expression": "src.is_file()"
+        },
+        {
+          "line": 43,
+          "expression": "shutil.copyfile(src,dest)"
+        },
+        {
+          "line": 46,
+          "expression": "dest.exists()"
+        },
+        {
+          "line": 46,
+          "expression": "dest.read_bytes()"
+        },
+        {
+          "line": 48,
+          "expression": "output.exists()"
+        },
+        {
+          "line": 51,
+          "expression": "stage.exists()"
+        }
+      ]
+    },
+    {
+      "path": "tools/run_tests.py",
+      "imports": [
+        {
+          "line": 3,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 4,
+          "statement": "import argparse, datetime, hashlib, io, json, platform, sys, time, unittest"
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 14,
+          "expression": "f.read_bytes()"
+        },
+        {
+          "line": 15,
+          "expression": "root.rglob('*')"
+        },
+        {
+          "line": 15,
+          "expression": "f.is_file()"
+        },
+        {
+          "line": 23,
+          "expression": "prefix.with_suffix('.json').exists()"
+        },
+        {
+          "line": 24,
+          "expression": "source_hashes(P)"
+        },
+        {
+          "line": 26,
+          "expression": "prefix.with_suffix('.log').open('w',encoding='utf-8')"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+import argparse, datetime, hashlib, io, json, platform, sys, time, unittest
+from pathlib import Path
+sys.dont_write_bytecode=True
+BASE=Path(__file__).resolve().parent
+P=BASE/'remaining-tests-work/BH-Unity-Harness'
+OUT=BASE/'remaining-tests-evidence'
+MODULES=['test_package','test_game_agnostic','test_review_amendments','test_unity_observation','test_unity_authoring']
+def flatten(suite):
+    for item in suite:
+        if isinstance(item,unittest.TestSuite):yield from flatten(item)
+        else:yield item
+def fingerprints():
+    return {p.relative_to(P).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(P.rglob('*')) if p.is_file() and '__pycache__' not in p.parts}
+parser=argparse.ArgumentParser();parser.add_argument('--discover',action='store_true');parser.add_argument('--module',choices=MODULES);parser.add_argument('--part',type=int,default=0);args=parser.parse_args()
+sys.path.insert(0,str(P/'tests'))
+if args.discover:
+    stream=io.StringIO();rosters=[]
+    for name in MODULES:
+        cases=sorted(flatten(unittest.defaultTestLoader.loadTestsFromName(name)),key=lambda t:t.id())
+        assert all(not isinstance(c,unittest.loader._FailedTest) for c in cases)
+        ids=[c.id() for c in cases];assert len(set(ids))==len(ids)
+        roster={'module':name,'count':len(ids),'case_ids':ids,'partitions':[ids[i:i+20] for i in range(0,len(ids),20)]};rosters.append(roster)
+        print(f'{name}: {len(ids)} distinct cases; partitions '+','.join(str(len(p)) for p in roster['partitions']))
+        for case in ids:print(case)
+    (OUT/'PARTITIONS.json').write_text(json.dumps({'modules':rosters,'total':sum(r['count'] for r in rosters)},indent=2)+'\n')
+    sys.exit(0)
+assert args.module
+prior=json.loads((OUT/'PARTITIONS.json').read_text())
+roster=next(r for r in prior['modules'] if r['module']==args.module)
+cases=sorted(flatten(unittest.defaultTestLoader.loadTestsFromName(args.module)),key=lambda t:t.id())
+assert [c.id() for c in cases]==roster['case_ids']
+ids=roster['partitions'][args.part];assert 0<len(ids)<=20
+selected=[c for c in cases if c.id() in ids]
+prefix=OUT/(args.module+'-part-'+str(args.part));assert not prefix.with_suffix('.json').exists()
+before=fingerprints();start=time.monotonic()
+with prefix.with_suffix('.log').open('w') as log:
+    result=unittest.TextTestRunner(stream=log,verbosity=2).run(unittest.TestSuite(selected))
+after=fingerprints();unchanged=before==after
+value={'module':args.module,'part':args.part,'status':'PASS' if result.wasSuccessful() and unchanged else 'FAIL','tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'skipped':len(result.skipped),'seconds':round(time.monotonic()-start,3),'case_ids':ids,'source_map_before_after_equal':unchanged,'input_head':json.loads((BASE/'all-current-tree.json').read_text())['head'],'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'python':sys.version,'platform':platform.platform(),'command':f'python3 run_remaining.txt --module {args.module} --part {args.part}'}
+(OUT/prefix.with_suffix('.json').name).write_text(json.dumps(value,indent=2)+'\n')
+print(json.dumps(value))
+sys.exit(0 if value['status']=='PASS' else 1)

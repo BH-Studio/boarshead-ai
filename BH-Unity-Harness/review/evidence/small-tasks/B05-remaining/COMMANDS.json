@@ -1,0 +1,75 @@
+{
+  "working_directory": "/workspace/scratch/301f3dd0656a",
+  "commands": [
+    {
+      "command": "python3 prepare_remaining.py",
+      "exit_status": 0
+    },
+    {
+      "command": "python3 reconcile_remaining.txt > remaining-reconciliation.log 2>&1",
+      "attempt": 1,
+      "exit_status": 1,
+      "raw": "INPUT_RECONCILIATION_ATTEMPT1.log"
+    },
+    {
+      "command": "python3 reconcile_remaining.txt > remaining-reconciliation.log 2>&1",
+      "attempt": 2,
+      "exit_status": 0,
+      "raw": "INPUT_RECONCILIATION.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --discover > remaining-tests-evidence/DISCOVERY.log 2>&1",
+      "exit_status": 0
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_game_agnostic --part 0",
+      "exit_status": 0,
+      "raw": "test_game_agnostic-part-0.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_package --part 0",
+      "exit_status": 0,
+      "raw": "test_package-part-0.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_package --part 1",
+      "exit_status": 0,
+      "raw": "test_package-part-1.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_review_amendments --part 0",
+      "exit_status": 0,
+      "raw": "test_review_amendments-part-0.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_unity_authoring --part 0",
+      "exit_status": 0,
+      "raw": "test_unity_authoring-part-0.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_unity_observation --part 0",
+      "exit_status": 0,
+      "raw": "test_unity_observation-part-0.log"
+    },
+    {
+      "command": "python3 run_remaining.txt --module test_unity_observation --part 1",
+      "exit_status": 0,
+      "raw": "test_unity_observation-part-1.log"
+    },
+    {
+      "command": "python3 tools/check_package.py > remaining-tests-evidence/PACKAGE_CHECK.log 2>&1",
+      "working_directory": "remaining-tests-work/BH-Unity-Harness",
+      "exit_status": 0
+    },
+    {
+      "command": "python3 tools/check_unity_authoring.py > remaining-tests-evidence/AUTHORING_CHECK.log 2>&1",
+      "working_directory": "remaining-tests-work/BH-Unity-Harness",
+      "exit_status": 0
+    },
+    {
+      "command": "python3 coverage_remaining.txt > remaining-tests-evidence/COVERAGE.log 2>&1",
+      "exit_status": 0
+    }
+  ],
+  "reproduction": "Materialize the exact SOURCES.json Git blobs from input_head into remaining-tests-work/BH-Unity-Harness. Supply all-current-tree.json as head/root/harness/tree, with current Git tree entries. For input reconciliation regenerate remaining-fetch-*.json UTF-8 fetch_file exports and remaining-reused.json as described by FETCH_METADATA.json; reuse only exact current hashes. Run the committed helpers from the scratch parent with their original filenames (.txt is valid Python). Evidence lives outside the tested package, so helper text files do not expand the package Python scan. Discovery modules/cases and raw outputs are actual, not reconstructed."
+}

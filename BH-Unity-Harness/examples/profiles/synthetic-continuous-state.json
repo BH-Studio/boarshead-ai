@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "project_id": "fixture-continuous",
+  "synthetic": true,
+  "status": "SYNTHETIC",
+  "invariants": [
+    {
+      "id": "SYN-CONTINUOUS-TIME",
+      "text": "SYNTHETIC: state uses an explicitly supplied elapsed-time input; do not substitute discrete-step semantics from another profile.",
+      "source_ref": "SYNTHETIC fixture specification; not a real project"
+    },
+    {
+      "id": "SYN-TRANSIENT-BOUNDARY",
+      "text": "SYNTHETIC: transient session observations are not persistent authored definitions; persistence and networking are not selected.",
+      "source_ref": "SYNTHETIC fixture specification; not a real project"
+    }
+  ],
+  "protected_paths": [
+    "Packages",
+    "ProjectSettings"
+  ],
+  "optional_capabilities": [],
+  "open_decisions": [
+    "Real project identity, engine/packages, render pipeline, target, mechanics, ownership and budgets are intentionally unconfigured.",
+    "This fixture conveys no human approval and must not be deployed as a real project overlay."
+  ],
+  "facts": [
+    "SYNTHETIC: instructional and automated-test data only.",
+    "This fixture models a continuous-time input and transient observations."
+  ],
+  "source_refs": [
+    "SYNTHETIC generic contract example; no source game design"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "input_head": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "root_tree": "2a393b400782bc38cdb7a876f1824ef5999a17f7",
+  "harness_tree": "3dbe7acb6b4b6eb7bf80d3434ae74b093bcf5935",
+  "files": [
+    {
+      "path": "tests/test_package.py",
+      "git_blob_sha": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+      "sha256": "ba72a28655cb3ea5ff46e4d0ef6c6312fa10882ebee0d8ce7388787d79134fa0",
+      "bytes": 7703,
+      "origin": "Pinned GitHub UTF-8 retrieval; exact bytes checked against immutable Git tree"
+    },
+    {
+      "path": "tests/test_game_agnostic.py",
+      "git_blob_sha": "4c69a3a553f0f5fedf77d7e537a3dc278b67cc22",
+      "sha256": "2232dc08f0b5fa019dc4c9775f12610cc3cbe1420f439b77e447df55c3ba9a70",
+      "bytes": 9030,
+      "origin": "Pinned GitHub UTF-8 retrieval; exact bytes checked against immutable Git tree"
+    },
+    {
+      "path": "tests/test_review_amendments.py",
+      "git_blob_sha": "91dcfdd4ca172fa47657491030906a86f49a55f1",
+      "sha256": "d1dcedbd9155ece3fbc1c0b65a4eb0c0fc8fb9f4099560235875a310a4ab4e60",
+      "bytes": 2433,
+      "origin": "Pinned GitHub UTF-8 retrieval; exact bytes checked against immutable Git tree"
+    }
+  ]
+}

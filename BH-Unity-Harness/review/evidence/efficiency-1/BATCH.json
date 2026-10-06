@@ -1,0 +1,19 @@
+{
+  "kind": "actual-focused-efficiency-tests",
+  "review_baseline": "4ed5b1fccf25cf7f45e1cf933df162f3b79161d2",
+  "environment": "Linux-6.18.44-x86_64-with-glibc2.41; Python 3.13.5",
+  "runtime_blob_unchanged": "5dff7bef67a6ee750918e190ce635ac1cddf2857",
+  "view_blob": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+  "view_test_blob": "3a378b784e02bab0d17452f6f97bcb80a40b1f48",
+  "installation_manifest_blob": "63ae2b5c31c99e5a3afebaca5352ee733cbf3aae",
+  "runs": [
+    {"command": "python -B -m unittest discover -s tests -p test_efficiency_views.py -v", "tests": 11, "seconds": 7.226, "failures": 0, "errors": 0, "skips": 0, "raw_log": "views-final.log", "raw_sha256": "88b17cff7c58d56ffb0886d981609995cf77509dfeafa6fabaf9b5c5fd6a262b"},
+    {"command": "python -B -m unittest discover -s tests -p test_installer.py -v", "tests": 20, "seconds": 1.075, "failures": 0, "errors": 0, "skips": 0, "raw_log": "installer-batch1-final.log", "raw_sha256": "dab8d8161f5b735ad6d2b8dda47746c1bedf7c27e4ece180630f3804b916e608"},
+    {"command": "python -B -m unittest discover -s tests -p test_runtime.py -v", "tests": 84, "seconds": 32.888, "failures": 0, "errors": 0, "skips": 0, "raw_log": "runtime-batch1.log", "raw_sha256": "fbd37607546c967be4ccef6a615a3de4e5fccc7ccd76de5b21efc72a921c7bc8"}
+  ],
+  "prior_failed_attempt": {"raw_log": "installer-batch1.log", "tests": 20, "errors": 12, "reason": "Manifest generation stopped at an exact-source reconciliation assertion; installer correctly rejected changed distribution hashes before manifest refresh.", "raw_sha256": "87ec7cd03da5a5d4a5f8ad94956c79f2a728001b4b8fbe544c2a1db2bd23085b"},
+  "raw_publication": "LOCAL_ONLY at this commit; publish original bytes next, do not reconstruct logs from this summary",
+  "scope": "115 tests in three completed focused runs; not a full historical 148-case rerun or native-host test",
+  "not_run": ["full revised package suite", "Windows", "PowerShell", "Unity", "native Codex", "configured GPT/Project", "credit measurement"],
+  "human_adoption": "PENDING"
+}

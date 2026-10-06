@@ -1,0 +1,90 @@
+{
+  "description": "Exact original partition metadata, with full case identities/outcomes in RESULTS.md and the shared input-map digest below. This is a derived publication, not the original raw JSON. Complete original receipts remain in the supplemental archive.",
+  "source_map_sha256": "cda944d1afc0f0ae454eb6debcf6dde1df69d98606288b0220feee8b216ef381",
+  "partitions": [
+    {
+      "status": "PASS_PART",
+      "part": 0,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.641,
+      "utc": "2026-10-04T22:50:55.926389+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    },
+    {
+      "status": "PASS_PART",
+      "part": 1,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 6.865,
+      "utc": "2026-10-04T22:51:03.418481+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    },
+    {
+      "status": "PASS_PART",
+      "part": 2,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.587,
+      "utc": "2026-10-04T22:51:09.634120+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    },
+    {
+      "status": "PASS_PART",
+      "part": 3,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.801,
+      "utc": "2026-10-04T22:51:25.288687+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    },
+    {
+      "status": "PASS_PART",
+      "part": 4,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 6.38,
+      "utc": "2026-10-04T22:51:32.390832+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    },
+    {
+      "status": "PASS_PART",
+      "part": 5,
+      "parts": 6,
+      "discovered_total": 148,
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 4.997,
+      "utc": "2026-10-04T22:51:38.029155+00:00",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+    }
+  ]
+}

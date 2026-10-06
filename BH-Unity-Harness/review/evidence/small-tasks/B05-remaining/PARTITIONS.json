@@ -1,0 +1,247 @@
+{
+  "modules": [
+    {
+      "module": "test_package",
+      "count": 23,
+      "case_ids": [
+        "test_package.BuildParserTests.test_cancelled_not_pass",
+        "test_package.BuildParserTests.test_failed_is_fail_not_error",
+        "test_package.BuildParserTests.test_missing_result_is_malformed",
+        "test_package.BuildParserTests.test_no_outputs",
+        "test_package.BuildParserTests.test_output_digest_mismatch",
+        "test_package.BuildParserTests.test_stale_output_directory",
+        "test_package.BuildParserTests.test_success_actual_hashed_output",
+        "test_package.BuildParserTests.test_wrong_target",
+        "test_package.PackageTests.test_assembler_accepts_crlf_checkout_of_preserved_blob",
+        "test_package.PackageTests.test_assembler_real_git_blob",
+        "test_package.PackageTests.test_assembler_rejects_real_preserved_content_conflict",
+        "test_package.PackageTests.test_assembler_rejects_unsafe_reference",
+        "test_package.PackageTests.test_budget_metrics",
+        "test_package.PackageTests.test_canonical_copies",
+        "test_package.PackageTests.test_distribution_nonempty",
+        "test_package.PackageTests.test_missing_preserved_blocks_full_validation",
+        "test_package.PackageTests.test_no_design_in_game",
+        "test_package.PackageTests.test_package_additions_no_false_full_pass",
+        "test_package.PackageTests.test_release_actual_match",
+        "test_package.PackageTests.test_release_empty_blocks",
+        "test_package.PackageTests.test_release_empty_policy_blocks",
+        "test_package.PackageTests.test_release_no_match_narrow_only",
+        "test_package.PackageTests.test_seed_project_schema_valid"
+      ],
+      "partitions": [
+        [
+          "test_package.BuildParserTests.test_cancelled_not_pass",
+          "test_package.BuildParserTests.test_failed_is_fail_not_error",
+          "test_package.BuildParserTests.test_missing_result_is_malformed",
+          "test_package.BuildParserTests.test_no_outputs",
+          "test_package.BuildParserTests.test_output_digest_mismatch",
+          "test_package.BuildParserTests.test_stale_output_directory",
+          "test_package.BuildParserTests.test_success_actual_hashed_output",
+          "test_package.BuildParserTests.test_wrong_target",
+          "test_package.PackageTests.test_assembler_accepts_crlf_checkout_of_preserved_blob",
+          "test_package.PackageTests.test_assembler_real_git_blob",
+          "test_package.PackageTests.test_assembler_rejects_real_preserved_content_conflict",
+          "test_package.PackageTests.test_assembler_rejects_unsafe_reference",
+          "test_package.PackageTests.test_budget_metrics",
+          "test_package.PackageTests.test_canonical_copies",
+          "test_package.PackageTests.test_distribution_nonempty",
+          "test_package.PackageTests.test_missing_preserved_blocks_full_validation",
+          "test_package.PackageTests.test_no_design_in_game",
+          "test_package.PackageTests.test_package_additions_no_false_full_pass",
+          "test_package.PackageTests.test_release_actual_match",
+          "test_package.PackageTests.test_release_empty_blocks"
+        ],
+        [
+          "test_package.PackageTests.test_release_empty_policy_blocks",
+          "test_package.PackageTests.test_release_no_match_narrow_only",
+          "test_package.PackageTests.test_seed_project_schema_valid"
+        ]
+      ]
+    },
+    {
+      "module": "test_game_agnostic",
+      "count": 15,
+      "case_ids": [
+        "test_game_agnostic.GameAgnosticTests.test_active_policy_and_knowledge_have_no_source_game_names",
+        "test_game_agnostic.GameAgnosticTests.test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix",
+        "test_game_agnostic.GameAgnosticTests.test_assembler_accepts_only_declared_review_reference_path",
+        "test_game_agnostic.GameAgnosticTests.test_explicitly_reviewed_extra_skill_is_preserved",
+        "test_game_agnostic.GameAgnosticTests.test_foreign_profile_invariants_are_rejected",
+        "test_game_agnostic.GameAgnosticTests.test_generic_lesson_preserves_fifteen_responsibilities",
+        "test_game_agnostic.GameAgnosticTests.test_malformed_skill_registry_fails_explicitly",
+        "test_game_agnostic.GameAgnosticTests.test_missing_nonpreserved_knowledge_cannot_pass_package_check",
+        "test_game_agnostic.GameAgnosticTests.test_profiles_are_distinct_synthetic_contracts",
+        "test_game_agnostic.GameAgnosticTests.test_real_seed_does_not_select_game_configuration",
+        "test_game_agnostic.GameAgnosticTests.test_reference_only_lesson_is_not_a_knowledge_selection",
+        "test_game_agnostic.GameAgnosticTests.test_scanner_rejects_name_variants",
+        "test_game_agnostic.GameAgnosticTests.test_shipped_profiles_block_execution_until_reconciled",
+        "test_game_agnostic.GameAgnosticTests.test_test_receipts_include_markdown_inputs_not_generated_evidence",
+        "test_game_agnostic.GameAgnosticTests.test_unregistered_skill_cannot_hide_behind_studio_prefix"
+      ],
+      "partitions": [
+        [
+          "test_game_agnostic.GameAgnosticTests.test_active_policy_and_knowledge_have_no_source_game_names",
+          "test_game_agnostic.GameAgnosticTests.test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix",
+          "test_game_agnostic.GameAgnosticTests.test_assembler_accepts_only_declared_review_reference_path",
+          "test_game_agnostic.GameAgnosticTests.test_explicitly_reviewed_extra_skill_is_preserved",
+          "test_game_agnostic.GameAgnosticTests.test_foreign_profile_invariants_are_rejected",
+          "test_game_agnostic.GameAgnosticTests.test_generic_lesson_preserves_fifteen_responsibilities",
+          "test_game_agnostic.GameAgnosticTests.test_malformed_skill_registry_fails_explicitly",
+          "test_game_agnostic.GameAgnosticTests.test_missing_nonpreserved_knowledge_cannot_pass_package_check",
+          "test_game_agnostic.GameAgnosticTests.test_profiles_are_distinct_synthetic_contracts",
+          "test_game_agnostic.GameAgnosticTests.test_real_seed_does_not_select_game_configuration",
+          "test_game_agnostic.GameAgnosticTests.test_reference_only_lesson_is_not_a_knowledge_selection",
+          "test_game_agnostic.GameAgnosticTests.test_scanner_rejects_name_variants",
+          "test_game_agnostic.GameAgnosticTests.test_shipped_profiles_block_execution_until_reconciled",
+          "test_game_agnostic.GameAgnosticTests.test_test_receipts_include_markdown_inputs_not_generated_evidence",
+          "test_game_agnostic.GameAgnosticTests.test_unregistered_skill_cannot_hide_behind_studio_prefix"
+        ]
+      ]
+    },
+    {
+      "module": "test_review_amendments",
+      "count": 6,
+      "case_ids": [
+        "test_review_amendments.ReviewAmendmentTests.test_applicable_detail_checklists_present",
+        "test_review_amendments.ReviewAmendmentTests.test_knowledge_digest_tracks_k12_without_extra_uploads",
+        "test_review_amendments.ReviewAmendmentTests.test_open_game_decisions_not_promoted",
+        "test_review_amendments.ReviewAmendmentTests.test_overlay_matches_real_schema",
+        "test_review_amendments.ReviewAmendmentTests.test_prior_k12_preserved_exactly",
+        "test_review_amendments.ReviewAmendmentTests.test_significant_generic_invariants_retained"
+      ],
+      "partitions": [
+        [
+          "test_review_amendments.ReviewAmendmentTests.test_applicable_detail_checklists_present",
+          "test_review_amendments.ReviewAmendmentTests.test_knowledge_digest_tracks_k12_without_extra_uploads",
+          "test_review_amendments.ReviewAmendmentTests.test_open_game_decisions_not_promoted",
+          "test_review_amendments.ReviewAmendmentTests.test_overlay_matches_real_schema",
+          "test_review_amendments.ReviewAmendmentTests.test_prior_k12_preserved_exactly",
+          "test_review_amendments.ReviewAmendmentTests.test_significant_generic_invariants_retained"
+        ]
+      ]
+    },
+    {
+      "module": "test_unity_observation",
+      "count": 37,
+      "case_ids": [
+        "test_unity_observation.UnityJobTests.test_bad_process_output_is_not_evidence",
+        "test_unity_observation.UnityJobTests.test_changed_provider_executable_input_blocks_before_submit",
+        "test_unity_observation.UnityJobTests.test_confirmed_stopped_states_release_ownership_without_pass",
+        "test_unity_observation.UnityJobTests.test_disabled_config_never_starts_provider",
+        "test_unity_observation.UnityJobTests.test_every_operation_runs_actual_provider_and_parser",
+        "test_unity_observation.UnityJobTests.test_explicit_fresh_verification_from_ready",
+        "test_unity_observation.UnityJobTests.test_frozen_smoke_fails_despite_capture",
+        "test_unity_observation.UnityJobTests.test_identity_changes_rejected_and_ownership_retained",
+        "test_unity_observation.UnityJobTests.test_invalid_spec_never_starts_provider",
+        "test_unity_observation.UnityJobTests.test_lost_submit_retains_ownership_and_blocks_resubmit",
+        "test_unity_observation.UnityJobTests.test_missing_capability_never_submits",
+        "test_unity_observation.UnityJobTests.test_missing_coverage_expectation_blocks_before_submit",
+        "test_unity_observation.UnityJobTests.test_never_reuse_live_observation",
+        "test_unity_observation.UnityJobTests.test_partial_search_fails_coverage_expectation",
+        "test_unity_observation.UnityJobTests.test_persistence_and_localization_failures_propagate",
+        "test_unity_observation.UnityJobTests.test_poll_budget_stops_without_claiming_cancellation",
+        "test_unity_observation.UnityJobTests.test_probe_not_ready_never_submits",
+        "test_unity_observation.UnityJobTests.test_source_mutation_during_observation_invalidates_run",
+        "test_unity_observation.UnityJobTests.test_success_one_submit_local_poll_and_human_pending",
+        "test_unity_observation.UnityJobTests.test_timeout_is_not_server_cancellation",
+        "test_unity_observation.UnityJobTests.test_uncertain_terminal_states_retain_ownership",
+        "test_unity_observation.UnityJobTests.test_unknown_reuse_policy_rejected",
+        "test_unity_observation.UnityReducerTests.test_capture_digest_and_source_and_paths",
+        "test_unity_observation.UnityReducerTests.test_csv_quoted_fields_and_header_validation",
+        "test_unity_observation.UnityReducerTests.test_empty_rosters_rejected_before_execution",
+        "test_unity_observation.UnityReducerTests.test_frozen_and_failed_conditions_are_observed_not_invented",
+        "test_unity_observation.UnityReducerTests.test_incomplete_search_is_never_labeled_complete",
+        "test_unity_observation.UnityReducerTests.test_mandatory_expectations_and_type_checks",
+        "test_unity_observation.UnityReducerTests.test_missing_asset_or_unsaved_binding_is_failure",
+        "test_unity_observation.UnityReducerTests.test_missing_locale_empty_translation_and_code_site",
+        "test_unity_observation.UnityReducerTests.test_no_result_is_not_universal_absence",
+        "test_unity_observation.UnityReducerTests.test_outside_scope_duplicate_and_missing_properties_rejected",
+        "test_unity_observation.UnityReducerTests.test_reducers_never_mark_human_accepted",
+        "test_unity_observation.UnityReducerTests.test_run_file_rejects_symlink",
+        "test_unity_observation.UnityReducerTests.test_search_counts_and_scoped_properties",
+        "test_unity_observation.UnityReducerTests.test_unknown_fields_nonfinite_and_oversize_rejected",
+        "test_unity_observation.UnityReducerTests.test_unknown_locale_duplicate_pair_and_unknown_code_site_rejected"
+      ],
+      "partitions": [
+        [
+          "test_unity_observation.UnityJobTests.test_bad_process_output_is_not_evidence",
+          "test_unity_observation.UnityJobTests.test_changed_provider_executable_input_blocks_before_submit",
+          "test_unity_observation.UnityJobTests.test_confirmed_stopped_states_release_ownership_without_pass",
+          "test_unity_observation.UnityJobTests.test_disabled_config_never_starts_provider",
+          "test_unity_observation.UnityJobTests.test_every_operation_runs_actual_provider_and_parser",
+          "test_unity_observation.UnityJobTests.test_explicit_fresh_verification_from_ready",
+          "test_unity_observation.UnityJobTests.test_frozen_smoke_fails_despite_capture",
+          "test_unity_observation.UnityJobTests.test_identity_changes_rejected_and_ownership_retained",
+          "test_unity_observation.UnityJobTests.test_invalid_spec_never_starts_provider",
+          "test_unity_observation.UnityJobTests.test_lost_submit_retains_ownership_and_blocks_resubmit",
+          "test_unity_observation.UnityJobTests.test_missing_capability_never_submits",
+          "test_unity_observation.UnityJobTests.test_missing_coverage_expectation_blocks_before_submit",
+          "test_unity_observation.UnityJobTests.test_never_reuse_live_observation",
+          "test_unity_observation.UnityJobTests.test_partial_search_fails_coverage_expectation",
+          "test_unity_observation.UnityJobTests.test_persistence_and_localization_failures_propagate",
+          "test_unity_observation.UnityJobTests.test_poll_budget_stops_without_claiming_cancellation",
+          "test_unity_observation.UnityJobTests.test_probe_not_ready_never_submits",
+          "test_unity_observation.UnityJobTests.test_source_mutation_during_observation_invalidates_run",
+          "test_unity_observation.UnityJobTests.test_success_one_submit_local_poll_and_human_pending",
+          "test_unity_observation.UnityJobTests.test_timeout_is_not_server_cancellation"
+        ],
+        [
+          "test_unity_observation.UnityJobTests.test_uncertain_terminal_states_retain_ownership",
+          "test_unity_observation.UnityJobTests.test_unknown_reuse_policy_rejected",
+          "test_unity_observation.UnityReducerTests.test_capture_digest_and_source_and_paths",
+          "test_unity_observation.UnityReducerTests.test_csv_quoted_fields_and_header_validation",
+          "test_unity_observation.UnityReducerTests.test_empty_rosters_rejected_before_execution",
+          "test_unity_observation.UnityReducerTests.test_frozen_and_failed_conditions_are_observed_not_invented",
+          "test_unity_observation.UnityReducerTests.test_incomplete_search_is_never_labeled_complete",
+          "test_unity_observation.UnityReducerTests.test_mandatory_expectations_and_type_checks",
+          "test_unity_observation.UnityReducerTests.test_missing_asset_or_unsaved_binding_is_failure",
+          "test_unity_observation.UnityReducerTests.test_missing_locale_empty_translation_and_code_site",
+          "test_unity_observation.UnityReducerTests.test_no_result_is_not_universal_absence",
+          "test_unity_observation.UnityReducerTests.test_outside_scope_duplicate_and_missing_properties_rejected",
+          "test_unity_observation.UnityReducerTests.test_reducers_never_mark_human_accepted",
+          "test_unity_observation.UnityReducerTests.test_run_file_rejects_symlink",
+          "test_unity_observation.UnityReducerTests.test_search_counts_and_scoped_properties",
+          "test_unity_observation.UnityReducerTests.test_unknown_fields_nonfinite_and_oversize_rejected",
+          "test_unity_observation.UnityReducerTests.test_unknown_locale_duplicate_pair_and_unknown_code_site_rejected"
+        ]
+      ]
+    },
+    {
+      "module": "test_unity_authoring",
+      "count": 13,
+      "case_ids": [
+        "test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_current_authored_subset",
+        "test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link",
+        "test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears",
+        "test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata",
+        "test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected"
+      ],
+      "partitions": [
+        [
+          "test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_current_authored_subset",
+          "test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link",
+          "test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears",
+          "test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references",
+          "test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected",
+          "test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata",
+          "test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected"
+        ]
+      ]
+    }
+  ],
+  "total": 94
+}

@@ -1,0 +1,39 @@
+{
+  "input_head": "8a48b8b52d3e427a4e53beb731bd13aaaccd7ada",
+  "status": "PASS_ALL_OUTSTANDING_OFFLINE_TESTS",
+  "new_tests": 94,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "new_test_seconds_sum": 37.145,
+  "earlier_cases_with_current_inputs_matched": 136,
+  "complete_distinct_case_coverage": 230,
+  "strict_package": {
+    "status": "PASS_STATIC_PACKAGE",
+    "checks": 88,
+    "instruction_characters": 7798,
+    "managed_files": 25,
+    "missing_preserved": [],
+    "problems": [],
+    "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+  },
+  "unity_authoring_subset": {
+    "status": "PASS_UNITY_AUTHORING_SUBSET",
+    "checks": 56,
+    "problems": [],
+    "limits": [
+      "Restricted BH metadata/reference checks, not a general YAML validator.",
+      "Not a complete design/package validation or native Codex/Unity test."
+    ]
+  },
+  "candidate_implementation_changes": false,
+  "source_research_repeated": false,
+  "live_host_tests": "NOT_RUN",
+  "adoption": "PENDING",
+  "input_helper_attempt1": {
+    "status": "FAILED_HELPER_BOOKKEEPING",
+    "exit_status": 1,
+    "cause": "current_python_roster is a list of metadata dicts; initial helper used set directly. Corrected to extract path fields. Failed helper and exact log retained. No candidate defect or fabricated test result."
+  },
+  "input_helper_attempt2_exit_status": 0
+}

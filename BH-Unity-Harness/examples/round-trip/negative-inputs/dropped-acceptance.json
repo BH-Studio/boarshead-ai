@@ -1,0 +1,123 @@
+{
+  "version": "1.0.0",
+  "harness_version": "1.0.0",
+  "design_method_version": "3.1.0",
+  "project_id": "synthetic-urp",
+  "task_id": "task-01",
+  "milestone_id": "M-SYNTHETIC",
+  "synthetic": true,
+  "status": "COMPILED",
+  "objectives": [
+    "Verify synthetic counter"
+  ],
+  "non_goals": [
+    "A real game or Unity integration test"
+  ],
+  "assumptions": [
+    "Synthetic only"
+  ],
+  "source_commit": null,
+  "artifacts": [
+    {
+      "path": "Handoff/DESIGN.md",
+      "sha256": "383c48b7ccc0204f3f9e0de56ef8e5c43a310b073ddbc35d1518c5036126ddcf"
+    },
+    {
+      "path": "Handoff/criteria.json",
+      "sha256": "943eff4c2ac6f8379980a02e05ab4a1e9923abb1f6566987bd842a14de68d7f7"
+    },
+    {
+      "path": "Handoff/overlay.json",
+      "sha256": "1366448d4caf0ee4af43b1e227ee6d3fc4a52ce43995bb2025f9be177bfc7932"
+    }
+  ],
+  "design_path": "Handoff/DESIGN.md",
+  "criteria_path": "Handoff/criteria.json",
+  "overlay_path": "Handoff/overlay.json",
+  "read_order": [
+    "Handoff/DESIGN.md",
+    "Handoff/criteria.json",
+    "Handoff/overlay.json"
+  ],
+  "acceptance_ids": [
+    "AC-01"
+  ],
+  "invariant_ids": [
+    "INV-01"
+  ],
+  "allowed_paths": [
+    "Source"
+  ],
+  "protected_paths": [
+    "Tests"
+  ],
+  "allowed_actions": [
+    "edit-source",
+    "write-task-state",
+    "run-checks"
+  ],
+  "architecture_refs": [
+    "Handoff/DESIGN.md"
+  ],
+  "data_contract_refs": [
+    "Handoff/DESIGN.md"
+  ],
+  "dependencies": [],
+  "migration_impact": "No persistent game state",
+  "risk_controls": [
+    "Synthetic boundaries and human-only clarity criterion"
+  ],
+  "questions": [],
+  "checks": [
+    {
+      "id": "CHECK-01",
+      "ac_ids": [
+        "AC-01"
+      ],
+      "required": true,
+      "adapter": "nunit",
+      "profile": "slice",
+      "expected": "Actual observations match approved counter behavior",
+      "test_names": [
+        "Fixture.CounterChanges"
+      ],
+      "minimum_tests": 1,
+      "not_applicable_reason": null
+    },
+    {
+      "id": "HUMAN-01",
+      "ac_ids": [
+        "AC-HUMAN"
+      ],
+      "required": true,
+      "adapter": "manual",
+      "profile": "slice",
+      "expected": "Human first-use playtest",
+      "test_names": [],
+      "minimum_tests": 0,
+      "not_applicable_reason": null
+    }
+  ],
+  "required_profile": "slice",
+  "stop_conditions": [
+    "Scope or approval mismatch"
+  ],
+  "startup": "Validate, reconcile, plan and obtain genuine technical approval before begin",
+  "return_format": "BH-RETURN-1.0.0",
+  "approval": {
+    "version": "1.0.0",
+    "project_id": "synthetic-urp",
+    "task_id": "task-01",
+    "kind": "design",
+    "actor": "human",
+    "name": "SYNTHETIC fixture actor; not authenticated",
+    "source_kind": "manual-record",
+    "source_ref": "SYNTHETIC test record, not real human approval",
+    "timestamp": "2026-10-04T18:54:09.315547Z",
+    "subject_sha256": "f230370f5bb05dadcc1821c0290940d14802a67fae1dbf15af96aa32ea6072ad",
+    "scope": "Synthetic fixture scope only",
+    "limits": [],
+    "synthetic": true,
+    "human_criteria": []
+  }
+}

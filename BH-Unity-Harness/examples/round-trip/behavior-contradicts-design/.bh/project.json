@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "harness_version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "synthetic": true,
+  "engine": {
+    "name": "Synthetic",
+    "version": "synthetic-1",
+    "render_pipeline": "HDRP",
+    "targets": [
+      "Synthetic-Windows"
+    ]
+  },
+  "protected_paths": [
+    "Tests"
+  ],
+  "enabled_capabilities": [],
+  "budgets": {
+    "failed_rounds": 3,
+    "repeat_failures": 3,
+    "no_progress_rounds": 3,
+    "recovery_cycles": 1,
+    "infrastructure_failures": 2
+  },
+  "adoption_ref": "SYNTHETIC approved installation fixture",
+  "instruction_review": {
+    "source_ref": "SYNTHETIC reviewed instructions",
+    "paths": [
+      "AGENTS.md"
+    ]
+  },
+  "telemetry": "none"
+}

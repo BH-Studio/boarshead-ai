@@ -1,0 +1,60 @@
+{
+  "kind": "game-agnostic-functional-distribution-reconciliation",
+  "repository": "BH-Studio/boarshead-ai",
+  "branch": "harness/bh-standard-v1-20261004",
+  "source_baseline": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "tested_functional_commit": "72bf50263b39f9ccd236fb54ecae341c97f80125",
+  "published_evidence_commit": "78f0c7527b884853a088d8c9a46e5e4813c0e054",
+  "document_revision_base": "7652b797f90cbcb52877f551c8ac496e43f2012c",
+  "scope": "Exact expected functional directory identities for this documentation revision, verified against local bytes and GitHub tree b0a44133ae967bb884c142152c123d120a22262d before final review/checkpoint metadata. Not a self-referential all-repository manifest or approval.",
+  "functional_subtrees": {
+    "contracts": "abb41ac894bede30f4b0d5d0877adef3a9267e95",
+    "design-gpt": "34a01b420c45f2a164add42558f9ce13a7156e7d",
+    "examples": "6d6206b3763043a454700323189e5a82d160d305",
+    "installer": "4db995d7fce4428bcbea1f67508aec33c411cbf3",
+    "optional": "374b290338b88eec887d53449f3fb8c945174e79",
+    "project-template": "ce27c06dfeee268ca718b7fcf08eee160ab02af8",
+    "tests": "4987770f57e9b4c5f910471965361f79cb262c44",
+    "tools": "b010bd480b532880983660a5db98aa1847375656"
+  },
+  "post_test_functional_directory_changes": [
+    {"path": "design-gpt/REVIEW_AND_SETUP.md", "git_blob_sha": "822860df267028727ca2020101a9fe1c289a4c3a", "reason": "Documentation-only consolidation; deployed instructions, knowledge and runtime unchanged since tested commit"},
+    {"path": "examples/round-trip/README.md", "git_blob_sha": "7faf09ec389e0904549bbca79cb804c75f2d71cf", "reason": "Labels embedded examples as historical evidence; hashed historical contents unchanged"}
+  ],
+  "root_file_git_blobs": {
+    "CHANGELOG.md": "2a4dbbb8e1ab09e7baf27c320fa77c92383bb2d0",
+    "DELIVERY_AND_CONTINUATION.md": "e303576fd581e3d1b4ab93c21af439573c62a8b5",
+    "DELIVERY_MANIFEST.json": "3a67cd2a61201f8cf2572d714588b408ed0710c0",
+    "PACKAGE_FILES.json": "83f9eed48097d25f025ac14ef8de0bbffd58ffd0",
+    "PRESERVED_REFERENCES.json": "66891dc1c72fdc60b1a15d3162ac2bf5f5b10a11",
+    "QUICKSTART.md": "0cd0e0e5d532adac2da94f068cb59c55515b012b",
+    "Readme.md": "df10f4364219edd7ae4edcf8652215c868ee9da3"
+  },
+  "manifest_checks": {
+    "game_installation": "22 exact paths and SHA-256 values match PACKAGE_FILES.json; no missing/extra installed files",
+    "design_knowledge": "15 unique selections with matching hashes; generic K11 selected, original source K11 review-only",
+    "preserved_references": "13 actual original byte files recovered and verified; 12 design/evaluation references and 1 review-only original",
+    "shared_copies": "Canonical schema and interface byte-identical to both corresponding consumer copies",
+    "instructions": "7798 characters including final newline; 202 headroom; exact digest matches metrics",
+    "historical_delivery": "DELIVERY_MANIFEST.json remains the 176-file recovery ZIP receipt. Removed named overlay and relocated original K11, current revised files and new synthetic examples supersede it only for current delivery; never reapply it over current files."
+  },
+  "verification": {
+    "offline_tests": 148,
+    "partitions": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 33.271,
+    "identical_input_maps": true,
+    "static_status": "PASS_STATIC_PACKAGE",
+    "static_checks": 85,
+    "missing_preserved": [],
+    "actual_original_reference_assembly": "PASS; isolated Git object store, no game installation",
+    "evidence": "review/evidence/game-agnostic-publication/"
+  },
+  "removed_current_paths": ["examples/profiles/breach-one.unreconciled.json", "design-gpt/Knowledge/K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md"],
+  "provenance_only": "Historical names may remain in review/source locators, bibliographic references and explicit test counterexamples. They are not game defaults, deployed project profiles or required designs.",
+  "publication_limit": "Actual raw case logs, metadata and assembly results are readable in GitHub; full original individual JSON receipts and red/green logs are also supplied in a supplemental archive, not claimed committed as normal files.",
+  "not_run": ["Windows/PowerShell", "Unity/C# helper", "Codex", "MCP/diagnostics", "configured GPT/Project", "player validation", "comparative usage"],
+  "human_adoption": "PENDING; no merge, installation, release or live-GPT change"
+}

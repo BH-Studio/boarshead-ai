@@ -1,0 +1,47 @@
+import ast, hashlib, json
+from pathlib import Path
+BASE=Path(__file__).resolve().parent
+meta=json.loads((BASE/'all-current-tree.json').read_text())
+rows=[x for x in meta['tree'] if x['type']=='blob']
+out=BASE/'remaining-tests-work'/'BH-Unity-Harness'
+cache={};transport=[]
+for p in sorted(BASE.glob('remaining-fetch-*.json')):
+    for item in json.loads(p.read_text()):
+        assert item['encoding']=='utf-8'
+        raw=item['content'].encode('utf-8')
+        blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+        assert blob==item['sha']
+        cache[blob]=raw
+        transport.append({'path':item['path'],'blob':blob,'bytes':len(raw),'url':item['display_url']})
+for row in rows:
+    if row['sha'] in cache:
+        target=out/row['path'];target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(cache[row['sha']])
+actual={p.relative_to(out).as_posix() for p in out.rglob('*') if p.is_file()}
+assert actual=={x['path'] for x in rows}
+ledger=[];syntax=[]
+for row in rows:
+    raw=(out/row['path']).read_bytes()
+    blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+    assert blob==row['sha'] and len(raw)==row['size'],row['path']
+    ledger.append({'path':row['path'],'git_blob_sha':blob,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)})
+    if row['path'].endswith('.py'):
+        ast.parse(raw.decode('utf-8'),filename=row['path']);syntax.append(row['path'])
+dep=json.loads((out/'review/evidence/small-tasks/B05c/DEPENDENCIES.json').read_text())
+by_path={x['path']:x for x in ledger}
+batches=[]
+for batch in dep['follow_up_batches']:
+    if batch['id'].startswith(('B05f','B05g')):
+        for record in batch['tree_metadata']:
+            now=by_path[record['path']]
+            assert now['git_blob_sha']==record['git_blob_sha'] and now['bytes']==record['bytes']
+        batches.append({'id':batch['id'],'count':batch['count'],'status':'PASS_CURRENT_IDENTITIES','paths':batch['paths']})
+for record in dep['installed_files']+dep['knowledge_files']+dep['preserved_references']:
+    now=by_path[record['path']]
+    if record.get('expected_sha256'):assert now['sha256']==record['expected_sha256']
+    if record.get('expected_git_blob_sha'):assert now['git_blob_sha']==record['expected_git_blob_sha']
+evidence=BASE/'remaining-tests-evidence';evidence.mkdir(exist_ok=True)
+def save(name,value):(evidence/name).write_text(json.dumps(value,indent=2)+'\n')
+save('SOURCES.json',{'input_head':meta['head'],'root_tree':meta['root'],'harness_tree':meta['harness'],'files':ledger})
+save('FETCH_METADATA.json',{'reused':json.loads((BASE/'remaining-reused.json').read_text()),'retrieved_unique_blobs':transport,'full_tree_truncated':False})
+save('INPUT_CLOSURE.json',{'status':'PASS','files':len(ledger),'python_syntax_files':len(syntax),'python_syntax_roster':syntax,'new_python_paths_since_B05c':sorted(set(syntax)-{x['path'] for x in dep['current_python_roster']}),'completed_remaining_rosters':batches,'installed_and_selected_and_preserved_identities':'PASS','research_repeated':False})
+print(f'PASS exact current snapshot: {len(ledger)} files; {len(syntax)} Python syntax inputs; manifest identities and remaining B05f/g rosters match')

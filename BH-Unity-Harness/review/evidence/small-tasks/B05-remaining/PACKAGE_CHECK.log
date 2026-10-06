@@ -1,0 +1,9 @@
+{
+  "status": "PASS_STATIC_PACKAGE",
+  "checks": 88,
+  "instruction_characters": 7798,
+  "managed_files": 25,
+  "missing_preserved": [],
+  "problems": [],
+  "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+}

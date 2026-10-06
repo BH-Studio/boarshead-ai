@@ -1,0 +1,16 @@
+B02e pinned head: b2fa3ad47cfd36a58b91227c594f512dfd50c5ab
+Selected partition: 20 or fewer exact cases from PARTITIONS.json
+CASE test_runtime.RuntimeTests.test_wrong_design_method
+CASE test_runtime.RuntimeTests.test_wrong_harness_version
+CASE test_runtime.RuntimeTests.test_wrong_project_receipt
+CASE test_runtime.RuntimeTests.test_wrong_version
+test_wrong_design_method (test_runtime.RuntimeTests.test_wrong_design_method) ... ok
+test_wrong_harness_version (test_runtime.RuntimeTests.test_wrong_harness_version) ... ok
+test_wrong_project_receipt (test_runtime.RuntimeTests.test_wrong_project_receipt) ... ok
+test_wrong_version (test_runtime.RuntimeTests.test_wrong_version) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.681s
+
+OK
+B02e result: PASS; source hashes unchanged; exit status: 0

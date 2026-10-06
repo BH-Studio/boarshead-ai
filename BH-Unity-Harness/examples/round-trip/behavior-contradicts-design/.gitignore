@@ -1,0 +1,8 @@
+.bh/runs/
+.bh/tasks/
+.bh/exports/
+.bh/locks/
+.bh/install/
+.bh/state.json
+.bh/CHECKPOINT.md
+**/__pycache__/

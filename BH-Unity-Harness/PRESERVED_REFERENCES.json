@@ -1,0 +1,73 @@
+{
+  "version": "1.0.0",
+  "repository": "BH-Studio/boarshead-ai",
+  "source_commit": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "preserved_commit": "424698b1a6210638632fd163a32bfa9f889aec00",
+  "files": [
+    {
+      "path": "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "git_blob_sha": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+      "source_path": "BH-Game-Design-Director/01_GPT_INSTRUCTIONS_FULL.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "git_blob_sha": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+      "source_path": "BH-Game-Design-Director/Knowledge/K01_PERSONAS_AND_ROUTING.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+      "git_blob_sha": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+      "source_path": "BH-Game-Design-Director/Knowledge/K02_FRAMEWORK_MDA.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+      "git_blob_sha": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+      "source_path": "BH-Game-Design-Director/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+      "git_blob_sha": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+      "source_path": "BH-Game-Design-Director/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+      "git_blob_sha": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+      "source_path": "BH-Game-Design-Director/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+      "git_blob_sha": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+      "source_path": "BH-Game-Design-Director/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt"
+    },
+    {
+      "path": "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+      "git_blob_sha": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+      "source_path": "BH-Game-Design-Director/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+      "git_blob_sha": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+      "source_path": "BH-Game-Design-Director/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+      "git_blob_sha": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+      "source_path": "BH-Game-Design-Director/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md"
+    },
+    {
+      "path": "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+      "git_blob_sha": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+      "source_path": "BH-Game-Design-Director/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md"
+    },
+    {
+      "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+      "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+      "source_path": "BH-Game-Design-Director/Knowledge/K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md"
+    },
+    {
+      "path": "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md",
+      "git_blob_sha": "a0f3ed05af3145388505c953a9f554120917ef00",
+      "source_path": "BH-Game-Design-Director/03_GPT_ACCEPTANCE_TESTS.md"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+test_audit_detects_mutation (test_runtime.ProcessTests.test_audit_detects_mutation) ... ok
+test_diagnostics_new (test_runtime.ProcessTests.test_diagnostics_new) ... ok
+test_nonzero_exit (test_runtime.ProcessTests.test_nonzero_exit) ... ok
+test_two_materially_different_profiles (test_runtime.ProcessTests.test_two_materially_different_profiles) ... ok
+test_zero_tests (test_runtime.ProcessTests.test_zero_tests) ... ok
+test_begin_without_plan (test_runtime.RuntimeTests.test_begin_without_plan) ... ok
+test_dirty_after_plan_before_approval (test_runtime.RuntimeTests.test_dirty_after_plan_before_approval) ... ok
+test_dropped_invariant (test_runtime.RuntimeTests.test_dropped_invariant) ... ok
+test_duplicate_skills_block (test_runtime.RuntimeTests.test_duplicate_skills_block) ... ok
+test_interrupted_run_resume (test_runtime.RuntimeTests.test_interrupted_run_resume) ... ok
+test_manual_not_automated (test_runtime.RuntimeTests.test_manual_not_automated) ... ok
+test_missing_human_acceptance (test_runtime.RuntimeTests.test_missing_human_acceptance) ... ok
+test_named_suite_failure_not_leaf_pass (test_runtime.RuntimeTests.test_named_suite_failure_not_leaf_pass) ... ok
+test_nonfinite_json (test_runtime.RuntimeTests.test_nonfinite_json) ... ok
+test_out_of_scope_mutation_blocks (test_runtime.RuntimeTests.test_out_of_scope_mutation_blocks) ... ok
+test_protected_mutation_blocks (test_runtime.RuntimeTests.test_protected_mutation_blocks) ... ok
+test_repeated_init_unchanged (test_runtime.RuntimeTests.test_repeated_init_unchanged) ... ok
+test_root_count_mismatch (test_runtime.RuntimeTests.test_root_count_mismatch) ... ok
+test_structural_approval_not_authentication (test_runtime.RuntimeTests.test_structural_approval_not_authentication) ... ok
+test_unknown_configuration_field (test_runtime.RuntimeTests.test_unknown_configuration_field) ... ok
+test_wrong_design_method (test_runtime.RuntimeTests.test_wrong_design_method) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 12.603s
+
+OK

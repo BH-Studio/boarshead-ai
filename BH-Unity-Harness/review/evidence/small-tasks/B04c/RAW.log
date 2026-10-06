@@ -1,0 +1,10 @@
+B04c pinned head: df1fa04499c61961bb44fde6bcce186f272acb62
+Selected partition: 20 or fewer exact cases from PARTITIONS.json
+CASE test_efficiency_runtime.EfficiencyRuntimeTests.test_user_pause_not_bypassed_by_repair
+test_user_pause_not_bypassed_by_repair (test_efficiency_runtime.EfficiencyRuntimeTests.test_user_pause_not_bypassed_by_repair) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.327s
+
+OK
+B04c result: PASS; source hashes unchanged; exit status: 0

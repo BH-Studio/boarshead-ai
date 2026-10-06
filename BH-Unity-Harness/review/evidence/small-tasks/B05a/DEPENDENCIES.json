@@ -1,0 +1,532 @@
+{
+  "task": "B05a",
+  "input_head": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "method": "Static reading and AST parsing of three pinned test source files; no module import, runtime discovery or tests.",
+  "scope_limits": [
+    "Only the three requested test file contents are reconciled in this task. Current Git tree listings are metadata only.",
+    "Shared support and tool implementations require B05b inspection; imported checker/runner dependencies are not yet a complete verified closure.",
+    "Historical source names in scanner counterexamples are test data; no game configuration or operational defaults are imported."
+  ],
+  "modules": [
+    {
+      "path": "tests/test_package.py",
+      "declared_test_methods": 23,
+      "local_imports": [
+        "tests/support.py"
+      ],
+      "loaded_modules": [
+        "tools/check_package.py",
+        "tools/assemble_candidate.py",
+        "project-template/Tools/BH/check_release_profile.py"
+      ],
+      "direct_static_reads": [
+        "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+        "contracts/schema.json",
+        "project-template/.bh/schema.json",
+        "project-template/.bh/project.json"
+      ],
+      "dynamic_dependencies": [
+        "install.distribution(): inspect installer and PACKAGE_FILES.json",
+        "check.check(True/False): inspect tools/check_package.py for all package/manifests/preserved inputs",
+        "Fixture('build'): inspect support, template and driver closure",
+        "assemble.assemble uses only synthetic temporary repositories and PRESERVED_REFERENCES.json fixtures in assembler cases"
+      ],
+      "negative_presence_check": "project-template/design-gpt must not exist"
+    },
+    {
+      "path": "tests/test_game_agnostic.py",
+      "declared_test_methods": 15,
+      "local_imports": [
+        "tests/support.py"
+      ],
+      "loaded_modules": [
+        "tools/assemble_candidate.py",
+        "tools/run_tests.py",
+        "tools/check_package.py"
+      ],
+      "direct_static_reads": [
+        "design-gpt/KNOWLEDGE_MANIFEST.json",
+        "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+        "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+        "design-gpt/evaluation/REGRESSION_CASES.md",
+        "PRESERVED_REFERENCES.json",
+        "review/reference-only/K11_SOURCE_LESSONS.md",
+        "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+        "project-template/.bh/project.json"
+      ],
+      "roster_rules": [
+        "Knowledge paths = design-gpt/ + each knowledge_files[].path in current KNOWLEDGE_MANIFEST.json; manifest contents not read in B05a.",
+        "Lexical active scan includes every file recursively in project-template, contracts, optional, installer and examples/profiles except __pycache__.",
+        "Profile loading includes sorted examples/profiles/*.json only; README is scanned but not loaded as a profile.",
+        "Missing nonpreserved knowledge negative copies the entire PACKAGE excluding __pycache__ and evidence; checker reads of that copy remain to be resolved in B05b."
+      ],
+      "synthetic_only_tests": [
+        "assembler path allowlist using temporary git blob",
+        "source_hashes excludes generated evidence in a temporary root",
+        "extra-skill review and malformed registry fixtures"
+      ]
+    },
+    {
+      "path": "tests/test_review_amendments.py",
+      "declared_test_methods": 6,
+      "local_imports": [
+        "tests/support.py"
+      ],
+      "direct_static_reads": [
+        "contracts/schema.json",
+        "design-gpt/KNOWLEDGE_MANIFEST.json",
+        "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md"
+      ],
+      "roster_rules": [
+        "Load sorted examples/profiles/*.json in setUp; validate profiles against contracts/schema.json."
+      ],
+      "retention_checks": [
+        "SHA-256 of K12 prefix before section 11",
+        "Required section 11/12 markers",
+        "Knowledge count 15 and manifest K12 content hash"
+      ]
+    }
+  ],
+  "counts": {
+    "static_declared_by_module": [
+      23,
+      15,
+      6
+    ],
+    "static_total": 44,
+    "historical_recorded_total": 44,
+    "static_total_changed": false,
+    "runtime_discovered_count": null,
+    "tests_executed": 0
+  },
+  "metadata_rosters": [
+    {
+      "prefix": "project-template",
+      "rule": "All files recursively below project-template/; exclude paths with __pycache__ component; include README/non-JSON files in lexical scan",
+      "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED",
+      "files": [
+        {
+          "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+          "git_blob_sha": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+          "bytes": 1906
+        },
+        {
+          "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+          "git_blob_sha": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+          "bytes": 152
+        },
+        {
+          "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+          "git_blob_sha": "870e46e38301836801a0ef1a357609598bb7a0ca",
+          "bytes": 1677
+        },
+        {
+          "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+          "git_blob_sha": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+          "bytes": 142
+        },
+        {
+          "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+          "git_blob_sha": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+          "bytes": 2063
+        },
+        {
+          "path": "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+          "git_blob_sha": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+          "bytes": 144
+        },
+        {
+          "path": "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+          "git_blob_sha": "2e4106c465ddc326b5a6f4b83aa55c57581b6b3e",
+          "bytes": 1547
+        },
+        {
+          "path": "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+          "git_blob_sha": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+          "bytes": 143
+        },
+        {
+          "path": "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+          "git_blob_sha": "2ff6099ee2f5f27ff18b80f9814736318f63439d",
+          "bytes": 2233
+        },
+        {
+          "path": "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+          "git_blob_sha": "5563300d1cea48681d780ecbde78143cafd26cc0",
+          "bytes": 140
+        },
+        {
+          "path": "project-template/.bh/GITIGNORE_MERGE.txt",
+          "git_blob_sha": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+          "bytes": 282
+        },
+        {
+          "path": "project-template/.bh/bindings.json",
+          "git_blob_sha": "8f1c79c7aae5146a3f9c0e81e17db7696b6787e6",
+          "bytes": 73
+        },
+        {
+          "path": "project-template/.bh/local.json",
+          "git_blob_sha": "440956805b38377506b3d3aa11463578f343664c",
+          "bytes": 143
+        },
+        {
+          "path": "project-template/.bh/project.json",
+          "git_blob_sha": "f015e1d3727c425327dc6d3caf7dc6adb5df8057",
+          "bytes": 668
+        },
+        {
+          "path": "project-template/.bh/schema.json",
+          "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+          "bytes": 56860
+        },
+        {
+          "path": "project-template/.bh/skill-registry.json",
+          "git_blob_sha": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+          "bytes": 1692
+        },
+        {
+          "path": "project-template/AGENTS.md",
+          "git_blob_sha": "4a548d17132e1185af67dcbcd7f69d95beccad35",
+          "bytes": 4119
+        },
+        {
+          "path": "project-template/Docs/Harness/CODEX_CONSUMER.md",
+          "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+          "bytes": 5557
+        },
+        {
+          "path": "project-template/Docs/Harness/INTERFACE.md",
+          "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+          "bytes": 13085
+        },
+        {
+          "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+          "git_blob_sha": "59151556ffeb61dc24e7e16b20e801023e875407",
+          "bytes": 15544
+        },
+        {
+          "path": "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+          "git_blob_sha": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+          "bytes": 6223
+        },
+        {
+          "path": "project-template/Tools/BH/Invoke-BH.ps1",
+          "git_blob_sha": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+          "bytes": 755
+        },
+        {
+          "path": "project-template/Tools/BH/bh.py",
+          "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+          "bytes": 79390
+        },
+        {
+          "path": "project-template/Tools/BH/check_release_profile.py",
+          "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+          "bytes": 2723
+        },
+        {
+          "path": "project-template/Tools/BH/views.py",
+          "git_blob_sha": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+          "bytes": 7123
+        }
+      ]
+    },
+    {
+      "prefix": "contracts",
+      "rule": "All files recursively below contracts/; exclude paths with __pycache__ component; include README/non-JSON files in lexical scan",
+      "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED",
+      "files": [
+        {
+          "path": "contracts/CODEX_CONSUMER.md",
+          "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+          "bytes": 5557
+        },
+        {
+          "path": "contracts/INTERFACE.md",
+          "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+          "bytes": 13085
+        },
+        {
+          "path": "contracts/schema.json",
+          "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+          "bytes": 56860
+        }
+      ]
+    },
+    {
+      "prefix": "optional",
+      "rule": "All files recursively below optional/; exclude paths with __pycache__ component; include README/non-JSON files in lexical scan",
+      "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED",
+      "files": [
+        {
+          "path": "optional/bh-procedural-regression/SKILL.md",
+          "git_blob_sha": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+          "bytes": 1250
+        },
+        {
+          "path": "optional/bh-unity-project-audit/SKILL.md",
+          "git_blob_sha": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+          "bytes": 1748
+        },
+        {
+          "path": "optional/bh-unity-project-audit/agents/openai.yaml",
+          "git_blob_sha": "3fc511d46946d1225de4c817206974b1647d6a12",
+          "bytes": 159
+        },
+        {
+          "path": "optional/unity-editor-build/BHBuild.cs",
+          "git_blob_sha": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+          "bytes": 6019
+        },
+        {
+          "path": "optional/unity-editor-build/README.md",
+          "git_blob_sha": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+          "bytes": 2946
+        },
+        {
+          "path": "optional/unity-observation/PROVIDER_PROTOCOL.md",
+          "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39",
+          "bytes": 7284
+        },
+        {
+          "path": "optional/unity-observation/README.md",
+          "git_blob_sha": "2e5a36e09c8588c3d4d10464f3cccd41440d9e0e",
+          "bytes": 4562
+        },
+        {
+          "path": "optional/unity-observation/provider.disabled.json",
+          "git_blob_sha": "8f46497b4c54987ec15e696482bba2513648e7a6",
+          "bytes": 546
+        },
+        {
+          "path": "optional/unity-observation/unity_evidence.py",
+          "git_blob_sha": "548992178c51f51ffab74e82462aa281ce56d34a",
+          "bytes": 18961
+        },
+        {
+          "path": "optional/unity-observation/unity_jobs.py",
+          "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+          "bytes": 15627
+        }
+      ]
+    },
+    {
+      "prefix": "installer",
+      "rule": "All files recursively below installer/; exclude paths with __pycache__ component; include README/non-JSON files in lexical scan",
+      "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED",
+      "files": [
+        {
+          "path": "installer/install.py",
+          "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+          "bytes": 12192
+        }
+      ]
+    },
+    {
+      "prefix": "examples/profiles",
+      "rule": "All files recursively below examples/profiles/; exclude paths with __pycache__ component; include README/non-JSON files in lexical scan",
+      "status": "METADATA_ONLY_NOT_CONTENT_RECONCILED",
+      "files": [
+        {
+          "path": "examples/profiles/README.md",
+          "git_blob_sha": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+          "bytes": 1030
+        },
+        {
+          "path": "examples/profiles/synthetic-continuous-state.json",
+          "git_blob_sha": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+          "bytes": 1273
+        },
+        {
+          "path": "examples/profiles/synthetic-discrete-state.json",
+          "git_blob_sha": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+          "bytes": 1227
+        }
+      ]
+    }
+  ],
+  "follow_up_batches": [
+    {
+      "id": "B05b",
+      "kind": "source_reconciliation_and_dependency_closure",
+      "paths": [
+        "tests/support.py",
+        "tests/fixture_driver.py",
+        "installer/install.py",
+        "project-template/Tools/BH/bh.py",
+        "project-template/Tools/BH/check_release_profile.py",
+        "tools/check_package.py",
+        "tools/assemble_candidate.py",
+        "tools/run_tests.py"
+      ],
+      "purpose": "Inspect shared support and loaded tools to resolve transitive reads and package-wide rosters before test execution.",
+      "status": "NOT_STARTED",
+      "source_reconciliation": "NOT_RUN",
+      "tree_metadata": [
+        {
+          "path": "tests/support.py",
+          "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+          "bytes": 9166,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "tests/fixture_driver.py",
+          "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+          "bytes": 2004,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "installer/install.py",
+          "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+          "bytes": 12192,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "project-template/Tools/BH/bh.py",
+          "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+          "bytes": 79390,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "project-template/Tools/BH/check_release_profile.py",
+          "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+          "bytes": 2723,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "tools/check_package.py",
+          "git_blob_sha": "e1c02d0963937a215ef896f539002066e1b3a2af",
+          "bytes": 5181,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "tools/assemble_candidate.py",
+          "git_blob_sha": "830c2792f0288c39df2a6591c0b21080090eeb3e",
+          "bytes": 3722,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "tools/run_tests.py",
+          "git_blob_sha": "191d538607c24967e5bb0cc5472f6d9c4aa3fab5",
+          "bytes": 2413,
+          "content_reconciled_in_B05a": false
+        }
+      ]
+    },
+    {
+      "id": "B05c",
+      "kind": "provisional_manifest_and_direct_contract_inputs",
+      "paths": [
+        "PACKAGE_FILES.json",
+        "PRESERVED_REFERENCES.json",
+        "contracts/schema.json",
+        "design-gpt/KNOWLEDGE_MANIFEST.json",
+        "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+        "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+        "design-gpt/evaluation/REGRESSION_CASES.md"
+      ],
+      "purpose": "Resolve selected knowledge/preserved-reference rosters and direct schema/policy inputs; refine after B05b.",
+      "status": "NOT_STARTED",
+      "source_reconciliation": "NOT_RUN",
+      "tree_metadata": [
+        {
+          "path": "PACKAGE_FILES.json",
+          "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+          "bytes": 4520,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "PRESERVED_REFERENCES.json",
+          "git_blob_sha": "66891dc1c72fdc60b1a15d3162ac2bf5f5b10a11",
+          "bytes": 3482,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "contracts/schema.json",
+          "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+          "bytes": 56860,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/KNOWLEDGE_MANIFEST.json",
+          "git_blob_sha": "b41bb46ac7a9e2c97d215256a64611d19c660d69",
+          "bytes": 4254,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+          "git_blob_sha": "2e52b3762b1680d1f6479a9c1379fc0fcf6bc3d3",
+          "bytes": 7842,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+          "git_blob_sha": "34c7d68b86d81ac454d86825e3661b1d01fe28aa",
+          "bytes": 2307,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/evaluation/REGRESSION_CASES.md",
+          "git_blob_sha": "2785eb573534683ddc9fba7ef3555602ee19ff87",
+          "bytes": 6140,
+          "content_reconciled_in_B05a": false
+        }
+      ]
+    },
+    {
+      "id": "B05d",
+      "kind": "provisional_direct_lesson_inputs",
+      "paths": [
+        "review/reference-only/K11_SOURCE_LESSONS.md",
+        "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+        "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md"
+      ],
+      "purpose": "Check direct lesson/source-retention inputs and their manifest/preserved hashes; refine after B05b/c.",
+      "status": "NOT_STARTED",
+      "source_reconciliation": "NOT_RUN",
+      "tree_metadata": [
+        {
+          "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+          "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+          "bytes": 5965,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+          "git_blob_sha": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+          "bytes": 6138,
+          "content_reconciled_in_B05a": false
+        },
+        {
+          "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+          "git_blob_sha": "3c49836814386569b0f862c1843fe43f94305be8",
+          "bytes": 13744,
+          "content_reconciled_in_B05a": false
+        }
+      ]
+    }
+  ],
+  "remaining_reconciliation_rules": [
+    {
+      "batch_ids": "B05e+ (name exact children after B05b/c)",
+      "scope": "Current manifest-selected knowledge and preserved-reference paths not already reconciled",
+      "order": "Deduplicated lexical paths",
+      "max_files_per_response": 8
+    },
+    {
+      "batch_ids": "B05e+ (name exact children after B05b/c)",
+      "scope": "Remaining active-scan and installed-template files not already reconciled",
+      "order": "Deduplicated lexical paths by metadata_roster prefix",
+      "max_files_per_response": 10
+    },
+    {
+      "batch_ids": "B05e+ (name exact children after B05b)",
+      "scope": "Additional package-check/assembler/run_tests inputs established by current tool inspection",
+      "order": "Explicit required paths in small related batches",
+      "max_files_per_response": 8
+    }
+  ],
+  "test_execution_policy": "After all required exact byte closure is reconciled, run each named module separately; rediscover actual case IDs and split every module over 20 into deterministic lexical partitions. Static 23/15/6 suggests package needs at least two partitions, but runtime discovery must establish the actual roster. Do not execute the all-module run_tests tool during B05.",
+  "exact_next_task": "B05b ONLY: reconcile and inspect its eight named source files, resolve additional inputs, record actual evidence, update the bounded queue/next action, commit/read back, then stop. No test execution or B05c file retrieval."
+}

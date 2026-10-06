@@ -1,0 +1,41 @@
+{
+  "repository": "BH-Studio/boarshead-ai",
+  "baseline": "0cffc7e090eccb2d0b453c2c2c5a0db4631650c8",
+  "preserved_commit": "424698b1a6210638632fd163a32bfa9f889aec00",
+  "review_date": "2026-10-04",
+  "coverage": "All 21 design-source files and 60 legacy policies/templates/compact baselines/skill bodies/metadata/VS Code files fully read, plus legacy root AGENTS. Seven external repositories received bounded selected-source/current-notice review. Large legacy narrative is selectively inspected and excluded as operational authority; binaries and transitive vendor implementations are not exhaustively audited.",
+  "scope_clarification": "Game-agnostic: historical game names/designs are provenance only, not deployed defaults. The earlier named-game overlay requirement is superseded. Original directories remain unchanged.",
+  "review_records": ["DESIGN_SOURCE_REVIEW.md", "LEGACY_SOURCE_REVIEW.md", "LEGACY_SKILL_REVIEW.md", "EXTERNAL_UNITY_REVIEW.md", "EXTERNAL_WORKFLOW_REVIEW.md", "EXTERNAL_OPTIONAL_REVIEW.md"],
+  "design_source_prefix": "BH-Game-Design-Director/",
+  "design_source_status": "v3 source package; originals unchanged. Read coverage below is FULL content, not inferred from hashes. Candidate behavior is governed by its one official instruction file and explicit deployment manifest.",
+  "design_files": [
+    {"path": "00_READ_ME_FIRST.md", "git_blob_sha": "b01aaef4ed58c9a8bd29fb5ca350db5411301303", "coverage": "FULL", "role": "Historical setup; conflicting old field/knowledge selection replaced in candidate guide"},
+    {"path": "01_GPT_INSTRUCTIONS_FULL.md", "git_blob_sha": "21ffb3fe5430f7340792a0275850f04c26d0b0e1", "coverage": "FULL", "role": "Complete method retained as reference; revised K12 supersedes compiler mechanics"},
+    {"path": "01B_GPT_INSTRUCTIONS_COMPACT.md", "git_blob_sha": "bd00761576bc91968c9256019039d58a31725a58", "coverage": "FULL", "role": "Alternative source field; not a competing deployed instruction"},
+    {"path": "01C_GPT_INSTRUCTIONS_OFFICIAL.md", "git_blob_sha": "1cbc17d7ccfdba54276a2954eb9a7c346f074285", "coverage": "FULL", "role": "Source official controller; targeted candidate revision"},
+    {"path": "02_NAME_DESCRIPTION_STARTERS.md", "git_blob_sha": "794030c774683d5db7909778668123ab7a88f604", "coverage": "FULL", "role": "Brand and starters retained with neutral current deployment references"},
+    {"path": "03_GPT_ACCEPTANCE_TESTS.md", "git_blob_sha": "a0f3ed05af3145388505c953a9f554120917ef00", "coverage": "FULL", "role": "33 source scenarios preserved as evaluation reference, not game defaults or live passes"},
+    {"path": "04_ARCHITECTURE_RATIONALE.md", "git_blob_sha": "7e6f8b8e6be041e4085093067a0b3aa115064b1a", "coverage": "FULL", "role": "One orchestrator, dynamic lenses, question gates and faithful compilation"},
+    {"path": "05_MIGRATION_FROM_V2.md", "git_blob_sha": "8975b1f0ea368f7a81eb9d2b465f44631bb70ed4", "coverage": "FULL", "role": "Historical migration; candidate pilot/rollback replaces old live-edit steps"},
+    {"path": "PACKAGE_MANIFEST.md", "git_blob_sha": "98f703987a02861b68ed29b4cefcf5acb38e0453", "coverage": "FULL", "role": "Historical inventory; candidate knowledge manifest is current"},
+    {"path": "Knowledge/K01_PERSONAS_AND_ROUTING.md", "git_blob_sha": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a", "coverage": "FULL", "role": "All twelve expert responsibilities retained; one model"},
+    {"path": "Knowledge/K02_FRAMEWORK_MDA.txt", "git_blob_sha": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa", "coverage": "FULL", "role": "Experience/dynamics/mechanics and falsifiable validation; ACCEPT is recommendation only"},
+    {"path": "Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt", "git_blob_sha": "65a1b00369177b88124cfbc6f0e72bc5259b9183", "coverage": "FULL", "role": "Actions/response/feedback across explicit time scales; illustrations not defaults"},
+    {"path": "Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt", "git_blob_sha": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444", "coverage": "FULL", "role": "Bounded causal/stock/flow/delay models; no strategy-game prescription"},
+    {"path": "Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt", "git_blob_sha": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5", "coverage": "FULL", "role": "Resource/state distinction, step semantics and distributions; no paid service required"},
+    {"path": "Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt", "git_blob_sha": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be", "coverage": "FULL", "role": "Human skills, atomic parameters, learning and empirical calibration; source titles are bibliography"},
+    {"path": "Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md", "git_blob_sha": "0a3b67c2765f128046dc88a911f998fc6a59fd7c", "coverage": "FULL", "role": "Targeted research, date/segment context, counterevidence"},
+    {"path": "Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md", "git_blob_sha": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c", "coverage": "FULL", "role": "State ownership, persistence, scale vectors and second-consumer evidence"},
+    {"path": "Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md", "git_blob_sha": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187", "coverage": "FULL", "role": "Design/architecture/correctness distinctions, red team and quality gates"},
+    {"path": "Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md", "git_blob_sha": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c", "coverage": "FULL", "role": "Durable canon, scoped deltas, decision history and traceability"},
+    {"path": "Knowledge/K11_GALAXY_GENERATOR_GENERALIZED_LESSONS.md", "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5", "coverage": "FULL", "role": "Exact original moved to review/reference-only/K11_SOURCE_LESSONS.md; deployed generic counterpart retains fifteen responsibilities"},
+    {"path": "Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md", "git_blob_sha": "a16c3eb59894395ecce877b5535bc7b947603c06", "coverage": "FULL", "role": "Revised complete compiler/return templates, shared interface and game-agnostic boundary"}
+  ],
+  "other_sources": [
+    {"path": "BH-Harness-old/AGENTS.md", "git_blob_sha": "51bf8a4b58bddb6148105aff5ba9d123aed5bb32", "coverage": "FULL", "status": "Historical B1-CODEX-OPS 0.1.0 candidate", "disposition": "Generic authority/safety/evidence lessons only; actual game design excluded"},
+    {"path": "BH-Harness-old", "tree_sha": "62fb863b98357fc6227783cdea861a7aeb61ba47", "coverage": "60 FULL files individually identified in legacy review records; large narrative SELECTIVE", "disposition": "Responsibilities mapped, no project-specific defaults or copied purchased assets"},
+    {"path": "Reference/Readme.md", "git_blob_sha": "5be671d62161f8c7fcad9aa06fe5ef83a3c7e104", "coverage": "FULL", "disposition": "Seven upstream URLs; not install instructions"},
+    {"path": "Reference", "tree_sha": "fdd5f817aeb4a47d40f4a3a275732bc0fa3940f9", "coverage": "BOUNDED selected-source/current-notice review with exact full/partial paths in external review records", "disposition": "No wholesale catalog, runtime, service, binary or transitive dependency adoption"}
+  ],
+  "verification_limit": "Full source reading is not live model compliance, engine integration, player validation or independent attestation. Original source and historical evidence remain unchanged."
+}

@@ -1,0 +1,26 @@
+test_active_task_blocks (test_installer.InstallerTests.test_active_task_blocks) ... ok
+test_lock_blocks (test_installer.InstallerTests.test_lock_blocks) ... ok
+test_rollback_managed_only (test_installer.InstallerTests.test_rollback_managed_only) ... ok
+test_traversal_transaction (test_installer.InstallerTests.test_traversal_transaction) ... ok
+test_output_digest_mismatch (test_package.BuildParserTests.test_output_digest_mismatch) ... ok
+test_budget_metrics (test_package.PackageTests.test_budget_metrics) ... ok
+test_release_actual_match (test_package.PackageTests.test_release_actual_match) ... ok
+test_build_failure (test_runtime.ProcessTests.test_build_failure) ... ok
+test_missing_artifact (test_runtime.ProcessTests.test_missing_artifact) ... ok
+test_wrong_run_identity (test_runtime.ProcessTests.test_wrong_run_identity) ... ok
+test_begin_without_approval (test_runtime.RuntimeTests.test_begin_without_approval) ... ok
+test_draft_is_not_execution (test_runtime.RuntimeTests.test_draft_is_not_execution) ... ok
+test_duplicate_receipt_check (test_runtime.RuntimeTests.test_duplicate_receipt_check) ... ok
+test_lfs_pointer_blocks (test_runtime.RuntimeTests.test_lfs_pointer_blocks) ... ok
+test_missing_design_approval (test_runtime.RuntimeTests.test_missing_design_approval) ... ok
+test_nested_instruction_conflict (test_runtime.RuntimeTests.test_nested_instruction_conflict) ... ok
+test_open_overlay_decision (test_runtime.RuntimeTests.test_open_overlay_decision) ... ok
+test_raw_output_reparsed_not_green_wrapper (test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper) ... ok
+test_resume_discovery (test_runtime.RuntimeTests.test_resume_discovery) ... ok
+test_symlink_escape (test_runtime.RuntimeTests.test_symlink_escape) ... ok
+test_unreconciled_overlay (test_runtime.RuntimeTests.test_unreconciled_overlay) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 7.338s
+
+OK

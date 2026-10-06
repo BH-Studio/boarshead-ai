@@ -1,0 +1,26 @@
+test_explicit_manual_merge (test_installer.InstallerTests.test_explicit_manual_merge) ... ok
+test_repeat_unchanged (test_installer.InstallerTests.test_repeat_unchanged) ... ok
+test_seed_local_edits_preserved (test_installer.InstallerTests.test_seed_local_edits_preserved) ... ok
+test_missing_result_is_malformed (test_package.BuildParserTests.test_missing_result_is_malformed) ... ok
+test_assembler_real_git_blob (test_package.PackageTests.test_assembler_real_git_blob) ... ok
+test_no_design_in_game (test_package.PackageTests.test_no_design_in_game) ... ok
+test_seed_project_schema_valid (test_package.PackageTests.test_seed_project_schema_valid) ... ok
+test_facts_disagree (test_runtime.ProcessTests.test_facts_disagree) ... ok
+test_timeout (test_runtime.ProcessTests.test_timeout) ... ok
+test_approval_subject (test_runtime.RuntimeTests.test_approval_subject) ... ok
+test_concurrent_state_revision (test_runtime.RuntimeTests.test_concurrent_state_revision) ... ok
+test_duplicate_check_id (test_runtime.RuntimeTests.test_duplicate_check_id) ... ok
+test_illegal_transition (test_runtime.RuntimeTests.test_illegal_transition) ... ok
+test_missing_artifact (test_runtime.RuntimeTests.test_missing_artifact) ... ok
+test_missing_reference (test_runtime.RuntimeTests.test_missing_reference) ... ok
+test_nunit_requires_names (test_runtime.RuntimeTests.test_nunit_requires_names) ... ok
+test_preflight_no_writes (test_runtime.RuntimeTests.test_preflight_no_writes) ... ok
+test_required_above_profile (test_runtime.RuntimeTests.test_required_above_profile) ... ok
+test_stale_human_acceptance (test_runtime.RuntimeTests.test_stale_human_acceptance) ... ok
+test_unknown_schema_keyword (test_runtime.RuntimeTests.test_unknown_schema_keyword) ... ok
+test_wrong_version (test_runtime.RuntimeTests.test_wrong_version) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 5.238s
+
+OK

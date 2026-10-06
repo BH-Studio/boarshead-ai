@@ -1,0 +1,26 @@
+test_bad_approval_no_install (test_installer.InstallerTests.test_bad_approval_no_install) ... ok
+test_managed_edits_conflict (test_installer.InstallerTests.test_managed_edits_conflict) ... ok
+test_rollback_preserves_edited_seed (test_installer.InstallerTests.test_rollback_preserves_edited_seed) ... ok
+test_wrong_destination (test_installer.InstallerTests.test_wrong_destination) ... ok
+test_stale_output_directory (test_package.BuildParserTests.test_stale_output_directory) ... ok
+test_canonical_copies (test_package.PackageTests.test_canonical_copies) ... ok
+test_release_empty_blocks (test_package.PackageTests.test_release_empty_blocks) ... ok
+test_compile_error (test_runtime.ProcessTests.test_compile_error) ... ok
+test_nonzero_exit (test_runtime.ProcessTests.test_nonzero_exit) ... ok
+test_wrong_test_name (test_runtime.ProcessTests.test_wrong_test_name) ... ok
+test_begin_without_plan (test_runtime.RuntimeTests.test_begin_without_plan) ... ok
+test_dropped_acceptance (test_runtime.RuntimeTests.test_dropped_acceptance) ... ok
+test_duplicate_skills_block (test_runtime.RuntimeTests.test_duplicate_skills_block) ... ok
+test_lock_serializes_writers (test_runtime.RuntimeTests.test_lock_serializes_writers) ... ok
+test_missing_human_acceptance (test_runtime.RuntimeTests.test_missing_human_acceptance) ... ok
+test_new_commit_invalidates (test_runtime.RuntimeTests.test_new_commit_invalidates) ... ok
+test_out_of_scope_mutation_blocks (test_runtime.RuntimeTests.test_out_of_scope_mutation_blocks) ... ok
+test_real_cli_preflight (test_runtime.RuntimeTests.test_real_cli_preflight) ... ok
+test_root_count_mismatch (test_runtime.RuntimeTests.test_root_count_mismatch) ... ok
+test_synthetic_boundary (test_runtime.RuntimeTests.test_synthetic_boundary) ... ok
+test_wrong_design_method (test_runtime.RuntimeTests.test_wrong_design_method) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 8.168s
+
+OK

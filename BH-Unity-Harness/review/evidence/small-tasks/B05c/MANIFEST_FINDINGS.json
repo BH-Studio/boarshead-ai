@@ -1,0 +1,21 @@
+{
+  "task": "B05c",
+  "input_head": "b5a38afac94841973090d686d658fe3966dfefab",
+  "installed_count": 25,
+  "installed_path_roster_matches_tree": true,
+  "installed_content_hash_verification": "NOT_RUN_IN_B05c",
+  "knowledge_count": 15,
+  "preserved_count": 13,
+  "preserved_declared_git_blobs_match_tree_metadata": true,
+  "knowledge_declared_git_blobs_match_tree_metadata": true,
+  "downstream_resource_bytes": "NOT_RETRIEVED_IN_B05c",
+  "instruction_characters": 7798,
+  "instruction_headroom": 202,
+  "instruction_metrics_hash_and_encoding_match": true,
+  "schema_id": "urn:bh:contracts:1.0.0",
+  "schema_definition_count": 25,
+  "schema_refs_local_and_resolved": true,
+  "schema_runtime_validation": "NOT_RUN",
+  "reference_only_K11_is_not_knowledge_selection": true,
+  "authority_review": "Official policy retains human approval, game neutrality, design/implementation separation, thin pinned handoffs, returned-evidence review and no guessed savings. Evaluation rows remain NOT_RUN host scenarios; read examples are not executed or adopted."
+}

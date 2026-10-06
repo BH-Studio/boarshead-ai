@@ -1,0 +1,233 @@
+{
+  "task": "B05f1",
+  "input_head": "a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a",
+  "root_tree": "baa2aa3c41225b8ac9c73df969b4fadc583d280c",
+  "harness_tree": "0276a907b424a5ca9b4a9559628deac0325eaecd",
+  "checkpoint_blob": "28e3c807b6b1830de9840ddfa5f9e8e6d9da44bd",
+  "incorporation_status_blob": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+  "B05c_dependency_blob": "9727a14c3b28e37ab1141e1023d76cc0a6112d3b",
+  "B05c_dependency_input_head": "b5a38afac94841973090d686d658fe3966dfefab",
+  "content_reads": [
+    {
+      "path": "contracts/CODEX_CONSUMER.md",
+      "encoding": "utf-8",
+      "returned_blob": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/contracts/CODEX_CONSUMER.md",
+      "tree": {
+        "path": "contracts/CODEX_CONSUMER.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+        "size": 5557,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/abe5a090dbda75c3cedfd3cf7e3441ab816598f4"
+      }
+    },
+    {
+      "path": "contracts/INTERFACE.md",
+      "encoding": "utf-8",
+      "returned_blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/contracts/INTERFACE.md",
+      "tree": {
+        "path": "contracts/INTERFACE.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+        "size": 13085,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/149472ddf4bb11fc3d4b76996f7672204561af31"
+      }
+    },
+    {
+      "path": "examples/profiles/README.md",
+      "encoding": "utf-8",
+      "returned_blob": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/examples/profiles/README.md",
+      "tree": {
+        "path": "examples/profiles/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "da522d9e021888d6e0c41ff5be8b1adc6d27d517",
+        "size": 1030,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/da522d9e021888d6e0c41ff5be8b1adc6d27d517"
+      }
+    },
+    {
+      "path": "examples/profiles/synthetic-continuous-state.json",
+      "encoding": "utf-8",
+      "returned_blob": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/examples/profiles/synthetic-continuous-state.json",
+      "tree": {
+        "path": "examples/profiles/synthetic-continuous-state.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "13381f647d3e2e9bded0cb8aaf5016870313c082",
+        "size": 1273,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/13381f647d3e2e9bded0cb8aaf5016870313c082"
+      }
+    },
+    {
+      "path": "examples/profiles/synthetic-discrete-state.json",
+      "encoding": "utf-8",
+      "returned_blob": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/examples/profiles/synthetic-discrete-state.json",
+      "tree": {
+        "path": "examples/profiles/synthetic-discrete-state.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "418671bf2994f8c4a9d09cb69f393144c63ee507",
+        "size": 1227,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/418671bf2994f8c4a9d09cb69f393144c63ee507"
+      }
+    },
+    {
+      "path": "optional/bh-procedural-regression/SKILL.md",
+      "encoding": "utf-8",
+      "returned_blob": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/optional/bh-procedural-regression/SKILL.md",
+      "tree": {
+        "path": "optional/bh-procedural-regression/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ceca36c2ae04a8b1f953a115e77d1460a00d8d04",
+        "size": 1250,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/ceca36c2ae04a8b1f953a115e77d1460a00d8d04"
+      }
+    },
+    {
+      "path": "optional/bh-unity-project-audit/SKILL.md",
+      "encoding": "utf-8",
+      "returned_blob": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/optional/bh-unity-project-audit/SKILL.md",
+      "tree": {
+        "path": "optional/bh-unity-project-audit/SKILL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea",
+        "size": 1748,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/87f0ce4cc7dfb1d5d9be8296889aecd2b3b1d2ea"
+      }
+    },
+    {
+      "path": "optional/bh-unity-project-audit/agents/openai.yaml",
+      "encoding": "utf-8",
+      "returned_blob": "3fc511d46946d1225de4c817206974b1647d6a12",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/optional/bh-unity-project-audit/agents/openai.yaml",
+      "tree": {
+        "path": "optional/bh-unity-project-audit/agents/openai.yaml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3fc511d46946d1225de4c817206974b1647d6a12",
+        "size": 159,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/3fc511d46946d1225de4c817206974b1647d6a12"
+      }
+    },
+    {
+      "path": "optional/unity-editor-build/BHBuild.cs",
+      "encoding": "utf-8",
+      "returned_blob": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/optional/unity-editor-build/BHBuild.cs",
+      "tree": {
+        "path": "optional/unity-editor-build/BHBuild.cs",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2bddb61602edd2e68ec1a06ff2981565db26f11b",
+        "size": 6019,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/2bddb61602edd2e68ec1a06ff2981565db26f11b"
+      }
+    },
+    {
+      "path": "optional/unity-editor-build/README.md",
+      "encoding": "utf-8",
+      "returned_blob": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/a6290bfaf4c4bcc18a02b51ded6b5b0c788c368a/BH-Unity-Harness/optional/unity-editor-build/README.md",
+      "tree": {
+        "path": "optional/unity-editor-build/README.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f6f61f7d6d41dec91488a4078f0ad5e0f40d7533",
+        "size": 2946,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/f6f61f7d6d41dec91488a4078f0ad5e0f40d7533"
+      }
+    }
+  ],
+  "next_batch_metadata_only": {
+    "id": "B05f2",
+    "scope": "Remaining active scan/template/contract/profile byte inputs; prior bytes may be reused only after pinned identity check",
+    "paths": [
+      "optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "optional/unity-observation/README.md",
+      "optional/unity-observation/provider.disabled.json",
+      "optional/unity-observation/unity_evidence.py",
+      "optional/unity-observation/unity_jobs.py",
+      "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+      "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "project-template/.agents/skills/bh-systematic-debug/SKILL.md"
+    ],
+    "status": "NOT_STARTED",
+    "count": 10,
+    "tree_metadata": [
+      {
+        "path": "optional/unity-observation/PROVIDER_PROTOCOL.md",
+        "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39",
+        "bytes": 7284,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "optional/unity-observation/README.md",
+        "git_blob_sha": "2e5a36e09c8588c3d4d10464f3cccd41440d9e0e",
+        "bytes": 4562,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "optional/unity-observation/provider.disabled.json",
+        "git_blob_sha": "8f46497b4c54987ec15e696482bba2513648e7a6",
+        "bytes": 546,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "optional/unity-observation/unity_evidence.py",
+        "git_blob_sha": "548992178c51f51ffab74e82462aa281ce56d34a",
+        "bytes": 18961,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "optional/unity-observation/unity_jobs.py",
+        "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57",
+        "bytes": 15627,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+        "git_blob_sha": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+        "bytes": 1906,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+        "git_blob_sha": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+        "bytes": 152,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+        "git_blob_sha": "870e46e38301836801a0ef1a357609598bb7a0ca",
+        "bytes": 1677,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+        "git_blob_sha": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+        "bytes": 142,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+        "git_blob_sha": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+        "bytes": 2063,
+        "content_reconciled_in_B05c": false
+      }
+    ]
+  },
+  "tree_truncated": false
+}

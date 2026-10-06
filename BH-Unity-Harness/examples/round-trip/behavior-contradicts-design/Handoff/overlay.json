@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "synthetic": true,
+  "status": "SYNTHETIC",
+  "invariants": [
+    {
+      "id": "INV-01",
+      "text": "No procedural generation is assumed",
+      "source_ref": "SYNTHETIC approved design"
+    }
+  ],
+  "protected_paths": [
+    "Tests"
+  ],
+  "optional_capabilities": [],
+  "open_decisions": [],
+  "facts": [
+    "Synthetic fixture, no Unity Editor"
+  ],
+  "source_refs": [
+    "SYNTHETIC source"
+  ]
+}

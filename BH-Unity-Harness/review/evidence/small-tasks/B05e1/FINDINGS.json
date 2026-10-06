@@ -1,0 +1,27 @@
+{
+  "task": "B05e1",
+  "review_type": "bounded identity and retained/selected scope reconciliation",
+  "scope_counts": {
+    "selected_knowledge": 7,
+    "also_preserved_references": 5,
+    "shared_interface_resources": 2
+  },
+  "retention": "Full v3 method, persona routing and K02-K04 framework inputs match the recorded original Git blobs in both selected and preserved manifests. This proves byte retention against those declared identities, without repeating original research or executing their instructions.",
+  "shared_contracts": "Knowledge schema and interface match the selected manifest SHA-256 identities. Other consumer copies were not fetched in this batch; current all-copy equality remains a later closure check.",
+  "authority_reading": {
+    "paths": [
+      "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "design-gpt/Knowledge/BH_INTERFACE.md"
+    ],
+    "finding": "Read only opening authority/routing and producer-resource boundary passages. Full method keeps human final authority and uses expert lenses within one model. Interface assigns design proposals/review, human decisions/approvals and harness verified execution; producer retrieval is distinct from Codex consumption. No file is installed or activated by this reconciliation."
+  },
+  "limits": [
+    "No original framework/design research repeated.",
+    "No source-game defaults imported.",
+    "No candidate source content changed.",
+    "No tests, discovery, package checker, assembler, runner or installer ran.",
+    "B05e2 and all later content batches NOT_STARTED.",
+    "Not full-package validation, host activation or human adoption."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "task": "B05e2",
+  "command": "python3 b05e2_reconcile.py > b05e2-reconciliation.log 2>&1",
+  "working_directory": "/workspace/scratch/301f3dd0656a",
+  "actual_exit_status": 0,
+  "raw_output_file": "RAW.log",
+  "execution": "Only the committed reconciliation helper ran; no candidate code/test imports or invocations.",
+  "input_export": "Recreate b05e2-input.json beside the helper from FETCH_METADATA.json immutable identities: head/root/harness trees; exact seven UTF-8 fetch_file responses with their tree entries; B05c DEPENDENCIES.json as prior_dependencies; checkpoint/dependency/status blob SHAs. Scratch transport contains exact retrieved bytes, not an old archive or reconstructed source.",
+  "evidence_helper_freshness": "The new helper adds a Python path. Refresh the current package checker syntax-input roster at later test/final heads."
+}

@@ -1,0 +1,13 @@
+{
+  "task": "B05a",
+  "commands": [
+    {
+      "command": "python3 b05a_reconcile.py > b05a-reconciliation.log 2>&1",
+      "cwd": "/workspace/scratch/301f3dd0656a",
+      "exit_status": 0,
+      "log": "RAW.log"
+    }
+  ],
+  "runtime_discovery": "NOT_RUN",
+  "tests_executed": 0
+}

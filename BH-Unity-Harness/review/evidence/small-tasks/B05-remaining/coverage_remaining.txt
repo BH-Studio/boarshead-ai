@@ -1,0 +1,41 @@
+import hashlib, json, sys, unittest
+from pathlib import Path
+sys.dont_write_bytecode=True
+BASE=Path(__file__).resolve().parent;P=BASE/'remaining-tests-work/BH-Unity-Harness';OUT=BASE/'remaining-tests-evidence'
+ledger=json.loads((OUT/'SOURCES.json').read_text());current={x['path']:x for x in ledger['files']}
+def flat(s):
+    for c in s:
+        if isinstance(c,unittest.TestSuite):yield from flat(c)
+        else:yield c
+sys.path.insert(0,str(P/'tests'))
+allcases=sorted(c.id() for c in flat(unittest.defaultTestLoader.discover(str(P/'tests'))))
+assert len(allcases)==len(set(allcases))
+prior=[];covered=[]
+for task in ['B02a','B02b','B02c','B02d','B02e','B03','B04a','B04b','B04c']:
+    directory=P/'review/evidence/small-tasks'/task
+    result=json.loads((directory/'RESULT.json').read_text());sources=json.loads((directory/'SOURCES.json').read_text())
+    assert result['result']=='PASS' and result['exit_status']==0
+    assert result['failures']==result['errors']==result['skips']==0
+    assert result['sources_unchanged'] and result['source_before']==result['source_after']
+    for record in sources['files']:
+        now=current[record['path']]
+        assert now['sha256']==record['sha256'] and now['git_blob_sha']==record['git_blob_sha'] and now['bytes']==record['bytes']
+    for record in result['source_before']:
+        assert current[record['path']]['sha256']==record['sha256']
+    raw=(directory/'RAW.log').read_text();assert '\nOK' in raw
+    ids=result['selected_case_ids'];assert len(ids)==result['tests_run']
+    assert all(case in raw for case in ids)
+    prior.append({'task':task,'original_input_head':result['input_head'],'tests':result['tests_run'],'case_ids':ids,'current_required_input_identities_match':True,'source_count':len(sources['files']),'result_git_blob':current[f'review/evidence/small-tasks/{task}/RESULT.json']['git_blob_sha'],'raw_log_git_blob':current[f'review/evidence/small-tasks/{task}/RAW.log']['git_blob_sha'],'rerun_in_this_batch':False})
+    covered.extend(ids)
+new=[]
+for path in sorted(OUT.glob('test_*-part-*.json')):
+    result=json.loads(path.read_text());assert result['status']=='PASS'
+    assert result['failures']==result['errors']==result['skipped']==0 and result['source_map_before_after_equal']
+    new.append(result);covered.extend(result['case_ids'])
+assert len(new)==7
+assert len(covered)==len(set(covered)) and sorted(covered)==allcases
+for record in ledger['files']:
+    raw=(P/record['path']).read_bytes();assert hashlib.sha256(raw).hexdigest()==record['sha256']
+value={'input_head':ledger['input_head'],'status':'PASS_COMPLETE_CASE_COVERAGE_ON_RECONCILED_INPUTS','discovered_total':len(allcases),'newly_executed':sum(x['tests'] for x in new),'prior_current_input_matched':sum(x['tests'] for x in prior),'missing_case_ids':[],'duplicate_case_ids':[],'prior_batches':prior,'new_batches':new,'all_input_bytes_unchanged_after_tests':True,'claim':'Coverage ledger combines 94 actual new tests with 136 earlier committed tests whose complete required source maps and raw case rosters matched current inputs. Not a claim that 230 tests were freshly executed in one run. Package static checks have their own pinned head/roster.','host_limitations':['Windows/PowerShell, actual Unity/C#, native Codex, configured design GPT, player and billed-credit testing remain NOT_RUN; human adoption PENDING.']}
+(OUT/'COVERAGE.json').write_text(json.dumps(value,indent=2)+'\n')
+print(json.dumps({k:value[k] for k in ['status','discovered_total','newly_executed','prior_current_input_matched','missing_case_ids','duplicate_case_ids','all_input_bytes_unchanged_after_tests']}))

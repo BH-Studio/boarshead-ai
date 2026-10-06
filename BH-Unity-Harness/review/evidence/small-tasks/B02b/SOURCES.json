@@ -1,0 +1,217 @@
+{
+  "input_head": "4beef224bdf4ab8446ba257b957f55b67bb6ec3b",
+  "root_tree": "a21b7570f06086e755756eb152ded30dedfae20b",
+  "harness_tree": "f0f93b6f896ff402c5c3a0182276e6a601f08737",
+  "files": [
+    {
+      "path": "PACKAGE_FILES.json",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "bytes": 4520,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "installer/install.py",
+      "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "sha256": "bdcc7ec6c11ecda3db415cbf781b84c567fbfe4d91bab1a2945eaaab69e3169f",
+      "bytes": 12192,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/SKILL.md",
+      "git_blob_sha": "cb2ddacb5035f079ae52617fd4e2c44dcc31b6ca",
+      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
+      "bytes": 1906,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "git_blob_sha": "6d97886234c4fa3e910c0fc643e38f3647212df9",
+      "sha256": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      "bytes": 152,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/SKILL.md",
+      "git_blob_sha": "870e46e38301836801a0ef1a357609598bb7a0ca",
+      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
+      "bytes": 1677,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-review-handoff/agents/openai.yaml",
+      "git_blob_sha": "47f7d18d7b505846622e7b019eca35d41050fc7c",
+      "sha256": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      "bytes": 142,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/SKILL.md",
+      "git_blob_sha": "d775f908d269d7373cd516adc362a1bb8ac34a26",
+      "sha256": "997d9a4157b201226cb48863b641fb7960c87418fe8a42bfc8a75c6e1228c9df",
+      "bytes": 2063,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "git_blob_sha": "8cf001b079303bd304101f0cdda0efcde9576f7e",
+      "sha256": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      "bytes": 144,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/SKILL.md",
+      "git_blob_sha": "2e4106c465ddc326b5a6f4b83aa55c57581b6b3e",
+      "sha256": "6ccd70fee1604331a7e412aa39d231628462f3f368b470cdd7da55eb6d37929d",
+      "bytes": 1547,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "git_blob_sha": "c9ca58a02ad42d7f7650f771d18542fcb23bf7b5",
+      "sha256": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      "bytes": 143,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/SKILL.md",
+      "git_blob_sha": "2ff6099ee2f5f27ff18b80f9814736318f63439d",
+      "sha256": "ef80f29606283fcd738b108305d22908787cc3c69f9a7c845d237f7b701687a8",
+      "bytes": 2233,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.agents/skills/bh-unity-verify/agents/openai.yaml",
+      "git_blob_sha": "5563300d1cea48681d780ecbde78143cafd26cc0",
+      "sha256": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      "bytes": 140,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/GITIGNORE_MERGE.txt",
+      "git_blob_sha": "4b73740eb53f7dfeef025b0acfedb9b7edd9d47f",
+      "sha256": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      "bytes": 282,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/bindings.json",
+      "git_blob_sha": "8f1c79c7aae5146a3f9c0e81e17db7696b6787e6",
+      "sha256": "75708d8783bdb3dba198ebcc62f2ebcc0cf4570a2382e997f27bc9155352f26c",
+      "bytes": 73,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/local.json",
+      "git_blob_sha": "440956805b38377506b3d3aa11463578f343664c",
+      "sha256": "620c676aca908c70c68b9abfb4585515dbeafee9b6f16f76560942929c89c031",
+      "bytes": 143,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/project.json",
+      "git_blob_sha": "f015e1d3727c425327dc6d3caf7dc6adb5df8057",
+      "sha256": "6da5c1fe692f8b63681ee7ab3ad8a32e7a13937442d3ad2c8428091ed2509613",
+      "bytes": 668,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/schema.json",
+      "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "bytes": 56860,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/.bh/skill-registry.json",
+      "git_blob_sha": "0b5ce6f35e74229ddf5f81804e4eb0ceb542aef8",
+      "sha256": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      "bytes": 1692,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/AGENTS.md",
+      "git_blob_sha": "4a548d17132e1185af67dcbcd7f69d95beccad35",
+      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "bytes": 4119,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Docs/Harness/CODEX_CONSUMER.md",
+      "git_blob_sha": "abe5a090dbda75c3cedfd3cf7e3441ab816598f4",
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "bytes": 5557,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Docs/Harness/INTERFACE.md",
+      "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "bytes": 13085,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Docs/Harness/OPERATING_GUIDE.md",
+      "git_blob_sha": "59151556ffeb61dc24e7e16b20e801023e875407",
+      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "bytes": 15544,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Docs/Harness/UNITY_PROCEDURES.md",
+      "git_blob_sha": "da96b327a78e59a7d03c1b36ebed3f5b2a2f2858",
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "bytes": 6223,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Tools/BH/Invoke-BH.ps1",
+      "git_blob_sha": "0a0e96d179c58e0bb50a68dc3ae2cc3b9f579529",
+      "sha256": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "bytes": 755,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "bytes": 79390,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "bytes": 2723,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "project-template/Tools/BH/views.py",
+      "git_blob_sha": "3b2419f28c36771dacdd1a9d1b70168c1206f7c7",
+      "sha256": "32862f567b16ff6fe34e0408c3005c53eacf36b95c45b8a4e1b44b93836f2101",
+      "bytes": 7123,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "sha256": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "bytes": 2004,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "tests/support.py",
+      "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "sha256": "87e06af520085c00dd64ee67f4ae2394f2ead92bf2c68520fcaeeaab65d2dd90",
+      "bytes": 9166,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    },
+    {
+      "path": "tests/test_runtime.py",
+      "git_blob_sha": "f367d87ec3a407df286e21154883df7eb8d88c19",
+      "sha256": "f6e7ea0a48e65a0c36d7b7a03bfde772781f668ab51b8c4be542b7ed7e15824e",
+      "bytes": 16906,
+      "origin": "Existing B02a local bytes; independently rehashed against current pinned tree and committed B02a source ledger"
+    }
+  ]
+}

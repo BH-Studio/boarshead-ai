@@ -1,0 +1,35 @@
+{
+  "kind": "actual-offline-suite-summary",
+  "repository": "BH-Studio/boarshead-ai",
+  "tested_repository_commit": "f0b602ac8aa4472765dc7f99f8ea0d166600ef70",
+  "environment": "Linux-6.18.44-x86_64-with-glibc2.41; Python 3.13.5; GCC 14.2.0",
+  "command": "python -B tools/run_tests.py --part N --parts 6 --output review/evidence/resume-20261004",
+  "status": "PASS_OFFLINE_SUITE",
+  "discovered": 127,
+  "executed_unique": 127,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds_sum": 32.239,
+  "parts": [
+    {"part": 0, "tests": 22, "seconds": 3.470, "status": "PASS_PART"},
+    {"part": 1, "tests": 21, "seconds": 5.799, "status": "PASS_PART"},
+    {"part": 2, "tests": 21, "seconds": 4.611, "status": "PASS_PART"},
+    {"part": 3, "tests": 21, "seconds": 5.447, "status": "PASS_PART"},
+    {"part": 4, "tests": 21, "seconds": 7.150, "status": "PASS_PART"},
+    {"part": 5, "tests": 21, "seconds": 5.762, "status": "PASS_PART"}
+  ],
+  "partition_integrity": "All six source maps equal; union of case IDs has 127 unique cases, no overlap, equals discovered total.",
+  "source_map_canonical_sha256": "cd15e870adb03d290edf41a5d6e95b2368bf9f11afd2315450dcd1f6fa998ebf",
+  "source_map_serialization": "json.dumps(map, sort_keys=True, separators=(',', ':')).encode()",
+  "key_source_sha256": {
+    "tools/assemble_candidate.py": "f74ba5e677c44fdbf06e8b02f63025e2c1c2f9bb1c95b362b37da18cca059aa2",
+    "tests/test_package.py": "ba72a28655cb3ea5ff46e4d0ef6c6312fa10882ebee0d8ce7388787d79134fa0",
+    "project-template/Tools/BH/bh.py": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+    "installer/install.py": "bdcc7ec6c11ecda3db415cbf781b84c567fbfe4d91bab1a2945eaaab69e3169f"
+  },
+  "raw_evidence_status": "Six original JSON receipts and six logs exist locally at the command output; publish consolidated readable evidence next. This summary does not pretend those raw files are already committed.",
+  "original_reference_local_assembly": "NOT_RUN; exact original blobs verified in repository by matching tree, not materialized in this local additions copy",
+  "live_integrations": "NOT_RUN: Windows, PowerShell, Unity, Codex, MCP, diagnostics, configured GPT/Project",
+  "human_adoption": "PENDING; no merge or installation"
+}

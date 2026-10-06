@@ -1,0 +1,63 @@
+{
+  "input_head": "25edd444030cc8617bbffc5437f2e540d57b770e",
+  "root_tree": "77d8caf39319e277154c29acda26b5a4af4e14db",
+  "harness_tree": "345cad474f0399234013978c288f6181287ed276",
+  "files": [
+    {
+      "path": "tests/support.py",
+      "git_blob_sha": "f857e634e084fa2ae50af13e337a69f6ab26696b",
+      "sha256": "87e06af520085c00dd64ee67f4ae2394f2ead92bf2c68520fcaeeaab65d2dd90",
+      "bytes": 9166,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "tests/fixture_driver.py",
+      "git_blob_sha": "d664cf352242a661ac02e2ca2173819aaaa0815b",
+      "sha256": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "bytes": 2004,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "installer/install.py",
+      "git_blob_sha": "89bfd28b8e177f991cf00d0cd85c9e84db018a52",
+      "sha256": "bdcc7ec6c11ecda3db415cbf781b84c567fbfe4d91bab1a2945eaaab69e3169f",
+      "bytes": 12192,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "project-template/Tools/BH/bh.py",
+      "git_blob_sha": "ca2bc04487a4cacba042bbbb9c8ff0bd9168a083",
+      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "bytes": 79390,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "project-template/Tools/BH/check_release_profile.py",
+      "git_blob_sha": "e04969ac39789e56f8d665f8b8db6ae6e7d6142a",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "bytes": 2723,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "tools/check_package.py",
+      "git_blob_sha": "e1c02d0963937a215ef896f539002066e1b3a2af",
+      "sha256": "837439aec687c4ddc4fc3dc6fd88547d270498d5f437f525c93b742448bd2607",
+      "bytes": 5181,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "tools/assemble_candidate.py",
+      "git_blob_sha": "830c2792f0288c39df2a6591c0b21080090eeb3e",
+      "sha256": "7e096978d0512bf94fcaeadf07ce29f7cf4fd6ea2baee5ba48a0b982a1426a87",
+      "bytes": 3722,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    },
+    {
+      "path": "tools/run_tests.py",
+      "git_blob_sha": "191d538607c24967e5bb0cc5472f6d9c4aa3fab5",
+      "sha256": "75b7f282d18d1b21026ae109a130abeb661326e29b7be3e33b5b810f3a4b5eca",
+      "bytes": 2413,
+      "origin": "Pinned GitHub retrieval; bytes checked against current immutable tree and B05a batch metadata"
+    }
+  ]
+}

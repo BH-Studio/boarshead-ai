@@ -1,0 +1,38 @@
+{
+  "kind": "offline-efficiency-observations",
+  "runtime_sha256": "5b2c7107907ce75b7b5334349abeedfbc4712d7a995c2307a7af194813125dad",
+  "limitations": [
+    "No native Codex or billed credits measured",
+    "Linux synthetic projects, not Windows/Unity",
+    "Byte and operation counts are not token or credit counts"
+  ],
+  "context_small_bytes": 6935,
+  "context_1000_more_files_bytes": 6936,
+  "one_automated_one_manual_snapshot_calls": 2,
+  "return_full_bytes": 109212,
+  "return_view_bytes": 2052,
+  "status_after_8_runs": {
+    "nunit_reparses": 1,
+    "harness_hash_calls": 1
+  },
+  "unchanged_fast_to_slice_reuse": {
+    "executed_check_calls": 0,
+    "reused_checks": [
+      {
+        "id": "CHECK-01",
+        "receipt": ".bh/runs/run-d7ca089a34e94fdf98bf6ff97d3e90c1/receipt.json",
+        "status": "PASS"
+      }
+    ],
+    "new_receipt_created": false,
+    "final_gate_still_required": true
+  },
+  "dense_100": {
+    "directory_enumerations": 22,
+    "directory_entries_visited": 157
+  },
+  "dense_500": {
+    "directory_enumerations": 22,
+    "directory_entries_visited": 557
+  }
+}

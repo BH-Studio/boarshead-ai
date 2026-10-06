@@ -1,0 +1,38 @@
+test_build_failure (test_runtime.ProcessTests.test_build_failure) ... FAIL
+test_facts_disagree (test_runtime.ProcessTests.test_facts_disagree) ... ok
+test_reviewed_narrow_dependencies (test_runtime.ProcessTests.test_reviewed_narrow_dependencies) ... ok
+test_wrong_run_identity (test_runtime.ProcessTests.test_wrong_run_identity) ... ok
+test_approval_subject (test_runtime.RuntimeTests.test_approval_subject) ... ok
+test_blocking_question (test_runtime.RuntimeTests.test_blocking_question) ... ok
+test_draft_is_not_execution (test_runtime.RuntimeTests.test_draft_is_not_execution) ... ok
+test_duplicate_check_id (test_runtime.RuntimeTests.test_duplicate_check_id) ... ok
+test_failed_then_pass_preserves_history (test_runtime.RuntimeTests.test_failed_then_pass_preserves_history) ... ok
+test_lfs_pointer_blocks (test_runtime.RuntimeTests.test_lfs_pointer_blocks) ... ok
+test_missing_artifact (test_runtime.RuntimeTests.test_missing_artifact) ... ok
+test_missing_raw_artifact (test_runtime.RuntimeTests.test_missing_raw_artifact) ... ok
+test_nested_instruction_conflict (test_runtime.RuntimeTests.test_nested_instruction_conflict) ... ok
+test_nunit_requires_names (test_runtime.RuntimeTests.test_nunit_requires_names) ... ok
+test_override_instruction_conflict (test_runtime.RuntimeTests.test_override_instruction_conflict) ... ok
+test_raw_output_reparsed_not_green_wrapper (test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper) ... ok
+test_required_above_profile (test_runtime.RuntimeTests.test_required_above_profile) ... ok
+test_roundtrip_human_pending (test_runtime.RuntimeTests.test_roundtrip_human_pending) ... ok
+test_symlink_escape (test_runtime.RuntimeTests.test_symlink_escape) ... ok
+test_unknown_schema_keyword (test_runtime.RuntimeTests.test_unknown_schema_keyword) ... ok
+test_wrong_harness_version (test_runtime.RuntimeTests.test_wrong_harness_version) ... ok
+
+======================================================================
+FAIL: test_build_failure (test_runtime.ProcessTests.test_build_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/recovered/BH-Unity-Harness/tests/test_runtime.py", line 202, in test_build_failure
+    def test_build_failure(self):self.assertEqual(self.run_mode('build')[1]['status'],'FAIL')
+                                 ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ERROR' != 'FAIL'
+- ERROR
++ FAIL
+
+
+----------------------------------------------------------------------
+Ran 21 tests in 11.950s
+
+FAILED (failures=1)

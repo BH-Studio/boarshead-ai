@@ -1,0 +1,63 @@
+{
+  "input_head": "b5a38afac94841973090d686d658fe3966dfefab",
+  "root_tree": "3fb61a5267dd477b04077d0bac40d2d4482dc51c",
+  "harness_tree": "57d3eaf26226e806ada47641b2054f4aa491dd89",
+  "files": [
+    {
+      "path": "PACKAGE_FILES.json",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282",
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "bytes": 4520,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "PRESERVED_REFERENCES.json",
+      "git_blob_sha": "66891dc1c72fdc60b1a15d3162ac2bf5f5b10a11",
+      "sha256": "ff42f0118a074b25ccc235de534b904009f3f8cb8a4f8e574966746cfec4da59",
+      "bytes": 3482,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "contracts/schema.json",
+      "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "bytes": 56860,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "design-gpt/KNOWLEDGE_MANIFEST.json",
+      "git_blob_sha": "b41bb46ac7a9e2c97d215256a64611d19c660d69",
+      "sha256": "24a545f2a22d370c661cc2dc528e20e683b3cdff60d5c8c353534726709ed788",
+      "bytes": 4254,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md",
+      "git_blob_sha": "2e52b3762b1680d1f6479a9c1379fc0fcf6bc3d3",
+      "sha256": "f0f43b2ff58d5fc843f7814c159d6535cd93e419fb8695bc3765d2b3e7a90b90",
+      "bytes": 7842,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "design-gpt/02_NAME_DESCRIPTION_STARTERS.md",
+      "git_blob_sha": "34c7d68b86d81ac454d86825e3661b1d01fe28aa",
+      "sha256": "cacd582815759a23d6e0b28a0aa445962571d7a8df48f394afff58bf28bbfb80",
+      "bytes": 2307,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "design-gpt/evaluation/REGRESSION_CASES.md",
+      "git_blob_sha": "2785eb573534683ddc9fba7ef3555602ee19ff87",
+      "sha256": "d4425a364b72412e6d349474efadc86aaba3e9747cd64acddf9569b1ebcc6eac",
+      "bytes": 6140,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    },
+    {
+      "path": "design-gpt/INSTRUCTION_METRICS.json",
+      "git_blob_sha": "a4f54c9d7c86ef37c4ae307caec0d4154ff0d6c4",
+      "sha256": "02e0272fa3cd2ae481e66dda81c914c57b506d630b113c27ae86b3cd0b6e78d4",
+      "bytes": 240,
+      "origin": "Pinned GitHub retrieval; checked against current immutable tree and B05b batch metadata"
+    }
+  ]
+}

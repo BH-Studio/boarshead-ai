@@ -1,0 +1,37 @@
+{
+  "status": "PASS_OFFLINE_SUITE",
+  "tested_functional_commit": "72bf50263b39f9ccd236fb54ecae341c97f80125",
+  "tests": 148,
+  "parts": 6,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 33.271,
+  "source_maps_identical": true,
+  "source_files": 175,
+  "source_map_sha256": "cda944d1afc0f0ae454eb6debcf6dde1df69d98606288b0220feee8b216ef381",
+  "receipt_representation": "PARTITIONS.json records original partition metadata; RESULTS.md concatenates exact raw logs with all case identities. Tested functional directory Git identities are recorded below. Full original JSON/log files are in the supplemental archive.",
+  "previous_suite_1": "148 passed on earlier evaluation label version; retained separately, not combined with final suite",
+  "not_run": [
+    "Windows/PowerShell",
+    "Unity/C# helper",
+    "Codex",
+    "MCP/diagnostics",
+    "configured GPT/Project",
+    "player validation",
+    "comparative usage"
+  ],
+  "human_adoption": "PENDING",
+  "functional_tree_sha": {
+    "contracts": "abb41ac894bede30f4b0d5d0877adef3a9267e95",
+    "design-gpt": "2bc689c570370c75d2135e7630068f738fe89e67",
+    "examples": "630304a581135e4f9aae47f1581f8742df533bc4",
+    "installer": "4db995d7fce4428bcbea1f67508aec33c411cbf3",
+    "optional": "374b290338b88eec887d53449f3fb8c945174e79",
+    "project-template": "ce27c06dfeee268ca718b7fcf08eee160ab02af8",
+    "tests": "4987770f57e9b4c5f910471965361f79cb262c44",
+    "tools": "b010bd480b532880983660a5db98aa1847375656"
+  },
+  "raw_archive_sha256": "e2e8dab87371a81c0d0654d3659bd9a1053a8158b9d86e0f3d0fe0c3088f346b",
+  "original_json_publication": "Supplemental downloadable archive; not normal JSON files in GitHub. No test result depends solely on that archive."
+}

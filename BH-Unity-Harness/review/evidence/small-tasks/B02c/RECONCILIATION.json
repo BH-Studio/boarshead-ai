@@ -1,0 +1,15 @@
+{
+  "task": "B02c",
+  "input_head": "f82fefb137c2d58211008384905279c2e6fbf031",
+  "reconciled_files": 30,
+  "all_sources_match_B02a_and_current_head": true,
+  "prior_source_ledger_blob": "e5da5b4a77e629a4b992441e76c4e400515f3f65",
+  "partition_roster_blob": "3d770ac564b3ded49f1800d743f33b3338c053d2",
+  "partition_roster_sha256": "ef1386d4558ef4741d8ece3edd5171e906221df246f4778a2190cb24ef144711",
+  "discovery_helper_blob": "8a62ab02c10736a00684391946cd155360246166",
+  "parent_runner_blob": "3c635478e6611680f22c5cafd30e45cf7f9fc544",
+  "runner_change": "B02b -> B02c selection/task labels and remaining-scope B02c-e -> B02d-e; runtime/test sources unchanged",
+  "current_runner_sha256": "ba101c95819118902f058107292c722e162ffd222cad309bd694e8ce763d01fe",
+  "command": "python3 reconcile_b02c.py > b02c-reconciliation.log 2>&1",
+  "exit_status": 0
+}

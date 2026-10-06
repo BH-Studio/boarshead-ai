@@ -1,0 +1,106 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-hdrp",
+  "task_id": "task-01",
+  "created_utc": "2026-10-04T18:54:08.132494Z",
+  "handoff_sha256": "ab8c581eda7060be3f574ca31c384fc4af42cbae2306329dc5d44ca9e0b4d718",
+  "config_sha256": "23f7dd4e810657edb25e0a6b0c7132fab67dccdf48e9181f75f9f5b642349de8",
+  "harness_sha256": "52447f5ef9424ff9277c0d8d18f117b6f99532dfd0008f352cafa2f24e8962ec",
+  "baseline": {
+    "commit": "6018b69b0cd0c9d40797a3ae7eafe8de8556f949",
+    "dirty": false,
+    "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "files": {
+      ".agents/skills/bh-implement-approved-slice/SKILL.md": "941590210a2fc7748833d11dae50b12f5640434d9ed5890f518650bb11842364",
+      ".agents/skills/bh-implement-approved-slice/agents/openai.yaml": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      ".agents/skills/bh-review-handoff/SKILL.md": "58f6880b23332880826ac4e987cb51f5226972e115df9a301d21412b064fec08",
+      ".agents/skills/bh-review-handoff/agents/openai.yaml": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      ".agents/skills/bh-systematic-debug/SKILL.md": "44daa7da45a919c8196aac60cba5ee7515122099716a2ca486a9ce4088abef6c",
+      ".agents/skills/bh-systematic-debug/agents/openai.yaml": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      ".agents/skills/bh-unity-preflight/SKILL.md": "6265515cf88c0a6f6bd2e4f0ad466b0cbe7f660ae0f760cef8f832a8cff4f624",
+      ".agents/skills/bh-unity-preflight/agents/openai.yaml": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      ".agents/skills/bh-unity-verify/SKILL.md": "62dee41a3bdd349569b0f651b9b4094cf8cefe1afce17d24d86790911e8d090c",
+      ".agents/skills/bh-unity-verify/agents/openai.yaml": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      ".bh/GITIGNORE_MERGE.txt": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      ".bh/SYNTHETIC_FIXTURE": "5eb15ac733b1765f5d7c1c2c2247c63e51f84614e450426c6d2f5d584807a020",
+      ".bh/bindings.json": "804456342f330f59f1fd39d69fbec2cb84f9291f933e83fa9e701f7ed836372d",
+      ".bh/local.json": "fa0aec2281b739c7325a3fe964c587083749d911e1c9cdf21bf569d875f56637",
+      ".bh/project.json": "d2d31768ebd139f1309fb203fccc634c180ec61d204fa88b13b78c19a153ef64",
+      ".bh/schema.json": "a781cccd0e652c73c0dff6809e0b3f72e7c292b39cc1ed1e1ae5f587703e438f",
+      ".bh/skill-registry.json": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      ".gitignore": "fe357b1b289900a1ddff54305e4ea72d69385186c0b90057477c18e9d0efd714",
+      "AGENTS.md": "9746e6442806355628605359623bbe13a315c2825623fc496cee39b88f5eb169",
+      "Docs/Harness/INTERFACE.md": "3bc103cb8f9a24440a9c99f87a5da5f391d666f71a79867e555b93e9e46bd8d0",
+      "Docs/Harness/OPERATING_GUIDE.md": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "Handoff/DESIGN.md": "383c48b7ccc0204f3f9e0de56ef8e5c43a310b073ddbc35d1518c5036126ddcf",
+      "Handoff/criteria.json": "9fdfae4411e8a91fe932c1f93c03606f59b667dbd84cf61e08eb78941a45baa5",
+      "Handoff/handoff.json": "ab8c581eda7060be3f574ca31c384fc4af42cbae2306329dc5d44ca9e0b4d718",
+      "Handoff/overlay.json": "417e8f98c1449d20997400d78f0b7c4bb9e690fa863bd3e6e1ae910f8dd5b1b5",
+      "Source/unrelated.txt": "3b25c3775905b672b93cae3d513bab2532833fd7757c85976636975bac0cd419",
+      "Source/value.json": "6bb1b9dd0e4bc676b1627469d12c2187c08145f30f557ebed8cfc3415f7d4f9c",
+      "Tests/fixture_driver.py": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6",
+      "Tools/BH/Invoke-BH.ps1": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "Tools/BH/bh.py": "78f4d1555d8d55de4ec4b8dfe44d3087ea85eaa5c3108194694685ff8cc68be8",
+      "Tools/BH/check_release_profile.py": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5"
+    },
+    "sha256": "f12a267cdea05088115985926e8a17dcd11cfbda5f5ab86c39d1dbc86780030d",
+    "file_count": 31,
+    "bytes_hashed": 181795
+  },
+  "proposal": {
+    "version": "1.0.0",
+    "project_id": "synthetic-hdrp",
+    "task_id": "task-01",
+    "steps": [
+      {
+        "id": "STEP-01",
+        "description": "Bounded synthetic counter change and human review",
+        "paths": [
+          "Source/value.json"
+        ],
+        "ac_ids": [
+          "AC-01",
+          "AC-HUMAN"
+        ]
+      }
+    ],
+    "risks": [
+      "Synthetic only"
+    ],
+    "reconciliation": [
+      "Actual fixture paths and Python tool pinned"
+    ],
+    "tool_review_ref": "SYNTHETIC tool review",
+    "scope_conflicts": [],
+    "next_action": "Obtain genuine approval of the exact generated plan"
+  },
+  "blockers": [],
+  "allowed_paths": [
+    "Source"
+  ],
+  "protected_paths": [
+    ".agents/skills",
+    ".bh/bindings.json",
+    ".bh/local.json",
+    ".bh/project.json",
+    ".bh/schema.json",
+    ".git",
+    "AGENTS.md",
+    "Handoff/DESIGN.md",
+    "Handoff/criteria.json",
+    "Handoff/handoff.json",
+    "Handoff/overlay.json",
+    "Tests",
+    "Tools/BH"
+  ],
+  "allowed_actions": [
+    "edit-source",
+    "write-task-state",
+    "run-checks"
+  ],
+  "check_ids": [
+    "CHECK-01",
+    "HUMAN-01"
+  ],
+  "required_profile": "slice"
+}

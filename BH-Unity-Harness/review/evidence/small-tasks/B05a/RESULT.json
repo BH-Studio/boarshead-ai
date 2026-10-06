@@ -1,0 +1,23 @@
+{
+  "task": "B05a",
+  "result": "PASS_SOURCE_RECONCILIATION",
+  "input_head": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "command": "python3 b05a_reconcile.py > b05a-reconciliation.log 2>&1",
+  "working_directory": "/workspace/scratch/301f3dd0656a",
+  "finished_at_utc": "2026-10-06T04:02:58.075242+00:00",
+  "exit_status": 0,
+  "source_count": 3,
+  "matched_count": 3,
+  "missing_sources": [],
+  "mismatched_sources": [],
+  "static_declared_test_methods": 44,
+  "historical_recorded_total": 44,
+  "static_total_differs_from_history": false,
+  "runtime_discovery": "NOT_RUN",
+  "tests_executed": 0,
+  "follow_up_byte_reconciliation": "NOT_STARTED",
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]"
+  },
+  "scope": "Only three requested test source files reconciled; AST inventory is not a test pass or transitive input verification."
+}

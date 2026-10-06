@@ -1,0 +1,59 @@
+{
+  "task": "B05d",
+  "input_head": "93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b",
+  "root_tree": "75cc879c940c7a785db7b1d49577bac914c25079",
+  "harness_tree": "f851a092a9514f5f745becf4c5060337dedae245",
+  "files": [
+    {
+      "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+      "git_blob_sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+      "sha256": "e259eb5de5cf2264907a9fdde7a18bb0c1546003873f10292d30f91df61f5bbf",
+      "bytes": 5965,
+      "selected_knowledge": false,
+      "preserved_reference": true,
+      "manifest_checks": [
+        {
+          "role": "preserved_reference",
+          "algorithm": "git_blob_sha1",
+          "expected": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+      "git_blob_sha": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+      "sha256": "c0da552043bfb6593a7c632cd7098e30f5636b78659a7178fe92eedc16c42d6a",
+      "bytes": 6138,
+      "selected_knowledge": true,
+      "preserved_reference": false,
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "sha256",
+          "expected": "c0da552043bfb6593a7c632cd7098e30f5636b78659a7178fe92eedc16c42d6a",
+          "matched": true
+        }
+      ],
+      "matched": true
+    },
+    {
+      "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+      "git_blob_sha": "3c49836814386569b0f862c1843fe43f94305be8",
+      "sha256": "339f44b60795b028cb028abdfe6efb28724175bb5886d4a80fee89e4da18c915",
+      "bytes": 13744,
+      "selected_knowledge": true,
+      "preserved_reference": false,
+      "manifest_checks": [
+        {
+          "role": "selected_knowledge",
+          "algorithm": "sha256",
+          "expected": "339f44b60795b028cb028abdfe6efb28724175bb5886d4a80fee89e4da18c915",
+          "matched": true
+        }
+      ],
+      "matched": true
+    }
+  ]
+}

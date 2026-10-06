@@ -1,0 +1,114 @@
+{
+  "task": "B05d",
+  "input_head": "93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b",
+  "root_tree": "75cc879c940c7a785db7b1d49577bac914c25079",
+  "harness_tree": "f851a092a9514f5f745becf4c5060337dedae245",
+  "checkpoint_blob": "7fd43d9b5694249b1f75d4ecdf5593661d129075",
+  "incorporation_status_blob": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+  "B05c_dependency_blob": "9727a14c3b28e37ab1141e1023d76cc0a6112d3b",
+  "B05c_dependency_input_head": "b5a38afac94841973090d686d658fe3966dfefab",
+  "content_reads": [
+    {
+      "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+      "encoding": "utf-8",
+      "returned_blob": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b/BH-Unity-Harness/review/reference-only/K11_SOURCE_LESSONS.md",
+      "tree": {
+        "path": "review/reference-only/K11_SOURCE_LESSONS.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "63acdd18ea244f1be1ef67e707dcc955c96848b5",
+        "size": 5965,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/63acdd18ea244f1be1ef67e707dcc955c96848b5"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+      "encoding": "utf-8",
+      "returned_blob": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b/BH-Unity-Harness/design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+      "tree": {
+        "path": "design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0fc64e9c06474019c1a08c5278fdcc1b09bff851",
+        "size": 6138,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/0fc64e9c06474019c1a08c5278fdcc1b09bff851"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+      "encoding": "utf-8",
+      "returned_blob": "3c49836814386569b0f862c1843fe43f94305be8",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/93c39c4b0c0b165e2d1a014fb4bf0b30f542ca2b/BH-Unity-Harness/design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+      "tree": {
+        "path": "design-gpt/Knowledge/K12_MILESTONES_CODEX_COMPILER_AND_COMPLETION.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3c49836814386569b0f862c1843fe43f94305be8",
+        "size": 13744,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/3c49836814386569b0f862c1843fe43f94305be8"
+      }
+    }
+  ],
+  "next_batch_metadata_only": {
+    "id": "B05e1",
+    "scope": "Remaining manifest-selected knowledge/preserved reference bytes",
+    "paths": [
+      "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+      "design-gpt/Knowledge/BH_INTERFACE.md",
+      "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+      "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+      "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt"
+    ],
+    "status": "NOT_STARTED",
+    "count": 7,
+    "tree_metadata": [
+      {
+        "path": "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+        "git_blob_sha": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+        "bytes": 21396,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+        "git_blob_sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+        "bytes": 56860,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/BH_INTERFACE.md",
+        "git_blob_sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+        "bytes": 13085,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+        "git_blob_sha": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+        "bytes": 12451,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+        "git_blob_sha": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+        "bytes": 19893,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+        "git_blob_sha": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+        "bytes": 19988,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+        "git_blob_sha": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+        "bytes": 21381,
+        "content_reconciled_in_B05c": false
+      }
+    ]
+  },
+  "tree_truncated": false
+}

@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-urp",
+  "checks": [
+    {
+      "check_id": "CHECK-01",
+      "tool_key": "python",
+      "arguments": [
+        "{project}/Tests/fixture_driver.py",
+        "--root",
+        "{project}",
+        "--result",
+        "{result}",
+        "--project",
+        "{project_id}",
+        "--task",
+        "{task_id}",
+        "--run",
+        "{run_id}",
+        "--mode",
+        "facts"
+      ],
+      "working_directory": ".",
+      "result_file": "result.json",
+      "timeout_seconds": 5,
+      "input_files": [
+        {
+          "path": "Tests/fixture_driver.py",
+          "sha256": "b14bbf022221bfea4100711bbbeb4b8a13ac591938400b3315f138571a0888d6"
+        }
+      ],
+      "dependency_paths": [],
+      "dependency_review_ref": null,
+      "expectations": [
+        {
+          "key": "value",
+          "ac_ids": [
+            "AC-01"
+          ],
+          "operator": "equals",
+          "value": 1,
+          "units": "counter units"
+        }
+      ],
+      "diagnostics_baseline": null,
+      "diagnostic_source": null,
+      "build_target": null,
+      "review_ref": "SYNTHETIC reviewed process adapter"
+    }
+  ]
+}

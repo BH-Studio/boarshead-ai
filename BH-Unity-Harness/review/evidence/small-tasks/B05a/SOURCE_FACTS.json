@@ -1,0 +1,441 @@
+{
+  "task": "B05a",
+  "input_head": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "method": "ast.parse only; no module import or unittest discovery",
+  "modules": [
+    {
+      "path": "tests/test_package.py",
+      "imports": [
+        {
+          "line": 2,
+          "statement": "import importlib.util, json, sys, tempfile, unittest"
+        },
+        {
+          "line": 3,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 4,
+          "statement": "from support import PACKAGE, Fixture, bh, install, write, git"
+        }
+      ],
+      "declared_test_method_count": 23,
+      "static_case_candidates": [
+        {
+          "candidate_id": "test_package.BuildParserTests.test_cancelled_not_pass",
+          "line": 65
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_failed_is_fail_not_error",
+          "line": 61
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_missing_result_is_malformed",
+          "line": 62
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_no_outputs",
+          "line": 71
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_output_digest_mismatch",
+          "line": 74
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_stale_output_directory",
+          "line": 77
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_success_actual_hashed_output",
+          "line": 60
+        },
+        {
+          "candidate_id": "test_package.BuildParserTests.test_wrong_target",
+          "line": 68
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_assembler_accepts_crlf_checkout_of_preserved_blob",
+          "line": 29
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_assembler_real_git_blob",
+          "line": 25
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_assembler_rejects_real_preserved_content_conflict",
+          "line": 32
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_assembler_rejects_unsafe_reference",
+          "line": 36
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_budget_metrics",
+          "line": 19
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_canonical_copies",
+          "line": 21
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_distribution_nonempty",
+          "line": 22
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_missing_preserved_blocks_full_validation",
+          "line": 15
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_no_design_in_game",
+          "line": 23
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_package_additions_no_false_full_pass",
+          "line": 13
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_release_actual_match",
+          "line": 40
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_release_empty_blocks",
+          "line": 46
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_release_empty_policy_blocks",
+          "line": 49
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_release_no_match_narrow_only",
+          "line": 43
+        },
+        {
+          "candidate_id": "test_package.PackageTests.test_seed_project_schema_valid",
+          "line": 24
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 7,
+          "expression": "importlib.util.spec_from_file_location(name,path)"
+        },
+        {
+          "line": 8,
+          "expression": "module('check_package',PACKAGE/'tools/check_package.py')"
+        },
+        {
+          "line": 9,
+          "expression": "module('assemble_candidate',PACKAGE/'tools/assemble_candidate.py')"
+        },
+        {
+          "line": 11,
+          "expression": "module('release',PACKAGE/'project-template/Tools/BH/check_release_profile.py')"
+        },
+        {
+          "line": 14,
+          "expression": "check.check(True)"
+        },
+        {
+          "line": 16,
+          "expression": "check.check(False)"
+        },
+        {
+          "line": 20,
+          "expression": "(PACKAGE/'design-gpt/01C_GPT_INSTRUCTIONS_OFFICIAL.md').read_text()"
+        },
+        {
+          "line": 21,
+          "expression": "(PACKAGE/'contracts/schema.json').read_bytes()"
+        },
+        {
+          "line": 21,
+          "expression": "(PACKAGE/'project-template/.bh/schema.json').read_bytes()"
+        },
+        {
+          "line": 22,
+          "expression": "install.distribution()"
+        },
+        {
+          "line": 24,
+          "expression": "bh.load_json(PACKAGE/'project-template/.bh/project.json')"
+        },
+        {
+          "line": 24,
+          "expression": "bh.load_json(PACKAGE/'contracts/schema.json')"
+        },
+        {
+          "line": 27,
+          "expression": "assemble.assemble(repo,out,package)"
+        },
+        {
+          "line": 27,
+          "expression": "(out/'design-gpt/reference.md').read_bytes()"
+        },
+        {
+          "line": 28,
+          "expression": "assemble.assemble(repo,out,package)"
+        },
+        {
+          "line": 31,
+          "expression": "assemble.assemble(repo,out,package)"
+        },
+        {
+          "line": 31,
+          "expression": "(out/'design-gpt/reference.md').read_bytes()"
+        },
+        {
+          "line": 35,
+          "expression": "assemble.assemble(repo,root/'assembled',package)"
+        },
+        {
+          "line": 39,
+          "expression": "assemble.assemble(repo,r/'out',package)"
+        },
+        {
+          "line": 55,
+          "expression": "bh.load_json(self.r/'.bh/bindings.json')"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_game_agnostic.py",
+      "imports": [
+        {
+          "line": 5,
+          "statement": "import copy, hashlib, importlib.util, re, shutil, tempfile, unittest"
+        },
+        {
+          "line": 6,
+          "statement": "from pathlib import Path"
+        },
+        {
+          "line": 7,
+          "statement": "from support import PACKAGE, Fixture, bh, write, git"
+        }
+      ],
+      "declared_test_method_count": 15,
+      "static_case_candidates": [
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_active_policy_and_knowledge_have_no_source_game_names",
+          "line": 18
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix",
+          "line": 87
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_assembler_accepts_only_declared_review_reference_path",
+          "line": 70
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_explicitly_reviewed_extra_skill_is_preserved",
+          "line": 96
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_foreign_profile_invariants_are_rejected",
+          "line": 61
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_generic_lesson_preserves_fifteen_responsibilities",
+          "line": 52
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_malformed_skill_registry_fails_explicitly",
+          "line": 101
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_missing_nonpreserved_knowledge_cannot_pass_package_check",
+          "line": 105
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_profiles_are_distinct_synthetic_contracts",
+          "line": 33
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_real_seed_does_not_select_game_configuration",
+          "line": 39
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_reference_only_lesson_is_not_a_knowledge_selection",
+          "line": 45
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_scanner_rejects_name_variants",
+          "line": 29
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_shipped_profiles_block_execution_until_reconciled",
+          "line": 56
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_test_receipts_include_markdown_inputs_not_generated_evidence",
+          "line": 79
+        },
+        {
+          "candidate_id": "test_game_agnostic.GameAgnosticTests.test_unregistered_skill_cannot_hide_behind_studio_prefix",
+          "line": 92
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 12,
+          "expression": "importlib.util.spec_from_file_location(name,PACKAGE/'tools'/f'{name}.py')"
+        },
+        {
+          "line": 17,
+          "expression": "bh.load_json(p)"
+        },
+        {
+          "line": 17,
+          "expression": "(PACKAGE/'examples/profiles').glob('*.json')"
+        },
+        {
+          "line": 19,
+          "expression": "bh.load_json(PACKAGE/'design-gpt/KNOWLEDGE_MANIFEST.json')"
+        },
+        {
+          "line": 23,
+          "expression": "(PACKAGE/root).rglob('*')"
+        },
+        {
+          "line": 28,
+          "expression": "p.read_text(encoding='utf-8')"
+        },
+        {
+          "line": 40,
+          "expression": "bh.load_json(PACKAGE/'project-template/.bh/project.json')"
+        },
+        {
+          "line": 46,
+          "expression": "bh.load_json(PACKAGE/'PRESERVED_REFERENCES.json')"
+        },
+        {
+          "line": 48,
+          "expression": "(PACKAGE/row['path']).read_bytes()"
+        },
+        {
+          "line": 50,
+          "expression": "bh.load_json(PACKAGE/'design-gpt/KNOWLEDGE_MANIFEST.json')"
+        },
+        {
+          "line": 53,
+          "expression": "(PACKAGE/'design-gpt/Knowledge/K11_GENERALIZED_DELIVERY_LESSONS.md').read_text()"
+        },
+        {
+          "line": 71,
+          "expression": "load_tool('assemble_candidate')"
+        },
+        {
+          "line": 76,
+          "expression": "assembler.assemble(repo,out,package)"
+        },
+        {
+          "line": 76,
+          "expression": "(out/'review/reference-only/source.md').read_bytes()"
+        },
+        {
+          "line": 78,
+          "expression": "assembler.assemble(repo,root/'bad',package)"
+        },
+        {
+          "line": 80,
+          "expression": "load_tool('run_tests')"
+        },
+        {
+          "line": 83,
+          "expression": "runner.source_hashes(root)"
+        },
+        {
+          "line": 83,
+          "expression": "runner.source_hashes(root)"
+        },
+        {
+          "line": 99,
+          "expression": "bh.load_json(f.root/'.bh/project.json')"
+        },
+        {
+          "line": 106,
+          "expression": "load_tool('check_package')"
+        },
+        {
+          "line": 109,
+          "expression": "shutil.copytree(PACKAGE,root,ignore=shutil.ignore_patterns('__pycache__','evidence'))"
+        },
+        {
+          "line": 113,
+          "expression": "checker.check(allow_partial)"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_review_amendments.py",
+      "imports": [
+        {
+          "line": 2,
+          "statement": "import hashlib, json, unittest"
+        },
+        {
+          "line": 3,
+          "statement": "from support import PACKAGE, bh"
+        }
+      ],
+      "declared_test_method_count": 6,
+      "static_case_candidates": [
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_applicable_detail_checklists_present",
+          "line": 31
+        },
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_knowledge_digest_tracks_k12_without_extra_uploads",
+          "line": 35
+        },
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_open_game_decisions_not_promoted",
+          "line": 13
+        },
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_overlay_matches_real_schema",
+          "line": 9
+        },
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_prior_k12_preserved_exactly",
+          "line": 28
+        },
+        {
+          "candidate_id": "test_review_amendments.ReviewAmendmentTests.test_significant_generic_invariants_retained",
+          "line": 19
+        }
+      ],
+      "file_and_tool_calls": [
+        {
+          "line": 7,
+          "expression": "bh.load_json(p)"
+        },
+        {
+          "line": 7,
+          "expression": "(PACKAGE/'examples/profiles').glob('*.json')"
+        },
+        {
+          "line": 12,
+          "expression": "bh.load_json(PACKAGE/'contracts/schema.json')"
+        },
+        {
+          "line": 29,
+          "expression": "self.k12.read_bytes()"
+        },
+        {
+          "line": 32,
+          "expression": "self.k12.read_text(encoding='utf-8')"
+        },
+        {
+          "line": 36,
+          "expression": "bh.load_json(PACKAGE/'design-gpt/KNOWLEDGE_MANIFEST.json')"
+        },
+        {
+          "line": 39,
+          "expression": "self.k12.read_bytes()"
+        }
+      ]
+    }
+  ]
+}

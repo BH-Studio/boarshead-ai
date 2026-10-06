@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "project_id": "synthetic-urp",
+  "task_id": "task-01",
+  "steps": [
+    {
+      "id": "STEP-01",
+      "description": "Bounded synthetic counter change and human review",
+      "paths": [
+        "Source/value.json"
+      ],
+      "ac_ids": [
+        "AC-01",
+        "AC-HUMAN"
+      ]
+    }
+  ],
+  "risks": [
+    "Synthetic only"
+  ],
+  "reconciliation": [
+    "Actual fixture paths and Python tool pinned"
+  ],
+  "tool_review_ref": "SYNTHETIC tool review",
+  "scope_conflicts": [],
+  "next_action": "Obtain genuine approval of the exact generated plan"
+}

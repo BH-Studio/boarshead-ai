@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "harness_version": "1.0.0",
+  "project_id": "UNCONFIGURED",
+  "synthetic": false,
+  "engine": {
+    "name": "Unity",
+    "version": null,
+    "render_pipeline": "UNRECONCILED",
+    "targets": [
+      "UNCONFIGURED"
+    ]
+  },
+  "protected_paths": [
+    "Packages",
+    "ProjectSettings"
+  ],
+  "enabled_capabilities": [],
+  "budgets": {
+    "failed_rounds": 3,
+    "repeat_failures": 3,
+    "no_progress_rounds": 3,
+    "recovery_cycles": 1,
+    "infrastructure_failures": 2
+  },
+  "adoption_ref": "UNCONFIGURED",
+  "instruction_review": {
+    "source_ref": "UNCONFIGURED",
+    "paths": [
+      "AGENTS.md"
+    ]
+  },
+  "telemetry": "none"
+}

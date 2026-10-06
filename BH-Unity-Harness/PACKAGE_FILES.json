@@ -1,0 +1,132 @@
+{
+  "name": "BH Unity Harness",
+  "version": "1.0.0",
+  "status": "CANDIDATE",
+  "files": [
+    {
+      "path": ".agents/skills/bh-implement-approved-slice/SKILL.md",
+      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-implement-approved-slice/agents/openai.yaml",
+      "sha256": "a78d2a10a4e92220073a75bb1c2d57f11338b0454aed823d3c2ff42e44a6954b",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-review-handoff/SKILL.md",
+      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-review-handoff/agents/openai.yaml",
+      "sha256": "f444bfd8bdc75ca005f1696e52c263ee9c1bfad95d5c1712ab90cf5409c88033",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-systematic-debug/SKILL.md",
+      "sha256": "997d9a4157b201226cb48863b641fb7960c87418fe8a42bfc8a75c6e1228c9df",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-systematic-debug/agents/openai.yaml",
+      "sha256": "caf25cc11d10d3f286d386bf84189878ef623c951b345d55a811b9d9e491519d",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-preflight/SKILL.md",
+      "sha256": "6ccd70fee1604331a7e412aa39d231628462f3f368b470cdd7da55eb6d37929d",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-preflight/agents/openai.yaml",
+      "sha256": "f2a4d1eca8a1cc1e84ed696fc01f78fbd908ff14ad68c278f25015e5cc12d7b6",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-verify/SKILL.md",
+      "sha256": "ef80f29606283fcd738b108305d22908787cc3c69f9a7c845d237f7b701687a8",
+      "ownership": "managed"
+    },
+    {
+      "path": ".agents/skills/bh-unity-verify/agents/openai.yaml",
+      "sha256": "73fca2577aae89dc57e3683e7f12a9fff6874c2f0db4b0d560db35f14c9a740c",
+      "ownership": "managed"
+    },
+    {
+      "path": ".bh/GITIGNORE_MERGE.txt",
+      "sha256": "4242cca436d805ef1823f33d6032804570d987c1fcf96895f6c7d98bbb841be6",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/bindings.json",
+      "sha256": "75708d8783bdb3dba198ebcc62f2ebcc0cf4570a2382e997f27bc9155352f26c",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/local.json",
+      "sha256": "620c676aca908c70c68b9abfb4585515dbeafee9b6f16f76560942929c89c031",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/project.json",
+      "sha256": "6da5c1fe692f8b63681ee7ab3ad8a32e7a13937442d3ad2c8428091ed2509613",
+      "ownership": "project-seed"
+    },
+    {
+      "path": ".bh/schema.json",
+      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "ownership": "managed"
+    },
+    {
+      "path": ".bh/skill-registry.json",
+      "sha256": "78c90dc4e950be1d6fbd141b2f089b896ad0fa14ea480a65e7937e4d09401d79",
+      "ownership": "managed"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/CODEX_CONSUMER.md",
+      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/INTERFACE.md",
+      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/OPERATING_GUIDE.md",
+      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "ownership": "managed"
+    },
+    {
+      "path": "Docs/Harness/UNITY_PROCEDURES.md",
+      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/Invoke-BH.ps1",
+      "sha256": "79c6f17d37e596d18350c36c3150e388d0ed3cbf3d8e2bc24e8a1642ddfd0d4b",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/bh.py",
+      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/check_release_profile.py",
+      "sha256": "fcc3516fe87ea4209631cc0777cae5616329488f83d68d9355afd88840200ac5",
+      "ownership": "managed"
+    },
+    {
+      "path": "Tools/BH/views.py",
+      "sha256": "32862f567b16ff6fe34e0408c3005c53eacf36b95c45b8a4e1b44b93836f2101",
+      "ownership": "managed"
+    }
+  ]
+}
