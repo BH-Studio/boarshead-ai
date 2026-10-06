@@ -1,0 +1,121 @@
+{
+  "input_commit": "72d5e4e1d1a184b4bdafc0181f12164155499b31",
+  "retrieved_inputs": [
+    {
+      "path": "BH-Unity-Harness/PACKAGE_FILES.json",
+      "bytes": 4520,
+      "sha256": "240966c2009eec517f0379f834a28d3cc7fe65d5e3796bdcace26250d4f7b2f0",
+      "git_blob_sha": "c3408ece30947c8f520c82522fa08da0f3376282"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/coplay-provider/README.md",
+      "bytes": 4974,
+      "sha256": "ba8f23dc4fb20ee6f337e4b1263237c7725659bb0e305a78df569935c4e4d47c",
+      "git_blob_sha": "cb2273d9a4809b4fb6afc2d1b44c77eb699e6012"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/coplay-provider/discovery.py",
+      "bytes": 14113,
+      "sha256": "e0175213dc3c8e444691f624aca14a0b171fcfaf49c4ea7fd64047509e5f2e06",
+      "git_blob_sha": "60b301302401077a153f1778431d566328b283fd"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/PROVIDER_PROTOCOL.md",
+      "bytes": 7284,
+      "sha256": "c49a0c84a2a261b8f129b8fc272cd471092e4d25e6c05010c1382a421807e94e",
+      "git_blob_sha": "c97ed5e248a07dfb5056fabd37de970d12122e39"
+    },
+    {
+      "path": "BH-Unity-Harness/optional/unity-observation/unity_jobs.py",
+      "bytes": 15627,
+      "sha256": "a43a98b01308d59d551825375a5bf3a4b5260e6c6e7c343d525ba5b1b1773f38",
+      "git_blob_sha": "8f64e722acc78f9d9a0809b039ee8e333ed7ae57"
+    },
+    {
+      "path": "BH-Unity-Harness/review/BUILD_CHECKPOINT.md",
+      "bytes": 45196,
+      "sha256": "df27f360a1a1f04f8c9ef939c7d73f103ce64b282d6c8dd7d08bc47ab7c60c83",
+      "git_blob_sha": "44923ad951166c495338868e6879f1fbb215f919"
+    },
+    {
+      "path": "BH-Unity-Harness/review/coplay/ACTION_MATRIX.json",
+      "bytes": 7143,
+      "sha256": "52bffd155f28d5e8d50cb3d3e9a1f20d218496655dd2987d77f633298046193c",
+      "git_blob_sha": "7ab1e4d29611357ccb033f4c41b2abf1f750f17b"
+    },
+    {
+      "path": "BH-Unity-Harness/review/coplay/INTEGRATION_SPEC.md",
+      "bytes": 11537,
+      "sha256": "801c7fd2ed1761ffeb6cc2e7e8a1c3052f09caf2a2aff929ba47b3387e309b8a",
+      "git_blob_sha": "1528b1ce41095bc2b51730cd01f5242089b8bf75"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B1/RESULT.json",
+      "bytes": 1526,
+      "sha256": "8bc4c37862d70a3f31fdd6b25264dc6a48c0393abc168209c7b200603df4150d",
+      "git_blob_sha": "f7b96e1207780371b68abe36b6410e501b95c7eb"
+    },
+    {
+      "path": "BH-Unity-Harness/review/evidence/small-tasks/CP-B1/SOURCES.json",
+      "bytes": 3748,
+      "sha256": "25553c76b2efd5c1d132f0c710aee082320caf4d0118099ba8fb6df952054fc8",
+      "git_blob_sha": "cac40fbac630e084114f1c24070beb3ccbe62ec5"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/CustomTools/RoslynRuntimeCompilation/ManageRuntimeCompilation.cs",
+      "bytes": 20840,
+      "sha256": "b958b5c81f0df98a6cc9b2c790f9235cc0a6844ac1057ce26b21551315ed3883",
+      "git_blob_sha": "799341b272f0cbf20e3129ebc50867d216fce83d"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/Editor/Services/EditorStateCache.cs",
+      "bytes": 24612,
+      "sha256": "b0ff9eee0e4888ef04541cb6abbf49845315ac50eda34993918a2676d55c47a3",
+      "git_blob_sha": "1efb8b9a6fbadfc33c79ee3513176a26c328fcf8"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/Editor/Tools/ManageAsset.cs",
+      "bytes": 51093,
+      "sha256": "2b2dd181e92f38522938468dcf3b2682fa4ea40caa166c8c2dbeb00d7c86799e",
+      "git_blob_sha": "69aaf53cc93a0b638d5a10139f4751dc42c13787"
+    },
+    {
+      "path": "Reference/CoplayDev/unity-mcp-beta/MCPForUnity/Editor/Tools/McpForUnityToolAttribute.cs",
+      "bytes": 4222,
+      "sha256": "5b0122df3da96d788b6976d0d5af1cb1a2043df2d75dfc631596cd8d9e7bcff9",
+      "git_blob_sha": "5b33ca38498fca007684bd67616e3c7c6cf2b239"
+    }
+  ],
+  "inspected_outputs": {
+    "optional/coplay-provider/Editor/BHAssetQuery.cs": {
+      "bytes": 14029,
+      "sha256": "9536b7ce263169f5e7bbb8a39c8e72cb6d26672c5ab759fc4669fba6cbe5648a",
+      "git_blob_sha": "cf2ad2713732e7ac06c4e0775bce538ff47f3cc1"
+    },
+    "optional/coplay-provider/Editor/CONTRACT.md": {
+      "bytes": 6533,
+      "sha256": "6377aa15c9617647b0f51087a797ef490e27f8ebb3462be080799355f17433fc",
+      "git_blob_sha": "a62e9c84f6a893aa8bb16331d45e666d1dca76cb"
+    },
+    "optional/coplay-provider/README.md": {
+      "bytes": 5123,
+      "sha256": "38c514bccd649bd3c71fc4cf7f3a3756ca74ae9a188acec030b90e1bef903107",
+      "git_blob_sha": "6b172f6f93481e87c3aff437ec0520960ade7cf8"
+    },
+    "review/coplay/ACTION_MATRIX.json": {
+      "bytes": 7500,
+      "sha256": "632a6d3e11b311b632354eac042e92693765d0247dd3193bc44c3ddf2cf090b5",
+      "git_blob_sha": "7cd7ebb68f5dbd914d2cfce49d4a126dc4b7b378"
+    },
+    "review/coplay/INTEGRATION_SPEC.md": {
+      "bytes": 11722,
+      "sha256": "07775180c68223e6adebcb61c212a32d54d74b47a2467f44ab2343b167d29f0a",
+      "git_blob_sha": "6a9d8e5b89f425aa484f363580c911a287b03c7b"
+    }
+  },
+  "helper": {
+    "bytes": 5940,
+    "sha256": "2c191ccb0df928edddace7dab7ed9c26bb8e63399dae252c933afda0a085a5c3",
+    "git_blob_sha": "c954f0a56dc406fb25a0c1bd4ef51a980a20096e"
+  }
+}

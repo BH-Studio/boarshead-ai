@@ -1,0 +1,96 @@
+"""CP-B2 source-policy inspection. Does NOT compile or execute C# or model its behavior."""
+import hashlib
+import json
+import pathlib
+import platform
+import re
+import shutil
+import sys
+
+root = pathlib.Path(sys.argv[1])
+out = root / 'out/BH-Unity-Harness'
+evidence = out / 'review/evidence/small-tasks/CP-B2'
+evidence.mkdir(parents=True, exist_ok=True)
+
+def identity(data):
+    return {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+            'git_blob_sha': hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()}
+
+inputs = json.loads((root / 'inputs.json').read_text())
+sources = []
+checks = []
+
+def check(name, condition):
+    checks.append({'check': name, 'passed': bool(condition)})
+    print(('PASS ' if condition else 'FAIL ') + name)
+    if not condition:
+        raise AssertionError(name)
+
+for path, record in sorted(inputs.items()):
+    data = (root / 'input' / path).read_bytes()
+    meta = identity(data)
+    assert meta['git_blob_sha'] == record['sha']
+    assert data == record['content'].encode()
+    sources.append({'path': path, **meta})
+check('14 current input blobs match GitHub SHA and retrieved bytes', len(sources) == 14)
+code = (out / 'optional/coplay-provider/Editor/BHAssetQuery.cs').read_text()
+calls = sorted(set(re.findall(r'AssetDatabase\.([A-Za-z0-9_]+)\s*\(', code)))
+check('AssetDatabase call inventory limited to six reviewed reads', calls == sorted([
+    'AssetPathToGUID', 'GUIDToAssetPath', 'IsValidFolder', 'FindAssets',
+    'GetMainAssetTypeAtPath', 'LoadMainAssetAtPath']))
+check('exactly one FindAssets call and explicit non-null folder argument',
+      code.count('AssetDatabase.FindAssets(') == 1 and 'FindAssets(query, new[] { scope })' in code)
+query = code.index('string[] guids = AssetDatabase.FindAssets')
+count = code.index('Require(guids.Length <= requestedMax')
+loop = code.index('foreach (string guid in guids)')
+load = code.index('AssetDatabase.LoadMainAssetAtPath')
+check('source order folder check -> query -> budget -> loop -> object load',
+      code.index('string scopeGuid = Folder(scope, project)') < query < count < loop < load)
+check('no explicit Editor/AssetDatabase mutation, network or process launch call',
+      not re.search(r'\b(?:Refresh|ImportAsset|SaveAssets|CreateAsset|DeleteAsset|MoveAsset|CopyAsset|'
+                    r'RequestScriptCompilation|ExecuteMenuItem|OpenScene|SaveScene|StartAssetEditing|'
+                    r'WriteAllText|WriteAllBytes|HttpClient|WebRequest|Process\.Start)\s*\(', code))
+check('automatic FastMCP registration and polling disabled in source',
+      'AutoRegister = false, RequiresPolling = false' in code)
+check('ordinal GUID order and no pagination call', 'Array.Sort(guids, StringComparer.Ordinal)' in code
+      and not re.search(r'\.(?:Skip|Take)\s*\(', code))
+check('diagnostic-only envelope has no enabled capabilities or digest',
+      '["provider_ready"] = false' in code and '["enabled_capabilities"] = new JArray()' in code
+      and '["live_schema_digest"] = JValue.CreateNull()' in code and 'state = "completed"' not in code)
+check('observed identity equality checks bracket query',
+      code.index('JToken.DeepEquals(expected, before["identity"])') < query
+      and code.index('JToken.DeepEquals(before["identity"], after["identity"])') > load)
+check('linked paths and changed scope explicitly reject', 'FileAttributes.ReparsePoint' in code
+      and 'Require(Folder(scope, project) == scopeGuid, "scope_changed")' in code)
+check('byte and cooperative time ceilings appear in response guards',
+      'MaxBytes = 262144' in code and 'GetByteCount(response.ToString(Formatting.None)) > MaxBytes' in code
+      and 'clock.ElapsedMilliseconds >= 30000' in code)
+matrix = json.loads((out / 'review/coplay/ACTION_MATRIX.json').read_text())
+check('review matrix retains disabled observations and unknown live schema',
+      matrix['default_enabled'] is False and matrix['enabled_observation_capabilities'] == []
+      and matrix['live_schema_digest'] is None and matrix['live_execution'] == 'NOT_RUN')
+check('publication does not alter core, installed manifest or discovery executable',
+      not (out / 'PACKAGE_FILES.json').exists() and not (out / 'project-template').exists()
+      and not (out / 'optional/coplay-provider/discovery.py').exists())
+tools = {name: shutil.which(name) for name in ('dotnet', 'csc', 'mcs', 'Unity', 'unity-editor', 'pwsh')}
+print('Tool availability: ' + json.dumps(tools, sort_keys=True))
+print('C# compilation/Unity/Windows/live Coplay: NOT_RUN; executable tests run: 0')
+outputs = {str(p.relative_to(out)): identity(p.read_bytes()) for p in sorted(out.rglob('*'))
+           if p.is_file() and 'evidence' not in p.parts and p.name != 'BUILD_CHECKPOINT.md'}
+(evidence / 'SOURCES.json').write_text(json.dumps({
+    'input_commit': '72d5e4e1d1a184b4bdafc0181f12164155499b31',
+    'retrieved_inputs': sources, 'inspected_outputs': outputs,
+    'helper': identity(pathlib.Path(__file__).read_bytes())}, indent=2) + '\n')
+(evidence / 'RESULT.json').write_text(json.dumps({
+    'task': 'CP-B2', 'status': 'SOURCE_POLICY_INSPECTION_PASS',
+    'command': 'python coplay-cpb2/validate_cpb2.txt coplay-cpb2',
+    'input_commit': '72d5e4e1d1a184b4bdafc0181f12164155499b31',
+    'checks': checks, 'assetdatabase_call_inventory': calls,
+    'python': sys.version, 'platform': platform.platform(), 'tool_availability': tools,
+    'source_inputs_unchanged': all((root / 'input' / p).read_bytes() == r['content'].encode()
+                                   for p, r in inputs.items()),
+    'csharp_compilation': 'NOT_RUN', 'unity_execution': 'NOT_RUN', 'windows': 'NOT_RUN',
+    'live_coplay': 'NOT_RUN', 'executable_tests_run': 0, 'full_regression': 'NOT_RUN',
+    'native_mapping': 'NOT_IMPLEMENTED', 'adoption': 'PENDING',
+    'limitations': 'Lexical source checks and manual inspection only; no C# parser/compiler or runtime behavior proof.'
+}, indent=2) + '\n')

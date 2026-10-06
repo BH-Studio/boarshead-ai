@@ -72,7 +72,12 @@
       "native": "Strict query-only handler required; unmodified manage_asset(search) ineligible.",
       "effects": "Vendor wrapper can refresh; invalid folder broadens scope; paging occurs after all records are built.",
       "result": "Existing BH search contract only after live mapping validation.",
-      "gate": "Atomic folder validation, candidate budget before record loading, identity/session proof, complete bounded coverage."
+      "gate": "Atomic folder validation, candidate budget before record loading, identity/session proof, complete bounded coverage.",
+      "implementation": "optional/coplay-provider/Editor/BHAssetQuery.cs",
+      "source_contract": "optional/coplay-provider/Editor/CONTRACT.md",
+      "implementation_status": "SOURCE_ONLY_DIAGNOSTIC_HANDLER",
+      "native_verification": "NOT_RUN",
+      "offline_verification": "Source-policy checks only; review/evidence/small-tasks/CP-B2/RESULT.json"
     },
     {
       "id": "reflection",
@@ -170,4 +175,3 @@
   "live_execution": "NOT_RUN",
   "adoption": "PENDING"
 }
-

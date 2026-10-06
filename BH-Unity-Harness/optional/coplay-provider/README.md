@@ -32,4 +32,4 @@ The vendored raw Editor-state implementation currently supplies null instance/pr
 
 Run the focused offline module from the harness root: `python -m unittest discover -s tests -p test_coplay_discovery.py -v`. Its 20 cases use synthetic Unity replies, fake HTTP exchanges, and isolated CLI/worker processes that reject requests before networking. No real Unity, Coplay server or live network request is exercised. Windows execution and live compatibility remain NOT_RUN.
 
-CP-B2 is the separate strict Editor query-handler task. CP-B3 must observe actual schemas, loaded identities, multiple targets and lifecycle behavior. Do not broaden this diagnostic into a search, capability installer or generic command proxy incidentally.
+CP-B2 adds original optional Editor/BHAssetQuery.cs and Editor/CONTRACT.md. It is source-only, diagnostic-only, uninstalled and not compiled here; it does not change discovery.py or its command allowlist. CP-B3 must observe actual schemas, loaded identities, multiple targets and lifecycle behavior. Do not broaden this diagnostic into a search, capability installer or generic command proxy incidentally.

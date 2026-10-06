@@ -1,0 +1,15 @@
+PASS 14 current input blobs match GitHub SHA and retrieved bytes
+PASS AssetDatabase call inventory limited to six reviewed reads
+PASS exactly one FindAssets call and explicit non-null folder argument
+PASS source order folder check -> query -> budget -> loop -> object load
+PASS no explicit Editor/AssetDatabase mutation, network or process launch call
+PASS automatic FastMCP registration and polling disabled in source
+PASS ordinal GUID order and no pagination call
+PASS diagnostic-only envelope has no enabled capabilities or digest
+PASS observed identity equality checks bracket query
+PASS linked paths and changed scope explicitly reject
+PASS byte and cooperative time ceilings appear in response guards
+PASS review matrix retains disabled observations and unknown live schema
+PASS publication does not alter core, installed manifest or discovery executable
+Tool availability: {"Unity": null, "csc": null, "dotnet": null, "mcs": null, "pwsh": null, "unity-editor": null}
+C# compilation/Unity/Windows/live Coplay: NOT_RUN; executable tests run: 0
