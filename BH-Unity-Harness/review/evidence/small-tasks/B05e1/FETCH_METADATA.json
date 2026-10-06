@@ -1,0 +1,170 @@
+{
+  "task": "B05e1",
+  "input_head": "7cba2fe36d23b80f36579133fc71d01ddc7a8bf2",
+  "root_tree": "94154e72fa6e11c104ec80e7b93930268c3ea716",
+  "harness_tree": "0339b9d2030870458d8c3be45cf56bed2f2cad04",
+  "checkpoint_blob": "5b9b65f5d625c8d84d9c2399d9cf7b4d5fa5b988",
+  "incorporation_status_blob": "4657b2f8999ce9b394d634c535b6212904a6cc8c",
+  "B05c_dependency_blob": "9727a14c3b28e37ab1141e1023d76cc0a6112d3b",
+  "B05c_dependency_input_head": "b5a38afac94841973090d686d658fe3966dfefab",
+  "content_reads": [
+    {
+      "path": "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "encoding": "utf-8",
+      "returned_blob": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+      "tree": {
+        "path": "design-gpt/01_GPT_INSTRUCTIONS_FULL.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "21ffb3fe5430f7340792a0275850f04c26d0b0e1",
+        "size": 21396,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/21ffb3fe5430f7340792a0275850f04c26d0b0e1"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+      "encoding": "utf-8",
+      "returned_blob": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+      "tree": {
+        "path": "design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7b8276fc116ff0e40653b52c3fe71dc63baf1632",
+        "size": 56860,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/7b8276fc116ff0e40653b52c3fe71dc63baf1632"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/BH_INTERFACE.md",
+      "encoding": "utf-8",
+      "returned_blob": "149472ddf4bb11fc3d4b76996f7672204561af31",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/BH_INTERFACE.md",
+      "tree": {
+        "path": "design-gpt/Knowledge/BH_INTERFACE.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "149472ddf4bb11fc3d4b76996f7672204561af31",
+        "size": 13085,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/149472ddf4bb11fc3d4b76996f7672204561af31"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "encoding": "utf-8",
+      "returned_blob": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+      "tree": {
+        "path": "design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ce41ad83c5ea04b6cafdd149e5b172f878a2408a",
+        "size": 12451,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/ce41ad83c5ea04b6cafdd149e5b172f878a2408a"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+      "encoding": "utf-8",
+      "returned_blob": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+      "tree": {
+        "path": "design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa",
+        "size": 19893,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+      "encoding": "utf-8",
+      "returned_blob": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+      "tree": {
+        "path": "design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "65a1b00369177b88124cfbc6f0e72bc5259b9183",
+        "size": 19988,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/65a1b00369177b88124cfbc6f0e72bc5259b9183"
+      }
+    },
+    {
+      "path": "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+      "encoding": "utf-8",
+      "returned_blob": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+      "url": "https://github.com/BH-Studio/boarshead-ai/blob/7cba2fe36d23b80f36579133fc71d01ddc7a8bf2/BH-Unity-Harness/design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+      "tree": {
+        "path": "design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79fdd7d202a1ae59d00ae12d9e70fcd32a22a444",
+        "size": 21381,
+        "url": "https://api.github.com/repos/BH-Studio/boarshead-ai/git/blobs/79fdd7d202a1ae59d00ae12d9e70fcd32a22a444"
+      }
+    }
+  ],
+  "next_batch_metadata_only": {
+    "id": "B05e2",
+    "scope": "Remaining manifest-selected knowledge/preserved reference bytes",
+    "paths": [
+      "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+      "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+      "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+      "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+      "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+      "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+      "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md"
+    ],
+    "status": "NOT_STARTED",
+    "count": 7,
+    "tree_metadata": [
+      {
+        "path": "design-gpt/Knowledge/K05_FRAMEWORK_MACHINATIONS_RESOURCE_FLOW.txt",
+        "git_blob_sha": "d48d0da5e38c23719d5b3777a172965d7ab0a6f5",
+        "bytes": 19721,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K06_FRAMEWORK_RATIONAL_GAME_DESIGN.txt",
+        "git_blob_sha": "6c11cf0e4fc6fe09fd7afbe6561a5b45f4c7b9be",
+        "bytes": 21641,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K07_RESEARCH_AND_PLAYER_EVIDENCE.md",
+        "git_blob_sha": "0a3b67c2765f128046dc88a911f998fc6a59fd7c",
+        "bytes": 2995,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K08_ARCHITECTURE_SCALING_REUSE_AND_INTEGRATION.md",
+        "git_blob_sha": "0e4f411e82dfbd0c82be9cd999bc587a438e9e8c",
+        "bytes": 4677,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K09_VALIDATION_RED_TEAM_TESTING_AND_QUALITY_GATES.md",
+        "git_blob_sha": "fb9c4ffc11101ca3ca22efae2b1ab522a1c9a187",
+        "bytes": 3875,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/Knowledge/K10_ARTIFACTS_DECISIONS_CONTEXT_AND_TRACEABILITY.md",
+        "git_blob_sha": "3033dd7403ee0b687b9396fb654c11f4f6e5e51c",
+        "bytes": 3112,
+        "content_reconciled_in_B05c": false
+      },
+      {
+        "path": "design-gpt/evaluation/SOURCE_V3_ACCEPTANCE_TESTS.md",
+        "git_blob_sha": "a0f3ed05af3145388505c953a9f554120917ef00",
+        "bytes": 8500,
+        "content_reconciled_in_B05c": false
+      }
+    ]
+  },
+  "tree_truncated": false
+}

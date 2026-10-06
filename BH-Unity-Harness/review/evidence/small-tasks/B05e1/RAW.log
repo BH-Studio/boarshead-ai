@@ -1,0 +1,9 @@
+PASS design-gpt/01_GPT_INSTRUCTIONS_FULL.md: 21396 bytes; blob 21ffb3fe5430f7340792a0275850f04c26d0b0e1; sha256 20df170e1ad66bb885105d20d7104e6b07df04472ff161b7825cb964f2a13bbd; applicable manifest identities matched
+PASS design-gpt/Knowledge/BH_CONTRACT_SCHEMA.json: 56860 bytes; blob 7b8276fc116ff0e40653b52c3fe71dc63baf1632; sha256 177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07; applicable manifest identities matched
+PASS design-gpt/Knowledge/BH_INTERFACE.md: 13085 bytes; blob 149472ddf4bb11fc3d4b76996f7672204561af31; sha256 94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3; applicable manifest identities matched
+PASS design-gpt/Knowledge/K01_PERSONAS_AND_ROUTING.md: 12451 bytes; blob ce41ad83c5ea04b6cafdd149e5b172f878a2408a; sha256 5414001e8c4392513ab46f15492c7e55aa18088689ee70001724a6a3c686f26c; applicable manifest identities matched
+PASS design-gpt/Knowledge/K02_FRAMEWORK_MDA.txt: 19893 bytes; blob c9dc8797dd1916a5959ea9d9d9bea1557b5cc5fa; sha256 f4b48a62718f9236c57cc7f29f4aa563a875af1a8f065c2a4a9bcfb598d0e7cd; applicable manifest identities matched
+PASS design-gpt/Knowledge/K03_FRAMEWORK_CORE_AND_NESTED_GAMEPLAY_LOOPS.txt: 19988 bytes; blob 65a1b00369177b88124cfbc6f0e72bc5259b9183; sha256 61753facdc58f8c8faa4554f844f48169a48d2637b04102e072a4a2e32702f10; applicable manifest identities matched
+PASS design-gpt/Knowledge/K04_FRAMEWORK_SYSTEMS_THINKING_AND_FEEDBACK_LOOPS.txt: 21381 bytes; blob 79fdd7d202a1ae59d00ae12d9e70fcd32a22a444; sha256 65f01691ebb35dc4aaaf6a5f3164c5d6dfabf9c34d65b18fdf0f55f501a30a92; applicable manifest identities matched
+PASS retained/selected scope: 7 selected inputs; 5 also preserved references; 2 shared contract inputs
+B05e1 PASS: 7/7 identities. Tests NOT_RUN; later batches NOT_STARTED.
