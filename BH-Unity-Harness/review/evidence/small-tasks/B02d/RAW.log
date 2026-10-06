@@ -1,0 +1,48 @@
+B02d pinned head: dbd55165c72f9ed1682d6ee08f0799249791aa35
+Selected partition: 20 or fewer exact cases from PARTITIONS.json
+CASE test_runtime.RuntimeTests.test_protected_mutation_blocks
+CASE test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper
+CASE test_runtime.RuntimeTests.test_real_cli_preflight
+CASE test_runtime.RuntimeTests.test_recovery_budget
+CASE test_runtime.RuntimeTests.test_repeated_init_unchanged
+CASE test_runtime.RuntimeTests.test_required_above_profile
+CASE test_runtime.RuntimeTests.test_required_na_rejected
+CASE test_runtime.RuntimeTests.test_resume_discovery
+CASE test_runtime.RuntimeTests.test_root_count_mismatch
+CASE test_runtime.RuntimeTests.test_roundtrip_human_pending
+CASE test_runtime.RuntimeTests.test_stale_dirty_evidence
+CASE test_runtime.RuntimeTests.test_stale_human_acceptance
+CASE test_runtime.RuntimeTests.test_structural_approval_not_authentication
+CASE test_runtime.RuntimeTests.test_symlink_escape
+CASE test_runtime.RuntimeTests.test_synthetic_boundary
+CASE test_runtime.RuntimeTests.test_unbound_required_check_blocks_plan
+CASE test_runtime.RuntimeTests.test_unknown_configuration_field
+CASE test_runtime.RuntimeTests.test_unknown_schema_keyword
+CASE test_runtime.RuntimeTests.test_unlock_cannot_terminate_live_owner
+CASE test_runtime.RuntimeTests.test_unreconciled_overlay
+test_protected_mutation_blocks (test_runtime.RuntimeTests.test_protected_mutation_blocks) ... ok
+test_raw_output_reparsed_not_green_wrapper (test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper) ... ok
+test_real_cli_preflight (test_runtime.RuntimeTests.test_real_cli_preflight) ... ok
+test_recovery_budget (test_runtime.RuntimeTests.test_recovery_budget) ... ok
+test_repeated_init_unchanged (test_runtime.RuntimeTests.test_repeated_init_unchanged) ... ok
+test_required_above_profile (test_runtime.RuntimeTests.test_required_above_profile) ... ok
+test_required_na_rejected (test_runtime.RuntimeTests.test_required_na_rejected) ... ok
+test_resume_discovery (test_runtime.RuntimeTests.test_resume_discovery) ... ok
+test_root_count_mismatch (test_runtime.RuntimeTests.test_root_count_mismatch) ... ok
+test_roundtrip_human_pending (test_runtime.RuntimeTests.test_roundtrip_human_pending) ... ok
+test_stale_dirty_evidence (test_runtime.RuntimeTests.test_stale_dirty_evidence) ... ok
+test_stale_human_acceptance (test_runtime.RuntimeTests.test_stale_human_acceptance) ... ok
+test_structural_approval_not_authentication (test_runtime.RuntimeTests.test_structural_approval_not_authentication) ... ok
+test_symlink_escape (test_runtime.RuntimeTests.test_symlink_escape) ... ok
+test_synthetic_boundary (test_runtime.RuntimeTests.test_synthetic_boundary) ... ok
+test_unbound_required_check_blocks_plan (test_runtime.RuntimeTests.test_unbound_required_check_blocks_plan) ... ok
+test_unknown_configuration_field (test_runtime.RuntimeTests.test_unknown_configuration_field) ... ok
+test_unknown_schema_keyword (test_runtime.RuntimeTests.test_unknown_schema_keyword) ... ok
+test_unlock_cannot_terminate_live_owner (test_runtime.RuntimeTests.test_unlock_cannot_terminate_live_owner) ... ok
+test_unreconciled_overlay (test_runtime.RuntimeTests.test_unreconciled_overlay) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 4.053s
+
+OK
+B02d result: PASS; source hashes unchanged; exit status: 0
