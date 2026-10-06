@@ -1,0 +1,35 @@
+{
+  "module": "tests/test_installer.py",
+  "order": "Unicode lexical order of full unittest case ID",
+  "observed_count": 20,
+  "historical_count": 20,
+  "count_changed": false,
+  "partition_limit": 20,
+  "partitions": [
+    {
+      "id": "B03",
+      "case_ids": [
+        "test_installer.InstallerTests.test_active_task_blocks",
+        "test_installer.InstallerTests.test_bad_approval_no_install",
+        "test_installer.InstallerTests.test_conflicting_agents_preserved",
+        "test_installer.InstallerTests.test_destination_requires_marker",
+        "test_installer.InstallerTests.test_explicit_manual_merge",
+        "test_installer.InstallerTests.test_fresh_install_actual_manifest",
+        "test_installer.InstallerTests.test_lock_blocks",
+        "test_installer.InstallerTests.test_managed_edits_conflict",
+        "test_installer.InstallerTests.test_preserve_not_blanket_override",
+        "test_installer.InstallerTests.test_preview_no_writes",
+        "test_installer.InstallerTests.test_repeat_unchanged",
+        "test_installer.InstallerTests.test_rollback_active_record_blocks",
+        "test_installer.InstallerTests.test_rollback_managed_only",
+        "test_installer.InstallerTests.test_rollback_preserves_edited_seed",
+        "test_installer.InstallerTests.test_rollback_preview_read_only",
+        "test_installer.InstallerTests.test_rollback_refuses_managed_edit",
+        "test_installer.InstallerTests.test_seed_local_edits_preserved",
+        "test_installer.InstallerTests.test_stale_preview",
+        "test_installer.InstallerTests.test_traversal_transaction",
+        "test_installer.InstallerTests.test_wrong_destination"
+      ]
+    }
+  ]
+}

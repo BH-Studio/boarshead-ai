@@ -1,0 +1,19 @@
+{
+  "task": "B03",
+  "input_head": "c24f1b08a0001c91983c47d7d191a3f9c8df5926",
+  "reconciled_files": 29,
+  "all_current_source_identities_match": true,
+  "module": "tests/test_installer.py",
+  "input_scope": "25 installed files, PACKAGE_FILES.json, tests/test_installer.py, tests/support.py, installer/install.py",
+  "excluded_unused_runtime_inputs": [
+    "tests/test_runtime.py",
+    "tests/fixture_driver.py"
+  ],
+  "parent_runner_blob": "af7d770cea9f6412d489a43ffe898250062344b2",
+  "runner_change": "B02e -> B03 selection/task labels and installer scope; no harness/test modifications",
+  "current_runner_sha256": "aca6096c81a75da7d0bb1832e0b2d890e1c7cb50ed29aedcb3453ff0b2e3be57",
+  "command": "python3 prepare_b03.py > b03-reconciliation.log 2>&1",
+  "exit_status": 0,
+  "installed_file_count": 25,
+  "manifest_roster_and_hashes_match": true
+}
