@@ -1,0 +1,7 @@
+MATCH tests/test_package.py bytes=7703 git_blob=93cd672ba878db7da76b31628efcc2b55bc4ffc3 sha256=ba72a28655cb3ea5ff46e4d0ef6c6312fa10882ebee0d8ce7388787d79134fa0
+AST ONLY: 23 declared test methods; module not imported or executed.
+MATCH tests/test_game_agnostic.py bytes=9030 git_blob=4c69a3a553f0f5fedf77d7e537a3dc278b67cc22 sha256=2232dc08f0b5fa019dc4c9775f12610cc3cbe1420f439b77e447df55c3ba9a70
+AST ONLY: 15 declared test methods; module not imported or executed.
+MATCH tests/test_review_amendments.py bytes=2433 git_blob=91dcfdd4ca172fa47657491030906a86f49a55f1 sha256=d1dcedbd9155ece3fbc1c0b65a4eb0c0fc8fb9f4099560235875a310a4ab4e60
+AST ONLY: 6 declared test methods; module not imported or executed.
+PASS: 3/3 source identities; 44 declared methods versus historical 44; runtime discovery/tests NOT_RUN.

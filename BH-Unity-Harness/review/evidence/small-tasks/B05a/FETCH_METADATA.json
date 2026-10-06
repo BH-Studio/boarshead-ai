@@ -1,0 +1,30 @@
+{
+  "task": "B05a",
+  "input_head": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "retrieval_tool": "GitHub fetch_file",
+  "request_ref": "d1865991ca624a9c63eaecb1054989059ea02b64",
+  "projection": "Captured structured retrieval metadata; file contents checked by b05a_reconcile.py and omitted from this receipt.",
+  "files": [
+    {
+      "path": "tests/test_package.py",
+      "sha": "93cd672ba878db7da76b31628efcc2b55bc4ffc3",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/d1865991ca624a9c63eaecb1054989059ea02b64/BH-Unity-Harness/tests/test_package.py"
+    },
+    {
+      "path": "tests/test_game_agnostic.py",
+      "sha": "4c69a3a553f0f5fedf77d7e537a3dc278b67cc22",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/d1865991ca624a9c63eaecb1054989059ea02b64/BH-Unity-Harness/tests/test_game_agnostic.py"
+    },
+    {
+      "path": "tests/test_review_amendments.py",
+      "sha": "91dcfdd4ca172fa47657491030906a86f49a55f1",
+      "encoding": "utf-8",
+      "display_url": "https://github.com/BH-Studio/boarshead-ai/blob/d1865991ca624a9c63eaecb1054989059ea02b64/BH-Unity-Harness/tests/test_review_amendments.py"
+    }
+  ],
+  "root_tree": "2a393b400782bc38cdb7a876f1824ef5999a17f7",
+  "harness_tree": "3dbe7acb6b4b6eb7bf80d3434ae74b093bcf5935",
+  "git_tree_truncated": false
+}
