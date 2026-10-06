@@ -1,0 +1,38 @@
+{
+  "task": "B05f1",
+  "review_type": "bounded identity and contract/optional/profile scope reading",
+  "synthetic_profiles": [
+    {
+      "path": "examples/profiles/synthetic-continuous-state.json",
+      "project_id": "fixture-continuous",
+      "synthetic": true,
+      "status": "SYNTHETIC",
+      "optional_capabilities": [],
+      "open_decisions": [
+        "Real project identity, engine/packages, render pipeline, target, mechanics, ownership and budgets are intentionally unconfigured.",
+        "This fixture conveys no human approval and must not be deployed as a real project overlay."
+      ]
+    },
+    {
+      "path": "examples/profiles/synthetic-discrete-state.json",
+      "project_id": "fixture-discrete",
+      "synthetic": true,
+      "status": "SYNTHETIC",
+      "optional_capabilities": [],
+      "open_decisions": [
+        "Real project identity, engine/packages, render pipeline, target, mechanics, ownership and budgets are intentionally unconfigured.",
+        "This fixture conveys no human approval and must not be deployed as a real project overlay."
+      ]
+    }
+  ],
+  "contract_boundary": "Consumer opening specifies execution guidance with approved project inputs, not design defaults; producer personas/frameworks remain design-host references. Shared interface remains canonical paired guidance; no contract was changed or executed.",
+  "optional_boundary": "Procedural regression and Auditor procedures require actual project scope and separately approved optional adoption. Auditor agent policy disables implicit invocation. Build README labels the Windows64 C# producer optional and NOT_RUN in Unity, with approval and actual project/patch/compiler requirements. None was installed, invoked or treated as a universal default.",
+  "limits": [
+    "JSON parsing and synthetic-label checks only; no schema/runtime validation claim.",
+    "C# and YAML byte identities checked; neither compiled nor executed.",
+    "No tests, discovery, package checker, assembler, runner or installer ran.",
+    "No source-game defaults imported or source research repeated.",
+    "No candidate implementation/design content changed.",
+    "B05f2 and later content batches NOT_STARTED; no full-package/host/adoption claim."
+  ]
+}
