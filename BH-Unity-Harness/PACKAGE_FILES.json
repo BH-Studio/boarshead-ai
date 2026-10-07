@@ -100,12 +100,12 @@
     },
     {
       "path": "Docs/Harness/OPERATING_GUIDE.md",
-      "sha256": "e8832b190942384b9daad8f02cc86d97a3ae3b23e330374b04db72be88a64b6d",
+      "sha256": "e839bd8d00ea8f7a32b530fde39fc3fecf5f4988052e34097eec93f1eee78a4c",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/UNITY_PROCEDURES.md",
-      "sha256": "d2b6fe50cb82d30397d88c7eb40ad9ca2ea8ce2817e45cc7df3249b127824da1",
+      "sha256": "7a63a5a1ed7a037f41b961a2f12ed56493becd7165796c4e3245c13b50464160",
       "ownership": "managed"
     },
     {

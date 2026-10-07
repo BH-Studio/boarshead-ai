@@ -1,0 +1,16 @@
+{
+  "status": "PASS_CLI_ALIGNMENT_CLEANUP",
+  "input_head": "8442a11aecd5f2376c0cbb9e9914da244f8ce587",
+  "removed_files": 8,
+  "installed_files": 25,
+  "changed_installed_docs": 2,
+  "package_checks": 88,
+  "authoring_checks": 56,
+  "authoring_test_cases": 13,
+  "all_commands_exit_zero": true,
+  "limits": [
+    "Staged current-source static/package and focused authoring validation only.",
+    "No full runtime regression rerun or current full-suite claim.",
+    "No Unity CLI mapping implemented, host validation, live installation or billed-credit evidence."
+  ]
+}

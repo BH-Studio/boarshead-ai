@@ -1,0 +1,36 @@
+[
+  {
+    "command": [
+      "python",
+      "tools/check_package.py"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"status\": \"PASS_STATIC_PACKAGE\",\n  \"checks\": 88,\n  \"instruction_characters\": 7798,\n  \"managed_files\": 25,\n  \"missing_preserved\": [],\n  \"problems\": [],\n  \"limitations\": \"Static package checks are not live GPT, Codex, Unity or Windows validation.\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python",
+      "tools/check_unity_authoring.py"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"status\": \"PASS_UNITY_AUTHORING_SUBSET\",\n  \"checks\": 56,\n  \"problems\": [],\n  \"limits\": [\n    \"Restricted BH metadata/reference checks, not a general YAML validator.\",\n    \"Not a complete design/package validation or native Codex/Unity test.\"\n  ]\n}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_unity_authoring.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "test_changed_core_hash_rejected (test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected) ... ok\ntest_current_authored_subset (test_unity_authoring.UnityAuthoringTests.test_current_authored_subset) ... ok\ntest_enabled_example_rejected (test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected) ... ok\ntest_existing_reference_and_external_link (test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link) ... ok\ntest_implicit_activation_rejected (test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected) ... ok\ntest_invalid_frontmatter_never_silently_disappears (test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears) ... ok\ntest_malformed_activation_metadata_rejected (test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected) ... ok\ntest_missing_and_escaping_references (test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references) ... ok\ntest_missing_default_manifest_file_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected) ... ok\ntest_missing_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected) ... ok\ntest_nonstring_yaml_scalars_rejected (test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected) ... ok\ntest_plain_and_quoted_metadata (test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata) ... ok\ntest_symlink_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected) ... ok\n\n----------------------------------------------------------------------\nRan 13 tests in 0.092s\n\nOK\n"
+  }
+]

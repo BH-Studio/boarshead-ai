@@ -1,0 +1,47 @@
+$ python tools/check_package.py
+{
+  "status": "PASS_STATIC_PACKAGE",
+  "checks": 88,
+  "instruction_characters": 7798,
+  "managed_files": 25,
+  "missing_preserved": [],
+  "problems": [],
+  "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+}
+
+exit_code=0
+
+$ python tools/check_unity_authoring.py
+{
+  "status": "PASS_UNITY_AUTHORING_SUBSET",
+  "checks": 56,
+  "problems": [],
+  "limits": [
+    "Restricted BH metadata/reference checks, not a general YAML validator.",
+    "Not a complete design/package validation or native Codex/Unity test."
+  ]
+}
+
+exit_code=0
+
+$ python -m unittest discover -s tests -p test_unity_authoring.py -v
+test_changed_core_hash_rejected (test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected) ... ok
+test_current_authored_subset (test_unity_authoring.UnityAuthoringTests.test_current_authored_subset) ... ok
+test_enabled_example_rejected (test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected) ... ok
+test_existing_reference_and_external_link (test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link) ... ok
+test_implicit_activation_rejected (test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected) ... ok
+test_invalid_frontmatter_never_silently_disappears (test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears) ... ok
+test_malformed_activation_metadata_rejected (test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected) ... ok
+test_missing_and_escaping_references (test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references) ... ok
+test_missing_default_manifest_file_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected) ... ok
+test_missing_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected) ... ok
+test_nonstring_yaml_scalars_rejected (test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected) ... ok
+test_plain_and_quoted_metadata (test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata) ... ok
+test_symlink_reference_rejected (test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.092s
+
+OK
+
+exit_code=0
