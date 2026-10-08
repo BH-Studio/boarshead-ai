@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Preview, apply, update and roll back explicitly approved managed files only.
+"""Install local template files directly, or preview/apply/roll back managed files.
 
-No network, global settings, destructive Git operations or implicit conflict resolution.
+With only --target, copy files as-is without validation, overwriting matching files.
+Explicit preview/apply/rollback operations retain their validation and approval checks.
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -18,6 +20,12 @@ bh = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bh)
 
 
+def direct_install(target):
+    root = Path(target).absolute()
+    shutil.copytree(PACKAGE / 'project-template', root, dirs_exist_ok=True)
+    return {'status': 'APPLIED', 'destination': str(root), 'mode': 'direct'}
+
+
 def distribution():
     value = bh.load_json(PACKAGE / 'PACKAGE_FILES.json')
     bh.require(value.get('version') == '1.0.0', 'Unsupported distribution version')
@@ -25,7 +33,15 @@ def distribution():
     bh.require(len({n.casefold() for n in entries}) == len(entries), 'Case-colliding distribution')
     for name, entry in entries.items():
         source = bh.safe(PACKAGE / 'project-template', name)
-        bh.require(source.is_file() and bh.file_hash(source) == entry['sha256'], 'Distribution changed: ' + name)
+        bh.require(source.is_file(), 'Distribution changed: ' + name)
+        data = source.read_bytes()
+        actual = hashlib.sha256(data).hexdigest()
+        # Windows checkouts may convert release LF files to CRLF. Validate
+        # their content, then bind the preview and copies to the local bytes.
+        bh.require(actual == entry['sha256'] or
+                   hashlib.sha256(data.replace(b'\r\n', b'\n')).hexdigest() == entry['sha256'],
+                   'Distribution changed: ' + name)
+        entry['sha256'] = actual
         bh.require(entry.get('ownership') in ('managed', 'project-seed'), 'Undeclared file ownership: ' + name)
     return value
 
@@ -36,7 +52,10 @@ def target_root(target):
     p = p.resolve()
     bh.require(p.is_dir(), 'Destination must exist; no guessed game creation')
     bh.require(not p.is_relative_to(PACKAGE) and not PACKAGE.is_relative_to(p), 'Do not install into the source collection or its ancestor')
-    bh.require(Path(bh.git(p, 'rev-parse', '--show-toplevel').decode().strip()).resolve() == p, 'Destination must be Git root')
+    # Archives and copied projects can be installed without Git. A .git file
+    # also counts as repository metadata (for example, in a linked worktree).
+    if any((parent / '.git').exists() for parent in (p, *p.parents)):
+        bh.require(Path(bh.git(p, 'rev-parse', '--show-toplevel').decode().strip()).resolve() == p, 'Destination must be Git root')
     bh.require(bh.safe(p, 'ProjectSettings/ProjectVersion.txt').is_file() or bh.safe(p, '.bh/SYNTHETIC_FIXTURE').is_file(), 'Destination is not a Unity project or visibly synthetic fixture')
     return p
 
@@ -207,15 +226,20 @@ def rollback(target, transaction, execute=False):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('operation', choices=('preview', 'apply', 'rollback'))
+    p.add_argument('operation', nargs='?', choices=('preview', 'apply', 'rollback'),
+                   help='Omit to copy local files directly without validation')
     p.add_argument('--target', required=True)
     p.add_argument('--preserve', action='append', default=[])
     p.add_argument('--approved-preview')
     p.add_argument('--transaction')
     p.add_argument('--execute', action='store_true')
     a = p.parse_args()
+    if a.operation is None and (a.preserve or a.approved_preview or a.transaction or a.execute):
+        p.error('--preserve, --approved-preview, --transaction and --execute require an explicit operation')
     try:
-        if a.operation == 'preview':
+        if a.operation is None:
+            out = direct_install(a.target)
+        elif a.operation == 'preview':
             value = preview(a.target, a.preserve)
             out = {'preview': value, 'approval_sha256': bh.digest(value)}
         elif a.operation == 'apply':

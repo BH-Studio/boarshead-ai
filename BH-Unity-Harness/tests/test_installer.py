@@ -1,6 +1,8 @@
 """Actual installer tests; synthetic Git destinations, never a real game."""
 from pathlib import Path
-import json, tempfile, unittest
+import hashlib, io, json, shutil, sys, tempfile, unittest
+from contextlib import redirect_stdout
+from unittest.mock import patch
 from support import PACKAGE, bh, install, git, write
 class InstallerTests(unittest.TestCase):
     def setUp(self):
@@ -15,6 +17,101 @@ class InstallerTests(unittest.TestCase):
     def test_fresh_install_actual_manifest(self):
         self.assertEqual(self.apply()['status'],'APPLIED')
         for x in install.distribution()['files']:self.assertEqual(bh.file_hash(self.root/x['path']),x['sha256'])
+    def test_target_only_installs_without_validation(self):
+        with tempfile.TemporaryDirectory(prefix='BH distribution ') as folder:
+            package=Path(folder)
+            write(package,'project-template/AGENTS.md','# Local instructions\n')
+            write(package,'project-template/.bh/project.json','Local seed\n')
+            write(package,'PACKAGE_FILES.json','Not a valid manifest')
+            write(self.root,'AGENTS.md','Old instructions\n')
+            write(self.root,'.bh/project.json','Old seed\n')
+            write(self.root,'.bh/state.json',{'phase':'EXECUTING'})
+            write(self.root,'.bh/install/writer.lock','Existing lock\n')
+            write(self.root,'HumanNotes.txt','Keep\n')
+            (self.root/'.bh/SYNTHETIC_FIXTURE').unlink()
+            output=io.StringIO()
+            with patch.object(install,'PACKAGE',package), patch.object(sys,'argv',['install.py','--target',str(self.root)]), \
+                 patch.object(install,'target_root',side_effect=AssertionError('No destination validation')), \
+                 patch.object(install,'distribution',side_effect=AssertionError('No manifest validation')), \
+                 patch.object(install.bh,'git',side_effect=AssertionError('No Git commands')), redirect_stdout(output):
+                self.assertEqual(install.main(),0)
+            self.assertEqual(json.loads(output.getvalue())['mode'],'direct')
+            self.assertEqual((self.root/'AGENTS.md').read_bytes(),(package/'project-template/AGENTS.md').read_bytes())
+            self.assertEqual((self.root/'.bh/project.json').read_bytes(),(package/'project-template/.bh/project.json').read_bytes())
+            self.assertEqual((self.root/'HumanNotes.txt').read_text(),'Keep\n')
+            self.assertEqual(json.loads((self.root/'.bh/state.json').read_text())['phase'],'EXECUTING')
+            self.assertEqual((self.root/'.bh/install/writer.lock').read_text(),'Existing lock\n')
+    def test_direct_install_creates_plain_target_with_exact_bytes(self):
+        with tempfile.TemporaryDirectory(prefix='BH distribution ') as folder:
+            package=Path(folder)
+            source=write(package,'project-template/.agents/local.md','')
+            source.write_bytes(b'# Local instructions\r\n')
+            target=self.root/'NewProject'
+            with patch.object(install,'PACKAGE',package):
+                self.assertEqual(install.direct_install(target)['status'],'APPLIED')
+            self.assertEqual((target/'.agents/local.md').read_bytes(),source.read_bytes())
+            self.assertFalse((target/'.git').exists())
+    def test_release_line_endings_install_exact_local_bytes(self):
+        for data in (b'# Instructions\nLocal files\n', b'# Instructions\r\nLocal files\r\n'):
+            with self.subTest(data=data), tempfile.TemporaryDirectory(prefix='BH distribution ') as folder:
+                package=Path(folder)
+                source=write(package,'project-template/AGENTS.md','')
+                source.write_bytes(data)
+                expected=hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()
+                manifest=write(package,'PACKAGE_FILES.json',{'version':'1.0.0','files':[{'path':'AGENTS.md','sha256':expected,'ownership':'managed'}]})
+                manifest_before=manifest.read_bytes()
+                with patch.object(install,'PACKAGE',package):
+                    p=self.preview()
+                    self.assertEqual(p['rows'][0]['after'],hashlib.sha256(data).hexdigest())
+                    result=install.apply(self.root,bh.digest(p))
+                    self.assertEqual((self.root/'AGENTS.md').read_bytes(),data)
+                    self.assertEqual(self.apply()['status'],'UNCHANGED')
+                    install.rollback(self.root,result['transaction'],True)
+                self.assertEqual(source.read_bytes(),data)
+                self.assertEqual(manifest.read_bytes(),manifest_before)
+    def test_distribution_content_change_still_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='BH distribution ') as folder:
+            package=Path(folder)
+            write(package,'project-template/AGENTS.md','# Changed instructions\n')
+            write(package,'PACKAGE_FILES.json',{'version':'1.0.0','files':[{'path':'AGENTS.md','sha256':hashlib.sha256(b'# Original instructions\n').hexdigest(),'ownership':'managed'}]})
+            with patch.object(install,'PACKAGE',package), self.assertRaisesRegex(install.bh.BHError,'Distribution changed: AGENTS.md'):
+                self.preview()
+    def test_source_line_ending_change_invalidates_preview(self):
+        with tempfile.TemporaryDirectory(prefix='BH distribution ') as folder:
+            package=Path(folder)
+            source=write(package,'project-template/AGENTS.md','')
+            source.write_bytes(b'# Instructions\n')
+            write(package,'PACKAGE_FILES.json',{'version':'1.0.0','files':[{'path':'AGENTS.md','sha256':bh.file_hash(source),'ownership':'managed'}]})
+            with patch.object(install,'PACKAGE',package):
+                p=self.preview()
+                source.write_bytes(b'# Instructions\r\n')
+                with self.assertRaisesRegex(install.bh.BHError,'Preview changed'):
+                    install.apply(self.root,bh.digest(p))
+                self.assertFalse((self.root/'AGENTS.md').exists())
+    def test_non_repo_install_and_rollback_without_git(self):
+        shutil.rmtree(self.root/'.git')
+        with patch.object(install.bh, 'git', side_effect=AssertionError('Git must not run without repository metadata')):
+            before={str(p.relative_to(self.root)):p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+            self.preview()
+            self.assertEqual(before,{str(p.relative_to(self.root)):p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+            result=self.apply()
+            self.assertEqual(result['status'],'APPLIED')
+            for entry in install.distribution()['files']:
+                self.assertEqual(bh.file_hash(self.root/entry['path']),entry['sha256'])
+            self.assertEqual(self.apply()['status'],'UNCHANGED')
+            self.assertEqual(install.rollback(self.root,result['transaction'])['status'],'ROLLBACK_PREVIEW')
+            self.assertEqual(install.rollback(self.root,result['transaction'],True)['status'],'ROLLED_BACK')
+            self.assertFalse((self.root/'AGENTS.md').exists())
+    def test_repository_subdirectory_still_rejected(self):
+        nested=self.root/'NestedProject'
+        write(nested,'.bh/SYNTHETIC_FIXTURE','SYNTHETIC installer test\n')
+        with self.assertRaisesRegex(install.bh.BHError,'Destination must be Git root'):
+            install.preview(nested)
+    def test_invalid_repository_metadata_still_rejected(self):
+        shutil.rmtree(self.root/'.git')
+        write(self.root,'.git','gitdir: missing-repository\n')
+        with self.assertRaisesRegex(install.bh.BHError,'Git read failed'):
+            self.preview()
     def test_repeat_unchanged(self):self.apply();self.assertEqual(self.apply()['status'],'UNCHANGED')
     def test_bad_approval_no_install(self):
         with self.assertRaises(install.bh.BHError):install.apply(self.root,'0'*64)
