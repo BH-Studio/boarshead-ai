@@ -1,5 +1,10 @@
 # Changelog
 
+## Candidate usability changes — 2026-10-08 UTC
+- Git is optional for project installation and runtime. Unavailable Git, non-repository projects, invalid metadata and unborn repositories use deterministic nonvolatile filesystem snapshots with null commit identity.
+- Human plan approval can be recorded using `approve --by NAME --source REFERENCE` without copying a hash or creating approval JSON. Internal fingerprints, stale-plan rejection and explicit approval remain.
+- Preserve existing direct installer behavior and legacy approval records. No Unity provider or game functionality is added.
+
 ## 1.0.0 candidate — game-agnostic consolidation, 2026-10-04
 - Preserved the recovered runtime, installer, contributor CRLF fix, complete design method and five frameworks; no replacement agent or paid dependency.
 - Completed all 21 design-source reads and 60 legacy-file reads; recorded bounded selected-source/current-notice reviews for all seven named repositories.

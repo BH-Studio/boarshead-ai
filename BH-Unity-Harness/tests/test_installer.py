@@ -102,16 +102,16 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(install.rollback(self.root,result['transaction'])['status'],'ROLLBACK_PREVIEW')
             self.assertEqual(install.rollback(self.root,result['transaction'],True)['status'],'ROLLED_BACK')
             self.assertFalse((self.root/'AGENTS.md').exists())
-    def test_repository_subdirectory_still_rejected(self):
+    def test_unity_project_inside_repository_can_install(self):
         nested=self.root/'NestedProject'
         write(nested,'.bh/SYNTHETIC_FIXTURE','SYNTHETIC installer test\n')
-        with self.assertRaisesRegex(install.bh.BHError,'Destination must be Git root'):
-            install.preview(nested)
-    def test_invalid_repository_metadata_still_rejected(self):
+        with patch.object(install.bh,'git',side_effect=AssertionError('Git is optional')):
+            self.assertEqual(install.preview(nested)['destination'],str(nested))
+    def test_invalid_repository_metadata_does_not_block_install(self):
         shutil.rmtree(self.root/'.git')
         write(self.root,'.git','gitdir: missing-repository\n')
-        with self.assertRaisesRegex(install.bh.BHError,'Git read failed'):
-            self.preview()
+        with patch.object(install.bh,'git',side_effect=AssertionError('Git is optional')):
+            self.assertEqual(self.preview()['destination'],str(self.root))
     def test_repeat_unchanged(self):self.apply();self.assertEqual(self.apply()['status'],'UNCHANGED')
     def test_bad_approval_no_install(self):
         with self.assertRaises(install.bh.BHError):install.apply(self.root,'0'*64)

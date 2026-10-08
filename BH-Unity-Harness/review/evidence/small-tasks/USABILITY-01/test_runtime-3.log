@@ -1,0 +1,27 @@
+test_manual_not_automated (test_runtime.RuntimeTests.test_manual_not_automated) ... ok
+test_missing_artifact (test_runtime.RuntimeTests.test_missing_artifact) ... ok
+test_missing_configuration (test_runtime.RuntimeTests.test_missing_configuration) ... ok
+test_missing_design_approval (test_runtime.RuntimeTests.test_missing_design_approval) ... ok
+test_missing_human_acceptance (test_runtime.RuntimeTests.test_missing_human_acceptance) ... ok
+test_missing_raw_artifact (test_runtime.RuntimeTests.test_missing_raw_artifact) ... ok
+test_missing_receipt (test_runtime.RuntimeTests.test_missing_receipt) ... ok
+test_missing_reference (test_runtime.RuntimeTests.test_missing_reference) ... ok
+test_named_suite_failure_not_leaf_pass (test_runtime.RuntimeTests.test_named_suite_failure_not_leaf_pass) ... ok
+test_nested_instruction_conflict (test_runtime.RuntimeTests.test_nested_instruction_conflict) ... ok
+test_new_commit_invalidates (test_runtime.RuntimeTests.test_new_commit_invalidates) ... ok
+test_no_self_certification (test_runtime.RuntimeTests.test_no_self_certification) ... ok
+test_nonfinite_json (test_runtime.RuntimeTests.test_nonfinite_json) ... ok
+test_nunit_requires_names (test_runtime.RuntimeTests.test_nunit_requires_names) ... ok
+test_nunit_requires_positive_count (test_runtime.RuntimeTests.test_nunit_requires_positive_count) ... ok
+test_open_overlay_decision (test_runtime.RuntimeTests.test_open_overlay_decision) ... ok
+test_out_of_scope_mutation_blocks (test_runtime.RuntimeTests.test_out_of_scope_mutation_blocks) ... ok
+test_override_instruction_conflict (test_runtime.RuntimeTests.test_override_instruction_conflict) ... ok
+test_path_traversal (test_runtime.RuntimeTests.test_path_traversal) ... ok
+test_preflight_no_writes (test_runtime.RuntimeTests.test_preflight_no_writes) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 2.645s
+
+OK
+
+exit_code=0

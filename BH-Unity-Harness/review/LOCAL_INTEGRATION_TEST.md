@@ -3,7 +3,7 @@
 Status: NOT_RUN here. The GitHub connector is not access to Doug's Windows machine, VS Code, Unity Editor or configured GPT. Do not turn this checklist into a completed report without running it.
 
 ## Environment record
-Record Windows build; PowerShell version; Python path/version/hash; Git version; Unity exact Editor patch; packages-lock hash; Test Framework version; render pipeline/targets; Codex client/model/effort/speed as actually available; discovered skills/instruction chain; diagnostics bridge version/tool names and source (`sonarqube` when observed); chosen Unity mutation route; dirty baseline and human approval references. No credentials or paid/API setup is authorized.
+Record Windows build; PowerShell version; Python path/version/hash; optional Git availability/version; Unity exact Editor patch; packages-lock hash; Test Framework version; render pipeline/targets; Codex client/model/effort/speed as actually available; discovered skills/instruction chain; diagnostics bridge version/tool names and source (`sonarqube` when observed); chosen Unity mutation route; file-content baseline and human approval references. No repository or initial Git commit is required to install or run the project harness. Record approval of the current reviewed plan with `approve --by NAME --source REFERENCE`; no pasted plan hash is needed. No credentials or paid/API setup is authorized.
 
 ## Pilot sequence and exit criteria
 1. In an isolated authoring clone, run `tools/check_package.py` and the complete unittest suite. Confirm all required full-GPT knowledge files and source blob identities; do not skip missing-resource checks. Record platform-skipped cases explicitly, particularly case-sensitive paths and symlink capability.

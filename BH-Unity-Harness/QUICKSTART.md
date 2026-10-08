@@ -13,6 +13,7 @@ The complete current branch includes every required file. Thirteen exact origina
 Current OpenAI documentation (checked 2026-10-04) says personal plans cannot create new custom GPTs, while eligible owners can still edit existing ones. Do not replace your live GPT just to test this candidate. Use a separate ordinary ChatGPT Project for the pilot, or a separate already-existing test GPT where available and explicitly approved. `design-gpt/REVIEW_AND_SETUP.md` specifies the exact Instructions file, fifteen knowledge files and Project adaptation. Live-host behavior remains NOT_RUN until you perform that pilot. New paid accounts are not required.
 
 ## Validate and preview a game pilot
+Git is optional for installing and running the project harness. Use the Unity project root directly; no repository or first commit is required. The authoring regression suite includes Git-specific synthetic fixtures and uses Git to test that optional path. A complete source download can supply the installer without cloning. Plan approval requires a genuine human decision, not a pasted hash: `approve --by NAME --source REFERENCE` records the current reviewed plan automatically.
 In a separate clone/worktree containing the complete candidate:
 ```powershell
 py -3 tools/check_package.py

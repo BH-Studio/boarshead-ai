@@ -5,7 +5,7 @@
   "files": [
     {
       "path": ".agents/skills/bh-implement-approved-slice/SKILL.md",
-      "sha256": "9699773557084120a9e81d5959473c14016055573402c4189512eaa747a6cfd9",
+      "sha256": "82c68a8ea425d3a5cee41b4b96a578abf3a65016f57e47ecb4b7b10933349b0d",
       "ownership": "managed"
     },
     {
@@ -15,7 +15,7 @@
     },
     {
       "path": ".agents/skills/bh-review-handoff/SKILL.md",
-      "sha256": "476e8a9e6c6a81bf4582fd96dc8a3118cdffc840121c44fbe10f8303dc889adf",
+      "sha256": "b4dff4d9db32e7bce2b6b6c57257db9b6cfc02d01fafcb65012b8612c38d5746",
       "ownership": "managed"
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "path": ".bh/schema.json",
-      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "sha256": "7920cfcaa25d2740c40f3966706a50665a395a643fc0d4b3d3fbf5867a3b26d9",
       "ownership": "managed"
     },
     {
@@ -85,22 +85,22 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "0401bd4d3954c4612c89f7f2d2ed3ff2ce74add7e28c2c9855d058a220c26f9b",
+      "sha256": "d2e669e99d8ac4d3fa7fcee395eda997d220c08844dccdb83f07f4be2de86b80",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/CODEX_CONSUMER.md",
-      "sha256": "8f2da466a9fd1d6aa22c376bb4bb4089a3474469851d881408e146bfeaeb30a9",
+      "sha256": "1073271dbf8270df117fcd4ded33b52fd481dacc8e1adb1c53b3375707a9c844",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/INTERFACE.md",
-      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "sha256": "fc964448f7e0b43f68fc9a575b44492131d830d1ecc8d17a76d90e407c8dcb7f",
       "ownership": "managed"
     },
     {
       "path": "Docs/Harness/OPERATING_GUIDE.md",
-      "sha256": "e839bd8d00ea8f7a32b530fde39fc3fecf5f4988052e34097eec93f1eee78a4c",
+      "sha256": "6e665fe74c43a9606389f94cd53f25b2493222410a599ca973b3a2e61a9e1d7d",
       "ownership": "managed"
     },
     {
@@ -115,7 +115,7 @@
     },
     {
       "path": "Tools/BH/bh.py",
-      "sha256": "c2f9b66a8ac6528342cc7e4726d0a25aafbfc530271bc0905546ca921c3df1e9",
+      "sha256": "cd68e06d0f2d1870f85fb97c9154edda8644434384d4ab2dd926b33db5d16ebf",
       "ownership": "managed"
     },
     {

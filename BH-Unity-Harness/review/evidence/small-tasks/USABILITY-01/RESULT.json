@@ -1,0 +1,42 @@
+{
+  "status": "PASS_USABILITY_CHANGES",
+  "input_head": "2e4b5603ba3fd2d03dd1a9ef7c64cd8afc083bfe",
+  "tests_passed": 257,
+  "module_counts": {
+    "test_efficiency_runtime": 21,
+    "test_efficiency_views": 11,
+    "test_game_agnostic": 15,
+    "test_installer": 28,
+    "test_optional_git_approval": 19,
+    "test_package": 23,
+    "test_review_amendments": 6,
+    "test_runtime": 84,
+    "test_unity_authoring": 13,
+    "test_unity_observation": 37
+  },
+  "all_processes_exit_zero": true,
+  "package": {
+    "status": "PASS_STATIC_PACKAGE",
+    "checks": 88,
+    "instruction_characters": 7798,
+    "managed_files": 25,
+    "missing_preserved": [],
+    "problems": [],
+    "limitations": "Static package checks are not live GPT, Codex, Unity or Windows validation."
+  },
+  "authoring": {
+    "status": "PASS_UNITY_AUTHORING_SUBSET",
+    "checks": 56,
+    "problems": [],
+    "limits": [
+      "Restricted BH metadata/reference checks, not a general YAML validator.",
+      "Not a complete design/package validation or native Codex/Unity test."
+    ]
+  },
+  "tested_inputs_unchanged": true,
+  "limits": [
+    "Synthetic Linux/subprocess validation; Windows, Unity CLI and local project validation NOT_RUN.",
+    "Git-backed authoring fixtures require Git to test that optional route; the project runtime does not.",
+    "Historical full-suite evidence is superseded for the changed sources."
+  ]
+}

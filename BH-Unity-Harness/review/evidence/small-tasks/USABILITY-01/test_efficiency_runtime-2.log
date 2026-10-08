@@ -1,0 +1,8 @@
+test_user_pause_not_bypassed_by_repair (test_efficiency_runtime.EfficiencyRuntimeTests.test_user_pause_not_bypassed_by_repair) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.164s
+
+OK
+
+exit_code=0

@@ -1,0 +1,11 @@
+{
+  "status": "PASS_UNITY_AUTHORING_SUBSET",
+  "checks": 56,
+  "problems": [],
+  "limits": [
+    "Restricted BH metadata/reference checks, not a general YAML validator.",
+    "Not a complete design/package validation or native Codex/Unity test."
+  ]
+}
+
+exit_code=0

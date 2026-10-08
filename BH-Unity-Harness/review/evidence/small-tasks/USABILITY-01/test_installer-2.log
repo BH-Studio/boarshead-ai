@@ -1,0 +1,15 @@
+test_rollback_refuses_managed_edit (test_installer.InstallerTests.test_rollback_refuses_managed_edit) ... ok
+test_seed_local_edits_preserved (test_installer.InstallerTests.test_seed_local_edits_preserved) ... ok
+test_source_line_ending_change_invalidates_preview (test_installer.InstallerTests.test_source_line_ending_change_invalidates_preview) ... ok
+test_stale_preview (test_installer.InstallerTests.test_stale_preview) ... ok
+test_target_only_installs_without_validation (test_installer.InstallerTests.test_target_only_installs_without_validation) ... ok
+test_traversal_transaction (test_installer.InstallerTests.test_traversal_transaction) ... ok
+test_unity_project_inside_repository_can_install (test_installer.InstallerTests.test_unity_project_inside_repository_can_install) ... ok
+test_wrong_destination (test_installer.InstallerTests.test_wrong_destination) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.234s
+
+OK
+
+exit_code=0

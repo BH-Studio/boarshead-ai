@@ -72,12 +72,12 @@
     },
     {
       "path": "Knowledge/BH_INTERFACE.md",
-      "sha256": "94a6abc61744e342679e1ecf76dc294f5746486e89da03cad4ded4503a4ea6e3",
+      "sha256": "fc964448f7e0b43f68fc9a575b44492131d830d1ecc8d17a76d90e407c8dcb7f",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     },
     {
       "path": "Knowledge/BH_CONTRACT_SCHEMA.json",
-      "sha256": "177c83f3cc2ddd193d5e19a9be4d1647038cd8e79300aa752900e0b704732c07",
+      "sha256": "7920cfcaa25d2740c40f3966706a50665a395a643fc0d4b3d3fbf5867a3b26d9",
       "role": "Versioned compiler/shared interface; retrieve for handoff and return"
     }
   ],

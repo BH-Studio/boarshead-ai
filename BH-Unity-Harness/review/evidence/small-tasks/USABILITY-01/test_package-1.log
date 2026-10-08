@@ -1,0 +1,27 @@
+test_cancelled_not_pass (test_package.BuildParserTests.test_cancelled_not_pass) ... ok
+test_failed_is_fail_not_error (test_package.BuildParserTests.test_failed_is_fail_not_error) ... ok
+test_missing_result_is_malformed (test_package.BuildParserTests.test_missing_result_is_malformed) ... ok
+test_no_outputs (test_package.BuildParserTests.test_no_outputs) ... ok
+test_output_digest_mismatch (test_package.BuildParserTests.test_output_digest_mismatch) ... ok
+test_stale_output_directory (test_package.BuildParserTests.test_stale_output_directory) ... ok
+test_success_actual_hashed_output (test_package.BuildParserTests.test_success_actual_hashed_output) ... ok
+test_wrong_target (test_package.BuildParserTests.test_wrong_target) ... ok
+test_assembler_accepts_crlf_checkout_of_preserved_blob (test_package.PackageTests.test_assembler_accepts_crlf_checkout_of_preserved_blob) ... ok
+test_assembler_real_git_blob (test_package.PackageTests.test_assembler_real_git_blob) ... ok
+test_assembler_rejects_real_preserved_content_conflict (test_package.PackageTests.test_assembler_rejects_real_preserved_content_conflict) ... ok
+test_assembler_rejects_unsafe_reference (test_package.PackageTests.test_assembler_rejects_unsafe_reference) ... ok
+test_budget_metrics (test_package.PackageTests.test_budget_metrics) ... ok
+test_canonical_copies (test_package.PackageTests.test_canonical_copies) ... ok
+test_distribution_nonempty (test_package.PackageTests.test_distribution_nonempty) ... ok
+test_missing_preserved_blocks_full_validation (test_package.PackageTests.test_missing_preserved_blocks_full_validation) ... ok
+test_no_design_in_game (test_package.PackageTests.test_no_design_in_game) ... ok
+test_package_additions_no_false_full_pass (test_package.PackageTests.test_package_additions_no_false_full_pass) ... ok
+test_release_actual_match (test_package.PackageTests.test_release_actual_match) ... ok
+test_release_empty_blocks (test_package.PackageTests.test_release_empty_blocks) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.673s
+
+OK
+
+exit_code=0

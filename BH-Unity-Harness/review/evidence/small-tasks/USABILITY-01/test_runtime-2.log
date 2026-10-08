@@ -1,0 +1,27 @@
+test_begin_without_plan (test_runtime.RuntimeTests.test_begin_without_plan) ... ok
+test_blocking_question (test_runtime.RuntimeTests.test_blocking_question) ... ok
+test_case_collision (test_runtime.RuntimeTests.test_case_collision) ... ok
+test_concurrent_state_revision (test_runtime.RuntimeTests.test_concurrent_state_revision) ... ok
+test_dirty_after_plan_before_approval (test_runtime.RuntimeTests.test_dirty_after_plan_before_approval) ... ok
+test_draft_is_not_execution (test_runtime.RuntimeTests.test_draft_is_not_execution) ... ok
+test_dropped_acceptance (test_runtime.RuntimeTests.test_dropped_acceptance) ... ok
+test_dropped_check (test_runtime.RuntimeTests.test_dropped_check) ... ok
+test_dropped_invariant (test_runtime.RuntimeTests.test_dropped_invariant) ... ok
+test_duplicate_check_id (test_runtime.RuntimeTests.test_duplicate_check_id) ... ok
+test_duplicate_json_keys (test_runtime.RuntimeTests.test_duplicate_json_keys) ... ok
+test_duplicate_receipt_check (test_runtime.RuntimeTests.test_duplicate_receipt_check) ... ok
+test_duplicate_skills_block (test_runtime.RuntimeTests.test_duplicate_skills_block) ... ok
+test_failed_then_pass_preserves_history (test_runtime.RuntimeTests.test_failed_then_pass_preserves_history) ... ok
+test_human_automation_rejected (test_runtime.RuntimeTests.test_human_automation_rejected) ... ok
+test_illegal_transition (test_runtime.RuntimeTests.test_illegal_transition) ... ok
+test_interrupted_run_resume (test_runtime.RuntimeTests.test_interrupted_run_resume) ... ok
+test_lfs_pointer_blocks (test_runtime.RuntimeTests.test_lfs_pointer_blocks) ... ok
+test_lock_serializes_writers (test_runtime.RuntimeTests.test_lock_serializes_writers) ... ok
+test_manifest_mismatch (test_runtime.RuntimeTests.test_manifest_mismatch) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 2.349s
+
+OK
+
+exit_code=0

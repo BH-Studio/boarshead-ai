@@ -1386,8 +1386,15 @@
       "type": "object",
       "properties": {
         "commit": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "dirty": {
           "type": "boolean"

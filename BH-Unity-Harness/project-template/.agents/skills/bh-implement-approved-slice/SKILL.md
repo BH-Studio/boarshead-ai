@@ -5,7 +5,7 @@ description: Implement only a reconciled, explicitly approved technical slice. E
 
 # bh-implement-approved-slice
 
-Read the current checkpoint, pinned handoff read_order, `views.py --root . context` and relevant source files. The compact view includes the complete decision-bearing plan without its source-hash roster; do not load the bulk JSON unless investigating integrity. Verify the actual human approval reference against the exact plan hash. Run `approve PATH` with the recorded genuine approval and `begin` only when their preconditions hold. An actor=human field written by a model is not authentication.
+Read the current checkpoint, pinned handoff read_order, `views.py --root . context` and relevant source files. The compact view includes the complete decision-bearing plan without its source-hash roster; do not load the bulk JSON unless investigating integrity. Verify the actual human approval reference covers the current reviewed plan. Record an already-given decision using `approve --by NAME --source REFERENCE`, then run `begin` only when its preconditions hold. No pasted plan hash or hand-authored approval file is required; internal fingerprints reject stale approvals. An actor=human field written by a model is not authentication.
 
 Start with the acceptance criteria and likely affected files. Make the smallest complete change consistent with the approved architecture. Use allowed paths/actions only; protected files, dependencies, engine/pipeline/platform upgrades and persistence changes require a new appropriate decision. Preserve user dirty changes and Unity GUID/reference integrity. Record implementation claims with `claim TEXT`; they are not evidence.
 

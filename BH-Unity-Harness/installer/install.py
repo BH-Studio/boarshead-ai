@@ -52,10 +52,7 @@ def target_root(target):
     p = p.resolve()
     bh.require(p.is_dir(), 'Destination must exist; no guessed game creation')
     bh.require(not p.is_relative_to(PACKAGE) and not PACKAGE.is_relative_to(p), 'Do not install into the source collection or its ancestor')
-    # Archives and copied projects can be installed without Git. A .git file
-    # also counts as repository metadata (for example, in a linked worktree).
-    if any((parent / '.git').exists() for parent in (p, *p.parents)):
-        bh.require(Path(bh.git(p, 'rev-parse', '--show-toplevel').decode().strip()).resolve() == p, 'Destination must be Git root')
+    # Project identity comes from its Unity files, not optional Git metadata.
     bh.require(bh.safe(p, 'ProjectSettings/ProjectVersion.txt').is_file() or bh.safe(p, '.bh/SYNTHETIC_FIXTURE').is_file(), 'Destination is not a Unity project or visibly synthetic fixture')
     return p
 

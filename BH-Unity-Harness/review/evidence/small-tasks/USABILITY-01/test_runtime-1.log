@@ -1,0 +1,27 @@
+test_audit_detects_mutation (test_runtime.ProcessTests.test_audit_detects_mutation) ... ok
+test_build_failure (test_runtime.ProcessTests.test_build_failure) ... ok
+test_compile_error (test_runtime.ProcessTests.test_compile_error) ... ok
+test_diagnostics_clean (test_runtime.ProcessTests.test_diagnostics_clean) ... ok
+test_diagnostics_new (test_runtime.ProcessTests.test_diagnostics_new) ... ok
+test_facts_disagree (test_runtime.ProcessTests.test_facts_disagree) ... ok
+test_facts_match (test_runtime.ProcessTests.test_facts_match) ... ok
+test_missing_artifact (test_runtime.ProcessTests.test_missing_artifact) ... ok
+test_nonzero_exit (test_runtime.ProcessTests.test_nonzero_exit) ... ok
+test_reviewed_narrow_dependencies (test_runtime.ProcessTests.test_reviewed_narrow_dependencies) ... ok
+test_skipped_required (test_runtime.ProcessTests.test_skipped_required) ... ok
+test_timeout (test_runtime.ProcessTests.test_timeout) ... ok
+test_two_materially_different_profiles (test_runtime.ProcessTests.test_two_materially_different_profiles) ... ok
+test_wrong_run_identity (test_runtime.ProcessTests.test_wrong_run_identity) ... ok
+test_wrong_test_name (test_runtime.ProcessTests.test_wrong_test_name) ... ok
+test_xml_entities (test_runtime.ProcessTests.test_xml_entities) ... ok
+test_zero_tests (test_runtime.ProcessTests.test_zero_tests) ... ok
+test_approval_subject (test_runtime.RuntimeTests.test_approval_subject) ... ok
+test_archive_and_no_task_reuse (test_runtime.RuntimeTests.test_archive_and_no_task_reuse) ... ok
+test_begin_without_approval (test_runtime.RuntimeTests.test_begin_without_approval) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 6.663s
+
+OK
+
+exit_code=0

@@ -1,0 +1,352 @@
+{
+  "discovery_count": 257,
+  "partitions": [
+    {
+      "name": "test_efficiency_runtime-1",
+      "case_ids": [
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_case_index_not_retained_across_snapshots",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_corrupt_latest_never_falls_back_silently",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_default_whole_dependency_fallback_stays_conservative",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_dense_directory_enumerated_once_per_snapshot",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_fail_fast_leaves_following_checks_unrun",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_invalid_selection_fails_before_writes",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_missing_current_artifact_blocks_reuse",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_old_corruption_only_deep_history_but_stays_accessible",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_one_automated_plus_manual_uses_two_snapshots",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_real_cli_selection_and_history",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_relevant_change_is_executed_not_reused",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_repair_cannot_expand_approved_scope",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_reviewed_unrelated_change_reuses",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_selected_profile_cannot_claim_fresh_full_gate",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_selected_second_does_not_hide_first_failure",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_status_parses_only_latest_supporting_result_history_can_deep_audit",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_threshold_pause_cannot_use_ordinary_repair",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_two_ordinary_repairs_do_not_consume_exception_budget",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_unchanged_fast_reused_but_final_gate_still_missing",
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_unchanged_final_reuse_is_noop_and_keeps_original_time"
+      ]
+    },
+    {
+      "name": "test_efficiency_runtime-2",
+      "case_ids": [
+        "test_efficiency_runtime.EfficiencyRuntimeTests.test_user_pause_not_bypassed_by_repair"
+      ]
+    },
+    {
+      "name": "test_efficiency_views-1",
+      "case_ids": [
+        "test_efficiency_views.EfficiencyViewTests.test_all_decision_fields_present_without_source_roster",
+        "test_efficiency_views.EfficiencyViewTests.test_changed_handoff_is_blocked",
+        "test_efficiency_views.EfficiencyViewTests.test_context_cli_emits_valid_json",
+        "test_efficiency_views.EfficiencyViewTests.test_context_does_not_write_workspace",
+        "test_efficiency_views.EfficiencyViewTests.test_context_size_not_proportional_to_irrelevant_source_roster",
+        "test_efficiency_views.EfficiencyViewTests.test_generated_draft_has_no_approval_and_blocks_execution_plan",
+        "test_efficiency_views.EfficiencyViewTests.test_missing_raw_artifact_visible",
+        "test_efficiency_views.EfficiencyViewTests.test_return_keeps_full_evidence_and_every_criterion",
+        "test_efficiency_views.EfficiencyViewTests.test_schema_transitive_closure_and_unknown_rejection",
+        "test_efficiency_views.EfficiencyViewTests.test_tampered_plan_is_not_projected_as_valid",
+        "test_efficiency_views.EfficiencyViewTests.test_unrelated_edit_keeps_evidence_and_relevant_edit_invalidates"
+      ]
+    },
+    {
+      "name": "test_game_agnostic-1",
+      "case_ids": [
+        "test_game_agnostic.GameAgnosticTests.test_active_policy_and_knowledge_have_no_source_game_names",
+        "test_game_agnostic.GameAgnosticTests.test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix",
+        "test_game_agnostic.GameAgnosticTests.test_assembler_accepts_only_declared_review_reference_path",
+        "test_game_agnostic.GameAgnosticTests.test_explicitly_reviewed_extra_skill_is_preserved",
+        "test_game_agnostic.GameAgnosticTests.test_foreign_profile_invariants_are_rejected",
+        "test_game_agnostic.GameAgnosticTests.test_generic_lesson_preserves_fifteen_responsibilities",
+        "test_game_agnostic.GameAgnosticTests.test_malformed_skill_registry_fails_explicitly",
+        "test_game_agnostic.GameAgnosticTests.test_missing_nonpreserved_knowledge_cannot_pass_package_check",
+        "test_game_agnostic.GameAgnosticTests.test_profiles_are_distinct_synthetic_contracts",
+        "test_game_agnostic.GameAgnosticTests.test_real_seed_does_not_select_game_configuration",
+        "test_game_agnostic.GameAgnosticTests.test_reference_only_lesson_is_not_a_knowledge_selection",
+        "test_game_agnostic.GameAgnosticTests.test_scanner_rejects_name_variants",
+        "test_game_agnostic.GameAgnosticTests.test_shipped_profiles_block_execution_until_reconciled",
+        "test_game_agnostic.GameAgnosticTests.test_test_receipts_include_markdown_inputs_not_generated_evidence",
+        "test_game_agnostic.GameAgnosticTests.test_unregistered_skill_cannot_hide_behind_studio_prefix"
+      ]
+    },
+    {
+      "name": "test_installer-1",
+      "case_ids": [
+        "test_installer.InstallerTests.test_active_task_blocks",
+        "test_installer.InstallerTests.test_bad_approval_no_install",
+        "test_installer.InstallerTests.test_conflicting_agents_preserved",
+        "test_installer.InstallerTests.test_destination_requires_marker",
+        "test_installer.InstallerTests.test_direct_install_creates_plain_target_with_exact_bytes",
+        "test_installer.InstallerTests.test_distribution_content_change_still_rejected",
+        "test_installer.InstallerTests.test_explicit_manual_merge",
+        "test_installer.InstallerTests.test_fresh_install_actual_manifest",
+        "test_installer.InstallerTests.test_invalid_repository_metadata_does_not_block_install",
+        "test_installer.InstallerTests.test_lock_blocks",
+        "test_installer.InstallerTests.test_managed_edits_conflict",
+        "test_installer.InstallerTests.test_non_repo_install_and_rollback_without_git",
+        "test_installer.InstallerTests.test_preserve_not_blanket_override",
+        "test_installer.InstallerTests.test_preview_no_writes",
+        "test_installer.InstallerTests.test_release_line_endings_install_exact_local_bytes",
+        "test_installer.InstallerTests.test_repeat_unchanged",
+        "test_installer.InstallerTests.test_rollback_active_record_blocks",
+        "test_installer.InstallerTests.test_rollback_managed_only",
+        "test_installer.InstallerTests.test_rollback_preserves_edited_seed",
+        "test_installer.InstallerTests.test_rollback_preview_read_only"
+      ]
+    },
+    {
+      "name": "test_installer-2",
+      "case_ids": [
+        "test_installer.InstallerTests.test_rollback_refuses_managed_edit",
+        "test_installer.InstallerTests.test_seed_local_edits_preserved",
+        "test_installer.InstallerTests.test_source_line_ending_change_invalidates_preview",
+        "test_installer.InstallerTests.test_stale_preview",
+        "test_installer.InstallerTests.test_target_only_installs_without_validation",
+        "test_installer.InstallerTests.test_traversal_transaction",
+        "test_installer.InstallerTests.test_unity_project_inside_repository_can_install",
+        "test_installer.InstallerTests.test_wrong_destination"
+      ]
+    },
+    {
+      "name": "test_optional_git_approval-1",
+      "case_ids": [
+        "test_optional_git_approval.OptionalGitApprovalTests.test_approval_cannot_bypass_blocked_plan",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_approval_requires_explicit_human_and_source",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_broken_metadata_or_git_read_failure_does_not_block",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_changed_plan_record_or_core_invalidates_approval",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_cli_approval_needs_no_hash_or_record_file",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_existing_repository_works_when_git_is_missing",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_file_snapshot_prunes_caches_and_journals_before_traversal",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_full_workflow_without_git_executable_or_repository",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_legacy_record_and_git_identity_checks_remain_supported",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_managed_install_and_rollback_with_metadata_but_no_git",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_case_collisions_and_lfs_pointers_block",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_protected_and_out_of_scope_changes_block",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_snapshot_detects_add_edit_delete",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_stale_plan_cannot_be_approved",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_stale_verification_is_not_reused",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_git_symlink_is_rejected_without_following_it",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_no_implicit_approval_at_plan_or_begin",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_project_inside_parent_repository_uses_own_root",
+        "test_optional_git_approval.OptionalGitApprovalTests.test_unborn_repository_uses_file_snapshot"
+      ]
+    },
+    {
+      "name": "test_package-1",
+      "case_ids": [
+        "test_package.BuildParserTests.test_cancelled_not_pass",
+        "test_package.BuildParserTests.test_failed_is_fail_not_error",
+        "test_package.BuildParserTests.test_missing_result_is_malformed",
+        "test_package.BuildParserTests.test_no_outputs",
+        "test_package.BuildParserTests.test_output_digest_mismatch",
+        "test_package.BuildParserTests.test_stale_output_directory",
+        "test_package.BuildParserTests.test_success_actual_hashed_output",
+        "test_package.BuildParserTests.test_wrong_target",
+        "test_package.PackageTests.test_assembler_accepts_crlf_checkout_of_preserved_blob",
+        "test_package.PackageTests.test_assembler_real_git_blob",
+        "test_package.PackageTests.test_assembler_rejects_real_preserved_content_conflict",
+        "test_package.PackageTests.test_assembler_rejects_unsafe_reference",
+        "test_package.PackageTests.test_budget_metrics",
+        "test_package.PackageTests.test_canonical_copies",
+        "test_package.PackageTests.test_distribution_nonempty",
+        "test_package.PackageTests.test_missing_preserved_blocks_full_validation",
+        "test_package.PackageTests.test_no_design_in_game",
+        "test_package.PackageTests.test_package_additions_no_false_full_pass",
+        "test_package.PackageTests.test_release_actual_match",
+        "test_package.PackageTests.test_release_empty_blocks"
+      ]
+    },
+    {
+      "name": "test_package-2",
+      "case_ids": [
+        "test_package.PackageTests.test_release_empty_policy_blocks",
+        "test_package.PackageTests.test_release_no_match_narrow_only",
+        "test_package.PackageTests.test_seed_project_schema_valid"
+      ]
+    },
+    {
+      "name": "test_review_amendments-1",
+      "case_ids": [
+        "test_review_amendments.ReviewAmendmentTests.test_applicable_detail_checklists_present",
+        "test_review_amendments.ReviewAmendmentTests.test_knowledge_digest_tracks_k12_without_extra_uploads",
+        "test_review_amendments.ReviewAmendmentTests.test_open_game_decisions_not_promoted",
+        "test_review_amendments.ReviewAmendmentTests.test_overlay_matches_real_schema",
+        "test_review_amendments.ReviewAmendmentTests.test_prior_k12_preserved_exactly",
+        "test_review_amendments.ReviewAmendmentTests.test_significant_generic_invariants_retained"
+      ]
+    },
+    {
+      "name": "test_runtime-1",
+      "case_ids": [
+        "test_runtime.ProcessTests.test_audit_detects_mutation",
+        "test_runtime.ProcessTests.test_build_failure",
+        "test_runtime.ProcessTests.test_compile_error",
+        "test_runtime.ProcessTests.test_diagnostics_clean",
+        "test_runtime.ProcessTests.test_diagnostics_new",
+        "test_runtime.ProcessTests.test_facts_disagree",
+        "test_runtime.ProcessTests.test_facts_match",
+        "test_runtime.ProcessTests.test_missing_artifact",
+        "test_runtime.ProcessTests.test_nonzero_exit",
+        "test_runtime.ProcessTests.test_reviewed_narrow_dependencies",
+        "test_runtime.ProcessTests.test_skipped_required",
+        "test_runtime.ProcessTests.test_timeout",
+        "test_runtime.ProcessTests.test_two_materially_different_profiles",
+        "test_runtime.ProcessTests.test_wrong_run_identity",
+        "test_runtime.ProcessTests.test_wrong_test_name",
+        "test_runtime.ProcessTests.test_xml_entities",
+        "test_runtime.ProcessTests.test_zero_tests",
+        "test_runtime.RuntimeTests.test_approval_subject",
+        "test_runtime.RuntimeTests.test_archive_and_no_task_reuse",
+        "test_runtime.RuntimeTests.test_begin_without_approval"
+      ]
+    },
+    {
+      "name": "test_runtime-2",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_begin_without_plan",
+        "test_runtime.RuntimeTests.test_blocking_question",
+        "test_runtime.RuntimeTests.test_case_collision",
+        "test_runtime.RuntimeTests.test_concurrent_state_revision",
+        "test_runtime.RuntimeTests.test_dirty_after_plan_before_approval",
+        "test_runtime.RuntimeTests.test_draft_is_not_execution",
+        "test_runtime.RuntimeTests.test_dropped_acceptance",
+        "test_runtime.RuntimeTests.test_dropped_check",
+        "test_runtime.RuntimeTests.test_dropped_invariant",
+        "test_runtime.RuntimeTests.test_duplicate_check_id",
+        "test_runtime.RuntimeTests.test_duplicate_json_keys",
+        "test_runtime.RuntimeTests.test_duplicate_receipt_check",
+        "test_runtime.RuntimeTests.test_duplicate_skills_block",
+        "test_runtime.RuntimeTests.test_failed_then_pass_preserves_history",
+        "test_runtime.RuntimeTests.test_human_automation_rejected",
+        "test_runtime.RuntimeTests.test_illegal_transition",
+        "test_runtime.RuntimeTests.test_interrupted_run_resume",
+        "test_runtime.RuntimeTests.test_lfs_pointer_blocks",
+        "test_runtime.RuntimeTests.test_lock_serializes_writers",
+        "test_runtime.RuntimeTests.test_manifest_mismatch"
+      ]
+    },
+    {
+      "name": "test_runtime-3",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_manual_not_automated",
+        "test_runtime.RuntimeTests.test_missing_artifact",
+        "test_runtime.RuntimeTests.test_missing_configuration",
+        "test_runtime.RuntimeTests.test_missing_design_approval",
+        "test_runtime.RuntimeTests.test_missing_human_acceptance",
+        "test_runtime.RuntimeTests.test_missing_raw_artifact",
+        "test_runtime.RuntimeTests.test_missing_receipt",
+        "test_runtime.RuntimeTests.test_missing_reference",
+        "test_runtime.RuntimeTests.test_named_suite_failure_not_leaf_pass",
+        "test_runtime.RuntimeTests.test_nested_instruction_conflict",
+        "test_runtime.RuntimeTests.test_new_commit_invalidates",
+        "test_runtime.RuntimeTests.test_no_self_certification",
+        "test_runtime.RuntimeTests.test_nonfinite_json",
+        "test_runtime.RuntimeTests.test_nunit_requires_names",
+        "test_runtime.RuntimeTests.test_nunit_requires_positive_count",
+        "test_runtime.RuntimeTests.test_open_overlay_decision",
+        "test_runtime.RuntimeTests.test_out_of_scope_mutation_blocks",
+        "test_runtime.RuntimeTests.test_override_instruction_conflict",
+        "test_runtime.RuntimeTests.test_path_traversal",
+        "test_runtime.RuntimeTests.test_preflight_no_writes"
+      ]
+    },
+    {
+      "name": "test_runtime-4",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_protected_mutation_blocks",
+        "test_runtime.RuntimeTests.test_raw_output_reparsed_not_green_wrapper",
+        "test_runtime.RuntimeTests.test_real_cli_preflight",
+        "test_runtime.RuntimeTests.test_recovery_budget",
+        "test_runtime.RuntimeTests.test_repeated_init_unchanged",
+        "test_runtime.RuntimeTests.test_required_above_profile",
+        "test_runtime.RuntimeTests.test_required_na_rejected",
+        "test_runtime.RuntimeTests.test_resume_discovery",
+        "test_runtime.RuntimeTests.test_root_count_mismatch",
+        "test_runtime.RuntimeTests.test_roundtrip_human_pending",
+        "test_runtime.RuntimeTests.test_stale_dirty_evidence",
+        "test_runtime.RuntimeTests.test_stale_human_acceptance",
+        "test_runtime.RuntimeTests.test_structural_approval_not_authentication",
+        "test_runtime.RuntimeTests.test_symlink_escape",
+        "test_runtime.RuntimeTests.test_synthetic_boundary",
+        "test_runtime.RuntimeTests.test_unbound_required_check_blocks_plan",
+        "test_runtime.RuntimeTests.test_unknown_configuration_field",
+        "test_runtime.RuntimeTests.test_unknown_schema_keyword",
+        "test_runtime.RuntimeTests.test_unlock_cannot_terminate_live_owner",
+        "test_runtime.RuntimeTests.test_unreconciled_overlay"
+      ]
+    },
+    {
+      "name": "test_runtime-5",
+      "case_ids": [
+        "test_runtime.RuntimeTests.test_wrong_design_method",
+        "test_runtime.RuntimeTests.test_wrong_harness_version",
+        "test_runtime.RuntimeTests.test_wrong_project_receipt",
+        "test_runtime.RuntimeTests.test_wrong_version"
+      ]
+    },
+    {
+      "name": "test_unity_authoring-1",
+      "case_ids": [
+        "test_unity_authoring.UnityAuthoringTests.test_changed_core_hash_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_current_authored_subset",
+        "test_unity_authoring.UnityAuthoringTests.test_enabled_example_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_existing_reference_and_external_link",
+        "test_unity_authoring.UnityAuthoringTests.test_implicit_activation_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_invalid_frontmatter_never_silently_disappears",
+        "test_unity_authoring.UnityAuthoringTests.test_malformed_activation_metadata_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_and_escaping_references",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_default_manifest_file_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_missing_reference_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_nonstring_yaml_scalars_rejected",
+        "test_unity_authoring.UnityAuthoringTests.test_plain_and_quoted_metadata",
+        "test_unity_authoring.UnityAuthoringTests.test_symlink_reference_rejected"
+      ]
+    },
+    {
+      "name": "test_unity_observation-1",
+      "case_ids": [
+        "test_unity_observation.UnityJobTests.test_bad_process_output_is_not_evidence",
+        "test_unity_observation.UnityJobTests.test_changed_provider_executable_input_blocks_before_submit",
+        "test_unity_observation.UnityJobTests.test_confirmed_stopped_states_release_ownership_without_pass",
+        "test_unity_observation.UnityJobTests.test_disabled_config_never_starts_provider",
+        "test_unity_observation.UnityJobTests.test_every_operation_runs_actual_provider_and_parser",
+        "test_unity_observation.UnityJobTests.test_explicit_fresh_verification_from_ready",
+        "test_unity_observation.UnityJobTests.test_frozen_smoke_fails_despite_capture",
+        "test_unity_observation.UnityJobTests.test_identity_changes_rejected_and_ownership_retained",
+        "test_unity_observation.UnityJobTests.test_invalid_spec_never_starts_provider",
+        "test_unity_observation.UnityJobTests.test_lost_submit_retains_ownership_and_blocks_resubmit",
+        "test_unity_observation.UnityJobTests.test_missing_capability_never_submits",
+        "test_unity_observation.UnityJobTests.test_missing_coverage_expectation_blocks_before_submit",
+        "test_unity_observation.UnityJobTests.test_never_reuse_live_observation",
+        "test_unity_observation.UnityJobTests.test_partial_search_fails_coverage_expectation",
+        "test_unity_observation.UnityJobTests.test_persistence_and_localization_failures_propagate",
+        "test_unity_observation.UnityJobTests.test_poll_budget_stops_without_claiming_cancellation",
+        "test_unity_observation.UnityJobTests.test_probe_not_ready_never_submits",
+        "test_unity_observation.UnityJobTests.test_source_mutation_during_observation_invalidates_run",
+        "test_unity_observation.UnityJobTests.test_success_one_submit_local_poll_and_human_pending",
+        "test_unity_observation.UnityJobTests.test_timeout_is_not_server_cancellation"
+      ]
+    },
+    {
+      "name": "test_unity_observation-2",
+      "case_ids": [
+        "test_unity_observation.UnityJobTests.test_uncertain_terminal_states_retain_ownership",
+        "test_unity_observation.UnityJobTests.test_unknown_reuse_policy_rejected",
+        "test_unity_observation.UnityReducerTests.test_capture_digest_and_source_and_paths",
+        "test_unity_observation.UnityReducerTests.test_csv_quoted_fields_and_header_validation",
+        "test_unity_observation.UnityReducerTests.test_empty_rosters_rejected_before_execution",
+        "test_unity_observation.UnityReducerTests.test_frozen_and_failed_conditions_are_observed_not_invented",
+        "test_unity_observation.UnityReducerTests.test_incomplete_search_is_never_labeled_complete",
+        "test_unity_observation.UnityReducerTests.test_mandatory_expectations_and_type_checks",
+        "test_unity_observation.UnityReducerTests.test_missing_asset_or_unsaved_binding_is_failure",
+        "test_unity_observation.UnityReducerTests.test_missing_locale_empty_translation_and_code_site",
+        "test_unity_observation.UnityReducerTests.test_no_result_is_not_universal_absence",
+        "test_unity_observation.UnityReducerTests.test_outside_scope_duplicate_and_missing_properties_rejected",
+        "test_unity_observation.UnityReducerTests.test_reducers_never_mark_human_accepted",
+        "test_unity_observation.UnityReducerTests.test_run_file_rejects_symlink",
+        "test_unity_observation.UnityReducerTests.test_search_counts_and_scoped_properties",
+        "test_unity_observation.UnityReducerTests.test_unknown_fields_nonfinite_and_oversize_rejected",
+        "test_unity_observation.UnityReducerTests.test_unknown_locale_duplicate_pair_and_unknown_code_site_rejected"
+      ]
+    }
+  ]
+}

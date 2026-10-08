@@ -17,7 +17,7 @@ def git(root,*args):
  return subprocess.run(['git','-c','core.hooksPath=/dev/null','-C',str(root),*args],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).stdout
 
 class Fixture:
- def __init__(self,mode='nunit',pipeline='URP',narrow=False):
+ def __init__(self,mode='nunit',pipeline='URP',narrow=False,git_enabled=True):
   self.temp=tempfile.TemporaryDirectory(prefix='BH synthetic project ');self.root=Path(self.temp.name)
   shutil.copytree(PACKAGE/'project-template',self.root,dirs_exist_ok=True)
   r=self.root;self.pid='synthetic-'+pipeline.lower();self.task='task-01'
@@ -49,7 +49,8 @@ class Fixture:
   self.refresh_handoff()
   self.proposal={'version':'1.0.0','project_id':self.pid,'task_id':self.task,'steps':[{'id':'STEP-01','description':'Bounded synthetic counter change and human review','paths':['Source/value.json'],'ac_ids':['AC-01','AC-HUMAN']}],'risks':['Synthetic only'],'reconciliation':['Actual fixture paths and Python tool pinned'],'tool_review_ref':'SYNTHETIC tool review','scope_conflicts':[],'next_action':'Obtain genuine approval of the exact generated plan'}
   write(r,'.bh/tasks/task-01/proposal.json',self.proposal)
-  git(r,'init','-q');git(r,'config','user.name','BH Synthetic Tests');git(r,'config','user.email','synthetic@example.invalid');git(r,'add','.');git(r,'commit','-qm','Synthetic baseline')
+  if git_enabled:
+   git(r,'init','-q');git(r,'config','user.name','BH Synthetic Tests');git(r,'config','user.email','synthetic@example.invalid');git(r,'add','.');git(r,'commit','-qm','Synthetic baseline')
   self.h=bh.Harness(r)
  def refresh_handoff(self,approve=True):
   for a in self.handoff['artifacts']:a['sha256']=bh.file_hash(self.root/a['path'])

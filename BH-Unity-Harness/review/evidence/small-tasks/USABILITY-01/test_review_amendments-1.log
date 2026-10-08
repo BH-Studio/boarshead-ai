@@ -1,0 +1,13 @@
+test_applicable_detail_checklists_present (test_review_amendments.ReviewAmendmentTests.test_applicable_detail_checklists_present) ... ok
+test_knowledge_digest_tracks_k12_without_extra_uploads (test_review_amendments.ReviewAmendmentTests.test_knowledge_digest_tracks_k12_without_extra_uploads) ... ok
+test_open_game_decisions_not_promoted (test_review_amendments.ReviewAmendmentTests.test_open_game_decisions_not_promoted) ... ok
+test_overlay_matches_real_schema (test_review_amendments.ReviewAmendmentTests.test_overlay_matches_real_schema) ... ok
+test_prior_k12_preserved_exactly (test_review_amendments.ReviewAmendmentTests.test_prior_k12_preserved_exactly) ... ok
+test_significant_generic_invariants_retained (test_review_amendments.ReviewAmendmentTests.test_significant_generic_invariants_retained) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.003s
+
+OK
+
+exit_code=0

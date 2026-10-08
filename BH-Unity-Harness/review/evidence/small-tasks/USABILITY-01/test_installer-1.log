@@ -1,0 +1,27 @@
+test_active_task_blocks (test_installer.InstallerTests.test_active_task_blocks) ... ok
+test_bad_approval_no_install (test_installer.InstallerTests.test_bad_approval_no_install) ... ok
+test_conflicting_agents_preserved (test_installer.InstallerTests.test_conflicting_agents_preserved) ... ok
+test_destination_requires_marker (test_installer.InstallerTests.test_destination_requires_marker) ... ok
+test_direct_install_creates_plain_target_with_exact_bytes (test_installer.InstallerTests.test_direct_install_creates_plain_target_with_exact_bytes) ... ok
+test_distribution_content_change_still_rejected (test_installer.InstallerTests.test_distribution_content_change_still_rejected) ... ok
+test_explicit_manual_merge (test_installer.InstallerTests.test_explicit_manual_merge) ... ok
+test_fresh_install_actual_manifest (test_installer.InstallerTests.test_fresh_install_actual_manifest) ... ok
+test_invalid_repository_metadata_does_not_block_install (test_installer.InstallerTests.test_invalid_repository_metadata_does_not_block_install) ... ok
+test_lock_blocks (test_installer.InstallerTests.test_lock_blocks) ... ok
+test_managed_edits_conflict (test_installer.InstallerTests.test_managed_edits_conflict) ... ok
+test_non_repo_install_and_rollback_without_git (test_installer.InstallerTests.test_non_repo_install_and_rollback_without_git) ... ok
+test_preserve_not_blanket_override (test_installer.InstallerTests.test_preserve_not_blanket_override) ... ok
+test_preview_no_writes (test_installer.InstallerTests.test_preview_no_writes) ... ok
+test_release_line_endings_install_exact_local_bytes (test_installer.InstallerTests.test_release_line_endings_install_exact_local_bytes) ... ok
+test_repeat_unchanged (test_installer.InstallerTests.test_repeat_unchanged) ... ok
+test_rollback_active_record_blocks (test_installer.InstallerTests.test_rollback_active_record_blocks) ... ok
+test_rollback_managed_only (test_installer.InstallerTests.test_rollback_managed_only) ... ok
+test_rollback_preserves_edited_seed (test_installer.InstallerTests.test_rollback_preserves_edited_seed) ... ok
+test_rollback_preview_read_only (test_installer.InstallerTests.test_rollback_preview_read_only) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.888s
+
+OK
+
+exit_code=0

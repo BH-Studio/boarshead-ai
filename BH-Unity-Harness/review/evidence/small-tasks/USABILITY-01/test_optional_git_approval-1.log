@@ -1,0 +1,26 @@
+test_approval_cannot_bypass_blocked_plan (test_optional_git_approval.OptionalGitApprovalTests.test_approval_cannot_bypass_blocked_plan) ... ok
+test_approval_requires_explicit_human_and_source (test_optional_git_approval.OptionalGitApprovalTests.test_approval_requires_explicit_human_and_source) ... ok
+test_broken_metadata_or_git_read_failure_does_not_block (test_optional_git_approval.OptionalGitApprovalTests.test_broken_metadata_or_git_read_failure_does_not_block) ... ok
+test_changed_plan_record_or_core_invalidates_approval (test_optional_git_approval.OptionalGitApprovalTests.test_changed_plan_record_or_core_invalidates_approval) ... ok
+test_cli_approval_needs_no_hash_or_record_file (test_optional_git_approval.OptionalGitApprovalTests.test_cli_approval_needs_no_hash_or_record_file) ... ok
+test_existing_repository_works_when_git_is_missing (test_optional_git_approval.OptionalGitApprovalTests.test_existing_repository_works_when_git_is_missing) ... ok
+test_file_snapshot_prunes_caches_and_journals_before_traversal (test_optional_git_approval.OptionalGitApprovalTests.test_file_snapshot_prunes_caches_and_journals_before_traversal) ... ok
+test_full_workflow_without_git_executable_or_repository (test_optional_git_approval.OptionalGitApprovalTests.test_full_workflow_without_git_executable_or_repository) ... ok
+test_legacy_record_and_git_identity_checks_remain_supported (test_optional_git_approval.OptionalGitApprovalTests.test_legacy_record_and_git_identity_checks_remain_supported) ... ok
+test_managed_install_and_rollback_with_metadata_but_no_git (test_optional_git_approval.OptionalGitApprovalTests.test_managed_install_and_rollback_with_metadata_but_no_git) ... ok
+test_no_git_case_collisions_and_lfs_pointers_block (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_case_collisions_and_lfs_pointers_block) ... ok
+test_no_git_protected_and_out_of_scope_changes_block (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_protected_and_out_of_scope_changes_block) ... ok
+test_no_git_snapshot_detects_add_edit_delete (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_snapshot_detects_add_edit_delete) ... ok
+test_no_git_stale_plan_cannot_be_approved (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_stale_plan_cannot_be_approved) ... ok
+test_no_git_stale_verification_is_not_reused (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_stale_verification_is_not_reused) ... ok
+test_no_git_symlink_is_rejected_without_following_it (test_optional_git_approval.OptionalGitApprovalTests.test_no_git_symlink_is_rejected_without_following_it) ... ok
+test_no_implicit_approval_at_plan_or_begin (test_optional_git_approval.OptionalGitApprovalTests.test_no_implicit_approval_at_plan_or_begin) ... ok
+test_project_inside_parent_repository_uses_own_root (test_optional_git_approval.OptionalGitApprovalTests.test_project_inside_parent_repository_uses_own_root) ... ok
+test_unborn_repository_uses_file_snapshot (test_optional_git_approval.OptionalGitApprovalTests.test_unborn_repository_uses_file_snapshot) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 2.772s
+
+OK
+
+exit_code=0

@@ -1,0 +1,46 @@
+import json,hashlib,subprocess,sys,time,ast
+from pathlib import Path
+base=Path('/workspace/scratch/301f3dd0656a');root=base/'git-optional-work/BH-Unity-Harness';ev=root/'review/evidence/small-tasks/USABILITY-01';ev.mkdir(parents=True,exist_ok=True)
+before={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file() and 'evidence' not in p.parts and '__pycache__' not in p.parts}
+discovery_code="""import json,unittest,sys
+sys.path.insert(0,'tests')
+s=unittest.defaultTestLoader.discover('tests')
+def flatten(s):
+ for t in s:
+  if isinstance(t,unittest.TestSuite):yield from flatten(t)
+  else:yield t.id()
+print(json.dumps(sorted(flatten(s))))
+"""
+env={**__import__('os').environ,'PYTHONDONTWRITEBYTECODE':'1'}
+records=[]
+def run(command,label):
+ start=time.monotonic();p=subprocess.run(command,cwd=root,capture_output=True,text=True,env=env)
+ (ev/(label+'.log')).write_text(p.stdout+p.stderr+'\nexit_code='+str(p.returncode)+'\n')
+ record={'command':command,'exit_code':p.returncode,'elapsed_seconds':time.monotonic()-start,'log':label+'.log'};records.append(record)
+ if p.returncode:print(json.dumps(record));print(p.stdout+p.stderr);raise SystemExit(p.returncode)
+ return p
+discovery=run([sys.executable,'-c',discovery_code],'DISCOVERY')
+ids=json.loads(discovery.stdout);assert len(set(ids))==len(ids)
+modules={}
+for identity in ids:modules.setdefault(identity.split('.')[0],[]).append(identity)
+partitions=[]
+for module,cases in modules.items():
+ for i in range(0,len(cases),20):
+  label=module+'-'+str(i//20+1);batch=cases[i:i+20];partitions.append({'name':label,'case_ids':batch})
+  command=[sys.executable,'-m','unittest','-v',*batch]
+  command[2:2]=[]
+  # unittest imports each named test from the existing tests directory.
+  old=env.get('PYTHONPATH');env['PYTHONPATH']=str(root/'tests')
+  run(command,label)
+  if old is None:env.pop('PYTHONPATH',None)
+  else:env['PYTHONPATH']=old
+  print(label+': PASS '+str(len(batch)),flush=True)
+package=run([sys.executable,'tools/check_package.py'],'PACKAGE_CHECK');authoring=run([sys.executable,'tools/check_unity_authoring.py'],'AUTHORING_CHECK')
+after={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file() and 'evidence' not in p.parts and '__pycache__' not in p.parts};assert before==after
+for p in root.rglob('*.py'):
+ if '__pycache__' not in p.parts:ast.parse(p.read_text(),filename=str(p))
+(ev/'PARTITIONS.json').write_text(json.dumps({'discovery_count':len(ids),'partitions':partitions},indent=2)+'\n')
+(ev/'COMMANDS.json').write_text(json.dumps(records,indent=2)+'\n')
+(ev/'TESTED_INPUTS.json').write_text(json.dumps({'files':before,'unchanged_after_execution':True,'scope':'Complete current non-evidence Python/test and package-required input snapshot; historical evidence helpers not staged or executed.'},indent=2)+'\n')
+result={'status':'PASS_USABILITY_CHANGES','input_head':json.loads((base/'git-optional-input.json').read_text())['head'],'tests_passed':len(ids),'module_counts':{k:len(v) for k,v in modules.items()},'all_processes_exit_zero':True,'package':json.loads(package.stdout),'authoring':json.loads(authoring.stdout),'tested_inputs_unchanged':True,'limits':['Synthetic Linux/subprocess validation; Windows, Unity CLI and local project validation NOT_RUN.','Git-backed authoring fixtures require Git to test that optional route; the project runtime does not.','Historical full-suite evidence is superseded for the changed sources.']}
+(ev/'RESULT.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))

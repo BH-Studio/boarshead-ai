@@ -237,17 +237,65 @@ def git(root, *args):
     return result.stdout
 
 
-def snapshot(root):
-    root = Path(root).resolve()
-    require(Path(git(root, 'rev-parse', '--show-toplevel').decode().strip()).resolve() == root,
-            'Select the Git repository root, not a subdirectory')
-    commit = git(root, 'rev-parse', 'HEAD').decode().strip()
-    for entry in git(root, 'ls-files', '--stage', '-z').split(b'\0'):
+def optional_git_inputs(root):
+    """Use Git when usable at this root; its absence is never a prerequisite."""
+    if shutil.which('git') is None:
+        return None
+    try:
+        if Path(git(root, 'rev-parse', '--show-toplevel').decode().strip()).resolve() != root:
+            return None
+        commit = git(root, 'rev-parse', 'HEAD').decode().strip()
+        require(re.fullmatch('[0-9a-f]{40}', commit), 'Unsupported Git commit identity')
+        staged = git(root, 'ls-files', '--stage', '-z')
+        names = git(root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z')
+        status = git(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
+    except (BHError, OSError, subprocess.SubprocessError, UnicodeError):
+        return None
+    # Safety checks remain mandatory; an unsafe indexed input is not a reason
+    # to silently switch inventory modes and omit it.
+    for entry in staged.split(b'\0'):
         if entry:
             mode = entry.split(b' ', 1)[0]
             require(mode not in (b'120000', b'160000'), 'Symlink/submodule requires a separately reviewed workspace')
-    names = sorted(set(x.decode('utf-8') for x in git(root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z').split(b'\0') if x))
-    require(len({x.casefold() for x in names}) == len(names), 'Case-colliding Git paths')
+    return commit, sorted(set(x.decode('utf-8') for x in names.split(b'\0') if x)), status
+
+
+def filesystem_inputs(root):
+    """Prune Unity caches and BH journals before enumeration; never follow links."""
+    names = []
+    def visit(directory):
+        entries = sorted(directory.iterdir(), key=lambda p: p.name)
+        for path in entries:
+            name = path.relative_to(root).as_posix()
+            if any(below(name.casefold(), p.casefold()) for p in VOLATILE):
+                continue
+            portable(name)
+            no_links(path)
+            if path.is_dir():
+                require(not (path / '.git').exists(), 'Nested repository/submodule requires a separately reviewed workspace')
+                visit(path)
+            else:
+                require(path.is_file(), f'Non-file source: {name}')
+                names.append(name)
+    visit(root)
+    return names
+
+
+def optional_git_version(root):
+    if shutil.which('git') is not None:
+        try:
+            return git(root, '--version').decode().strip()
+        except (BHError, OSError, subprocess.SubprocessError, UnicodeError):
+            pass
+    return 'UNAVAILABLE (optional)'
+
+
+def snapshot(root):
+    no_links(Path(root).absolute())
+    root = Path(root).resolve()
+    metadata = optional_git_inputs(root)
+    commit, names, status = metadata if metadata else (None, filesystem_inputs(root), None)
+    require(len({x.casefold() for x in names}) == len(names), 'Case-colliding source paths')
     files = {}
     total = 0
     case_index = {}
@@ -263,8 +311,10 @@ def snapshot(root):
                     f'Unmaterialized LFS pointer: {name}')
         files[name] = file_hash(p)
         total += p.stat().st_size
-    status = git(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
-    return {'commit': commit, 'dirty': bool(status), 'status_sha256': hashlib.sha256(status).hexdigest(),
+    # Without Git there is no clean/dirty VCS assertion. True is conservative;
+    # the retained file fingerprints, rather than a fabricated commit, bind it.
+    return {'commit': commit, 'dirty': bool(status) if metadata else True,
+            'status_sha256': hashlib.sha256(status if metadata else canonical(files)).hexdigest(),
             'files': files, 'sha256': digest({'commit': commit, 'files': files}),
             'file_count': len(files), 'bytes_hashed': total}
 
@@ -527,7 +577,7 @@ class Harness:
         snap = snap if snap is not None else snapshot(self.root)
         issues = []
         skills = []
-        # Use known Git input paths instead of traversing Library/assets caches.
+        # Use snapshotted input paths; volatile Unity caches are excluded.
         known = self.config['instruction_review']['paths']
         for name in snap['files']:
             if Path(name).name == 'AGENTS.override.md':
@@ -603,7 +653,7 @@ class Harness:
                 require(any(below(p, a) for a in h['allowed_paths']), 'Plan exceeds design envelope')
         snap = snapshot(self.root)
         blockers = self.preflight(snap)['issues']
-        if h['source_commit'] and h['source_commit'] != snap['commit']:
+        if h['source_commit'] and snap['commit'] is not None and h['source_commit'] != snap['commit']:
             blockers.append('Handoff repository baseline differs; obtain corrected design/reconciliation input')
         for spec in h['checks']:
             try:
@@ -625,17 +675,27 @@ class Harness:
         self.move(s, 'BLOCKED' if blockers else 'AWAITING_APPROVAL', 'Capability checks and reconciliation complete')
         s['blockers'] = blockers
         s['ac_status'] = {x: 'HUMAN_PENDING' if c['kind'] == 'human' else 'NOT_RUN' for x, c in criteria.items()}
-        s['next_action'] = 'Resolve blockers and replan.' if blockers else 'Human reviews exact plan; record real approval of its canonical hash.'
+        s['next_action'] = 'Resolve blockers and replan.' if blockers else 'Human reviews current plan; record the genuine decision with approve --by NAME --source REFERENCE. No pasted hash is required.'
         self.save(s, rev)
         return {'phase': s['phase'], 'plan': s['plan'], 'approval_subject_sha256': digest(plan), 'blockers': blockers}
 
-    def approve(self, name):
+    def approve(self, name=None, *, by=None, source=None):
         s = self.state()
         rev = s['revision']
         p = self.load_plan(s)
         require(s['phase'] == 'AWAITING_APPROVAL' and not p['blockers'], 'Plan is not eligible for approval')
         require(snapshot(self.root)['sha256'] == p['baseline']['sha256'], 'Workspace changed after planning')
-        r = self.read(name, 'approval')
+        require(bool(name) != bool(by or source), 'Use an approval record OR --by and --source')
+        if name:
+            r = self.read(name, 'approval')
+        else:
+            require(isinstance(by, str) and by.strip() and isinstance(source, str) and source.strip(),
+                    'Approval requires the human name and genuine decision source')
+            r = {'version': VERSION, 'project_id': s['project_id'], 'task_id': s['task_id'],
+                 'kind': 'plan', 'actor': 'human', 'name': by.strip(),
+                 'source_kind': 'human-message', 'source_ref': source.strip(), 'timestamp': utc(),
+                 'subject_sha256': digest(p), 'scope': 'Current reviewed technical plan: ' + s['plan']['path'],
+                 'limits': [], 'synthetic': s['synthetic'], 'human_criteria': []}
         self.approval(r, 'plan', digest(p), s['task_id'])
         s['approval'] = self.save_record(f'.bh/tasks/{s["task_id"]}/approvals/{digest(r)}.json', r, 'approval')
         self.move(s, 'APPROVED', 'Recorded structurally valid human approval; authenticity remains external')
@@ -884,7 +944,7 @@ class Harness:
                    'run_id': run_id, 'synthetic': s['synthetic'], 'started_utc': start, 'finished_utc': utc(),
                    'harness_sha256': self.harness_hash(), 'config_sha256': self.config_hash(), 'plan_sha256': s['plan']['sha256'],
                    'snapshot': snap, 'after_snapshot_sha256': after['sha256'],
-                   'environment': {'os': platform.platform(), 'python': platform.python_version(), 'git': git(self.root, '--version').decode().strip()},
+                   'environment': {'os': platform.platform(), 'python': platform.python_version(), 'git': optional_git_version(self.root)},
                    'profile': profile, 'results': results, 'audit_mutations': mutations,
                    'independence': 'deterministic-wrapper-same-workspace',
                    'limitations': ['Synthetic results are not Unity evidence.' if s['synthetic'] else 'Bound adapters ran; other live-host integration is not implied.',
@@ -1244,9 +1304,13 @@ def main(argv=None):
     p = sub.add_parser('validate-handoff')
     p.add_argument('path')
     p.add_argument('--draft', action='store_true')
-    for name in ('init', 'plan', 'approve', 'accept'):
+    for name in ('init', 'plan', 'accept'):
         p = sub.add_parser(name)
         p.add_argument('path')
+    p = sub.add_parser('approve', help='Record human approval of the current plan without copying a hash')
+    p.add_argument('path', nargs='?', help='Optional legacy approval record')
+    p.add_argument('--by', help='Human who approved the current reviewed plan')
+    p.add_argument('--source', help='Reference to the genuine human approval message')
     p = sub.add_parser('verify')
     p.add_argument('--profile', choices=TIERS, required=True)
     p.add_argument('--check', action='append', dest='check_ids')
@@ -1284,7 +1348,7 @@ def main(argv=None):
                 elif args.command == 'plan':
                     out = h.make_plan(args.path)
                 elif args.command == 'approve':
-                    out = h.approve(args.path)
+                    out = h.approve(args.path, by=args.by, source=args.source)
                 elif args.command == 'begin':
                     out = h.begin()
                 elif args.command == 'verify':

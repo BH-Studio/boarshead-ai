@@ -55,7 +55,7 @@ D['binding']=obj({'check_id':ID,'tool_key':ID,'arguments':strings(1,128),'workin
 D['bindings']=obj({'version':V,'project_id':ID,'checks':arr(ref('binding'),0,64)})
 D['proposal']=obj({'version':V,'project_id':ID,'task_id':ID,'steps':arr(obj({'id':ID,'description':S,'paths':strings(1),'ac_ids':ids(1)}),1,64),
  'risks':strings(),'reconciliation':strings(1),'tool_review_ref':S,'scope_conflicts':strings(),'next_action':S})
-D['snapshot']=obj({'commit':{'type':'string','pattern':r'^[0-9a-f]{40}$'},'dirty':B,'status_sha256':HASH,
+D['snapshot']=obj({'commit':nullable({'type':'string','pattern':r'^[0-9a-f]{40}$'}),'dirty':B,'status_sha256':HASH,
  'files':{'type':'object','additionalProperties':HASH},'sha256':HASH,'file_count':N,'bytes_hashed':N})
 D['plan']=obj({'version':V,'project_id':ID,'task_id':ID,'created_utc':TIME,'handoff_sha256':HASH,'config_sha256':HASH,'harness_sha256':HASH,
  'baseline':ref('snapshot'),'proposal':ref('proposal'),'blockers':strings(),'allowed_paths':strings(1),'protected_paths':strings(),

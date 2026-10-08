@@ -1,0 +1,11 @@
+test_wrong_design_method (test_runtime.RuntimeTests.test_wrong_design_method) ... ok
+test_wrong_harness_version (test_runtime.RuntimeTests.test_wrong_harness_version) ... ok
+test_wrong_project_receipt (test_runtime.RuntimeTests.test_wrong_project_receipt) ... ok
+test_wrong_version (test_runtime.RuntimeTests.test_wrong_version) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.599s
+
+OK
+
+exit_code=0

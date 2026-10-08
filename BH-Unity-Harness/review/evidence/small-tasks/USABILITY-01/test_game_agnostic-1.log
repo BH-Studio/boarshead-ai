@@ -1,0 +1,22 @@
+test_active_policy_and_knowledge_have_no_source_game_names (test_game_agnostic.GameAgnosticTests.test_active_policy_and_knowledge_have_no_source_game_names) ... ok
+test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix (test_game_agnostic.GameAgnosticTests.test_arbitrary_unreviewed_skill_blocks_without_a_game_prefix) ... ok
+test_assembler_accepts_only_declared_review_reference_path (test_game_agnostic.GameAgnosticTests.test_assembler_accepts_only_declared_review_reference_path) ... ok
+test_explicitly_reviewed_extra_skill_is_preserved (test_game_agnostic.GameAgnosticTests.test_explicitly_reviewed_extra_skill_is_preserved) ... ok
+test_foreign_profile_invariants_are_rejected (test_game_agnostic.GameAgnosticTests.test_foreign_profile_invariants_are_rejected) ... ok
+test_generic_lesson_preserves_fifteen_responsibilities (test_game_agnostic.GameAgnosticTests.test_generic_lesson_preserves_fifteen_responsibilities) ... ok
+test_malformed_skill_registry_fails_explicitly (test_game_agnostic.GameAgnosticTests.test_malformed_skill_registry_fails_explicitly) ... ok
+test_missing_nonpreserved_knowledge_cannot_pass_package_check (test_game_agnostic.GameAgnosticTests.test_missing_nonpreserved_knowledge_cannot_pass_package_check) ... ok
+test_profiles_are_distinct_synthetic_contracts (test_game_agnostic.GameAgnosticTests.test_profiles_are_distinct_synthetic_contracts) ... ok
+test_real_seed_does_not_select_game_configuration (test_game_agnostic.GameAgnosticTests.test_real_seed_does_not_select_game_configuration) ... ok
+test_reference_only_lesson_is_not_a_knowledge_selection (test_game_agnostic.GameAgnosticTests.test_reference_only_lesson_is_not_a_knowledge_selection) ... ok
+test_scanner_rejects_name_variants (test_game_agnostic.GameAgnosticTests.test_scanner_rejects_name_variants) ... ok
+test_shipped_profiles_block_execution_until_reconciled (test_game_agnostic.GameAgnosticTests.test_shipped_profiles_block_execution_until_reconciled) ... ok
+test_test_receipts_include_markdown_inputs_not_generated_evidence (test_game_agnostic.GameAgnosticTests.test_test_receipts_include_markdown_inputs_not_generated_evidence) ... ok
+test_unregistered_skill_cannot_hide_behind_studio_prefix (test_game_agnostic.GameAgnosticTests.test_unregistered_skill_cannot_hide_behind_studio_prefix) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.684s
+
+OK
+
+exit_code=0
