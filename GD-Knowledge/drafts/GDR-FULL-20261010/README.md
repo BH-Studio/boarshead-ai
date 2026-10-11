@@ -1,14 +1,22 @@
-# GD-Knowledge: reviewed-draft checkpoint through F06/P05/G06
+# GD-Knowledge: full-run reviewed-draft checkpoint
 
-11 October 2026 UTC. **22 research batches selected after separate document review:40 topics,16 genres,39 patterns (95 research candidates).** This is not the95-item topic/genre roster completed: patterns are extra artifacts, and evidence/subfacet gaps remain open. Unreviewed running/submitted batches are excluded.
+11 October2026 UTC. **All37 planned research batches have delivered separately reviewed drafts covering the requested40 topic headings and55 genre labels.** There are63 additional provisional pattern candidates, giving158 research files. File/roster completion is not exhaustive subfacet evidence, canonical acceptance, proven efficacy or release.
 
-This increment adds F05,F06,P05,G05,G06 over published waves1–4 base commit `3c0fd2eca5b043d4db7868f0c308fa2a114389e8`. All earlier selected files remain unchanged. Local assembly performs no repository write.
+This final genre increment adds G07–G21 over verified published base `5a2a0efd4a8ce601b0929ea29815e3bfce9e04fb`. All earlier selected content remains unchanged. Reviewers' narrow corrections are selected only through exact mappings and separate receipts. No implementation, repository mutation or Project-source change was performed by this packager.
 
-- [Entry inventory](ENTRY_INVENTORY.md): sole selected research tree, stable candidate IDs/version0.1.0/draft/null approvals.
-- [Source inventory](SOURCE_INVENTORY.md): selected bindings, not counts of independent works/studies.
-- [Selection receipt](SELECTION_RECEIPT.md): exact correction/origin decisions and historical hash exceptions.
-- [Dependencies/gaps](DEPENDENCIES_AND_GAPS.md), [verification](VERIFICATION.md), [manifest](MANIFEST.md).
+## Read the selected snapshot
 
-P04 remains corrected Origin B only. P05's byte-identical duplicate origins and later final-response provenance are separately retained; byte equivalence alone never established author provenance. Review corrections retain exact predecessor fingerprints without source renumbering. Historical review-pending/provenance-unverified statements describe earlier snapshots, not retroactive author access.
+- [Entry inventory](ENTRY_INVENTORY.md): the only selected research reading tree, stable candidate IDs/version0.1.0/draft/null approvals.
+- [Source identity inventory](SOURCE_INVENTORY.md): provisional bindings, not counts of independent studies.
+- [Full-run roster and integration audit](reviews/coordination/full-run-coverage-and-integration-audit.md): exact95-item coverage and open coordination queue.
+- [Selection receipt](SELECTION_RECEIPT.md), [dependencies and evidence gaps](DEPENDENCIES_AND_GAPS.md), [verification](VERIFICATION.md), [manifest](MANIFEST.md).
 
-Source spot checks and separate model reviews are not empirical replication, actual-host/gameplay tests or human acceptance. No canonical allocation, source consolidation, approval or release is claimed. Keep full originals/reports/receipts and the directory layout; do not promote a drafted topic heading into complete taxonomy coverage. Other research continues outside this selected checkpoint.
+## What remains open
+
+All patterns remain research candidates. G14 resource-plan PAT-02 has an explicit hold on standalone canonical promotion because of F02 overlap; retaining its draft preserves review history, not independent acceptance. Delegation, recap/re-entry, rollback, cue and other overlaps remain queued without ID merges or deletions. Full subfacet/evidence gaps and deferred questions remain in packets/reviews and the audit.
+
+P04 active guidance remains corrected Origin B only; A/B archives are segregated. P05 final-response source identity and review corrections are separately recorded. Earlier author access/review/provenance limitations remain historical, never retroactively rewritten. Historical author seals may identify predecessors; current mappings/receipts and entry hashes identify selected drafts.
+
+Separate model reviews and source spot checks are not empirical replication or human approval. No actual-host/cold/blind retrieval, game/player/participant/engine test, canonical allocation, source merge, acceptance or release is established by file publication. Additional research and authorized validation remain future work; there are no undispatched batches left in the original37-batch plan, but its research questions are not all closed.
+
+Preserve layout, originals and receipts. This is an incremental payload requiring its base; no earlier selected files are redundantly rewritten or silently promoted.

@@ -1,11 +1,10 @@
-# Increment verification
+# Final reviewed-draft snapshot verification
 
-11 October2026 UTC. Verified against locally reconstructed published waves1–4 base, pinned to parent-reported main commit `3c0fd2eca5b043d4db7868f0c308fa2a114389e8`.
+11 October2026 UTC. Base commit `5a2a0efd4a8ce601b0929ea29815e3bfce9e04fb` was verified by the publisher; local packager did not write the repository.
 
-- Adds21 selected research entries:7 topics,5 genres,9 patterns; cumulative40 topics,16 genres,39 patterns across22 batches.
-- All95 research IDs unique; version0.1.0/draft/null reviewer/approval fields preserved. Earlier selected files are not overwritten.
-- F05 originals/corrected hashes, F06 six-artifact inventory and final selected hashes, G05/G06 selection receipt and P05 twelve original variant hashes/six selected hashes verified against source records.
-- 1526 cumulative selected relative links/anchors resolve locally. Cross-wave targets require the base; increment is not standalone guidance.
-- P05 final-origin clearance is recorded separately from independent content review and byte equivalence. Historical limitations retained. P04 origin segregation remains intact.
-- 308 declared provisional source IDs, not unique works or independent evidence; F06/F03 DOI duplication explicitly reconciled without renumbering.
-- Exact overlay additions/replacements and expected previous hashes recorded in external increment manifest. All payloads UTF-8 Markdown. No repository/Project write, actual host/player/game/runtime test or release performed by packaging.
+-37 research batches; exactly40 topic headings and55 genre labels, plus63 provisional patterns. Independent roster audit provides exact mapping; unique provisional IDs, stable version0.1.0/draft/null approvals checked.
+- Final increment adds39 genres and24 provisional patterns. All preceding selected files remain unchanged.
+- 93 final-genre selected payload hashes independently match supplied selection maps; available original predecessors match their recorded hashes. Per-batch mechanical reports and limitations are retained.
+- 2409 combined selected relative links/anchors resolve locally. This does not test actual repository/Project rendering, retrieval authority, alias routing or cold/blind host behavior.
+- 535 declared provisional source IDs, not unique works/studies or independent evidence. Source/owner/overlap holds remain unresolved.
+- Exact overlay paths, new SHA256 and expected previous SHA256 are in INCREMENT_MANIFEST. UTF-8/Markdown-only checks performed. No ZIP created, and no repo/Project write, actual-host/game/player test, human approval or release performed.

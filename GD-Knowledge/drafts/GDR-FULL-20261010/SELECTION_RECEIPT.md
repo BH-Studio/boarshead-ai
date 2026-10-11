@@ -1,10 +1,11 @@
-# Current selection receipt
+# Final genre selection receipt
 
-Base: published waves1–4 commit `3c0fd2eca5b043d4db7868f0c308fa2a114389e8`. Earlier selected bytes remain unchanged.
+Base published commit `5a2a0efd4a8ce601b0929ea29815e3bfce9e04fb`. All preceding selected bytes remain unchanged. This is an integration selection of reviewed drafts, not author endorsement of corrections or a release decision.
 
-- F05: corrected procedural topic and constraint-gated generation pattern, other two research originals unchanged. Original packet/integrity fingerprint predecessors. [Local correction receipt](selected-drafts/reviews/f05-local-revision-receipt.md) and current entry inventory identify selected bytes; no algorithm/runtime validation implied.
-- F06: four originals selected unchanged by final independent review and exact selection receipt. No author-final provenance or implementation efficacy inferred. F06-009/F03-009 are the same underlying DOI10.1145/3549489 study, not two corroborations; canonical-ID decision remains open.
-- G05/G06: all eight original research entries unchanged. Author self-review revision, where present, remains part of original history. Complete independent report and receipt provide later selection only.
-- P05: exact reviewed selected mapping retained, with two byte-identical original variants separately archived. Later [final-response provenance receipt](provenance/P05/FINAL_RESPONSE_PROVENANCE.md) resolves the packaging hold; earlier unverified statements remain historical. Audio metadata/locale topic/locale pattern and packet addendum corrections preserve IDs/version/draft/null approvals; music topic/pattern unchanged. Original packet seals describe original bytes; explicit overriding review addendum/current mapping identify the selection.
+- G07,G10–G15,G17–G21: retain reviewer-selected original research bytes unless an exact supplied correction is identified in the per-batch map. Full review reports and original author packets/receipts remain preserved.
+- G08: select the narrow Turn-based strategy provenance correction. G09: select the narrow4X source-locator correction. Their unchanged historical author packet/integrity fingerprints identify originals; separate G08/G09 correction receipts and exact selected maps identify corrections.
+- G16: select the reviewer's narrow DCSS locator correction exactly as mapped, preserving originals and its correction receipt. Other G16 research originals remain selected unchanged. No mutable technical source description is promoted to runtime proof.
+- G14 PAT-02 stays a provisional draft under an explicit standalone-canonical-promotion hold. Its relationship to F02 opportunity-cost comparison is a coordination decision, not a completed merge or a new efficacy result.
+- Earlier F01/W02/F03/F04/F05 historical packet seals and other declared predecessor exceptions remain historical. Current entry inventory and each correction receipt identify selected bytes. P04/P05 origin restrictions persist unchanged.
 
-Prior F01/W02/F03/F04 historical packets and F02 original integrity retain predecessor fingerprints. P01/P02/P03/P04 corrected records retain their current seals. No historical fingerprint silently becomes a current seal; current ENTRY_INVENTORY hashes are authoritative for this draft assembly, not canonical release.
+The complete per-batch selection records are preserved under provenance and reviews, with original Library identities, original/selected hashes and review disposition. Corrections never authorize canonical ID reassignment, source consolidation, publication as released guidance or game adoption. Claims about final author responses are limited to verified receipts where supplied; capture metadata alone is not such evidence.

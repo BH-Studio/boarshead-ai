@@ -1,6 +1,6 @@
-# Current selected entry inventory
+# Current selected draft inventory
 
-Only cleared selections are listed. P05 final-origin and F06 review holds, if active, are excluded. All retain draft/null approval and version0.1.0.
+Stable IDs/version0.1.0/draft/null approvals. The retained patterns are provisional coordination candidates; file inclusion does not grant standalone canonical acceptance. G14 PAT-02 standalone promotion is held; see reviewer and overlap register.
 
 | Batch | Kind | ID | Entry | Revision | SHA256 |
 |---|---|---|---|---|---|
@@ -58,6 +58,69 @@ Only cleared selections are listed. P05 final-origin and F06 review holds, if ac
 | G06 | genre | `GDR-CAND-20261010-G06-GEN-02` | [Action RPG](selected-drafts/genres/action-rpg.md) | initial-research-1 | `f3b5d7eb67a4daa4cc197393e1360a64cc99cef07f812a815a2cf8f2c136a316` |
 | G06 | genre | `GDR-CAND-20261010-G06-GEN-03` | [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) | initial-research-1 | `cd05a8bbe65fe49e8cf6a6712d82900a56d94913a57144d90ffb30f4019a07cd` |
 | G06 | pattern | `GDR-CAND-20261010-G06-PAT-01` | [Dependency-complete loadout switch](selected-drafts/patterns/dependency-complete-loadout-switch.md) | initial-research-1 | `a3d6c6b62f0958190ee4f59f46e3bccf9b63e835f78e86e7a9441e31dfad3d6b` |
+| G07 | genre | `GDR-CAND-20261010-G07-GEN-01` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md) | initial-draft-1 | `6d9acb78a7f785a4df8131cb4106619886af343e8f7b8cf86f0f44b2a6fb0393` |
+| G07 | genre | `GDR-CAND-20261010-G07-GEN-02` | [Tactics](selected-drafts/genres/tactics.md) | initial-draft-1 | `b9639d95be769fed4ad31ab10e0f47600e704e28425c7a13d1e318f066cd0063` |
+| G07 | pattern | `GDR-CAND-20261010-G07-PAT-01` | [Consequence-preserving roster recovery](selected-drafts/patterns/consequence-preserving-roster-recovery.md) | initial-draft-1 | `28753f2400ed976ed0d905145a2c4e6ec7a7cd0cc773aac06211f46e4f3de229` |
+| G08 | genre | `GDR-CAND-20261010-G08-GEN-01` | [Strategy](selected-drafts/genres/strategy.md) | initial-draft-1 | `0b2a60f3e625f0e8ad37cb029ed607720993b43a4a6cb1516f433e2d1dafe82a` |
+| G08 | genre | `GDR-CAND-20261010-G08-GEN-02` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md) | initial-draft-1 | `9ec151c61433ae3c625afbd55a9f9231671df922123bee0ea4c718b0984217eb` |
+| G08 | genre | `GDR-CAND-20261010-G08-GEN-03` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md) | independent-review-correction-1 | `f3759ee3ef6a58d79f0998684fbfadf7da5ec8962bdac144756bd31d554cb2a7` |
+| G08 | pattern | `GDR-CAND-20261010-G08-PAT-01` | [Shared activation budget](selected-drafts/patterns/shared-activation-budget.md) | initial-draft-1 | `f58f1f1842af20f9653e5c2f6868ff04c8b0c9fbf111c155ec3d1fbd45993781` |
+| G08 | pattern | `GDR-CAND-20261010-G08-PAT-02` | [Bounded standing orders](selected-drafts/patterns/bounded-standing-orders.md) | initial-draft-1 | `dee80260d084a62074ba9ed0e296458bdce86c09834402871ea94861f361ec9f` |
+| G09 | genre | `GDR-CAND-20261010-G09-GEN-01` | [4X](selected-drafts/genres/4x.md) | independent-review-correction-1 | `20d3f3642840a3cd6a9b72eb4314e4657226619839e51d5b83444fc3b9d68c5e` |
+| G09 | genre | `GDR-CAND-20261010-G09-GEN-02` | [Tower defense](selected-drafts/genres/tower-defense.md) | initial-draft-1 | `03bfda3eec278a5475d480aa98b3a8318cfdf346b3ff6bf4d52338c39456ddc7` |
+| G09 | genre | `GDR-CAND-20261010-G09-GEN-03` | [Auto-battler](selected-drafts/genres/auto-battler.md) | initial-draft-1 | `a62ae91b7d63e760e016748c4d231b5b01f2d32225900b722b4a8eeb0d29ffc6` |
+| G09 | pattern | `GDR-CAND-20261010-G09-PAT-01` | [Evidence-bounded resolution debrief](selected-drafts/patterns/evidence-bounded-resolution-debrief.md) | initial-draft-1 | `f846248c29ee1aafd94ca3402759616f5fc98b881cf2275d8b1db310ff78b97b` |
+| G10 | genre | `GDR-CAND-20261010-G10-GEN-01` | [Puzzle](selected-drafts/genres/puzzle.md) | initial-draft-1 | `afb4cbe708f2fbbbf36e4fb319679da90985292b1292ec3d0ad6a7cab093f4c7` |
+| G10 | genre | `GDR-CAND-20261010-G10-GEN-02` | [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) | initial-draft-1 | `35dcc97f2ba65a0eaedf2fc31b9d2b56744535d1de63bc76bef984a9a24cfcd5` |
+| G10 | pattern | `GDR-CAND-20261010-G10-PAT-01` | [Evidence-bounded solution acceptance](selected-drafts/patterns/evidence-bounded-solution-acceptance.md) | initial-draft-1 | `07b7ee4bd4a2625b6dedd3eda77b2e187731e91ec9f742c0221c05b71ff5226f` |
+| G11 | genre | `GDR-CAND-20261010-G11-GEN-01` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md) | initial-draft-1 | `660b913d608b48ed03b93793bd9460c68e2ba495428d14bce168981c088ae3a9` |
+| G11 | genre | `GDR-CAND-20261010-G11-GEN-02` | [Visual novel](selected-drafts/genres/visual-novel.md) | initial-draft-1 | `7765e5200300b627a23ebfd8b4190bdd6bc4efb1fae1d69a2cc5a2ce6a536919` |
+| G11 | pattern | `GDR-CAND-20261010-G11-PAT-01` | [Intent-preserving parser repair](selected-drafts/patterns/intent-preserving-parser-repair.md) | initial-draft-1 | `a663a95f3112a931b0b91e8432eae80ba46449dc14496bd04f74f68bb52e4eba` |
+| G11 | pattern | `GDR-CAND-20261010-G11-PAT-02` | [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) | initial-draft-1 | `2b0a9ea3032d9c12be0cdb4b97d52e04778da7614dd257aad28ad92bf0fa3159` |
+| G12 | genre | `GDR-CAND-20261010-G12-GEN-01` | [Simulation](selected-drafts/genres/simulation.md) | initial-author-draft-1 | `52f54137d3debaef1c6545bd3274a62fb5e6cc29690cd4b9a5d126cd6c4e6d87` |
+| G12 | genre | `GDR-CAND-20261010-G12-GEN-02` | [Management](selected-drafts/genres/management.md) | initial-author-draft-1 | `83cf1c4b2fc868bc86112e16af164685965b85f2676405367b0634c662d62ec2` |
+| G12 | genre | `GDR-CAND-20261010-G12-GEN-03` | [City builder](selected-drafts/genres/city-builder.md) | initial-author-draft-1 | `8cded723a6afce7f76376889efbcc89b5f2ee498f40291223d5503353dd5dcc1` |
+| G12 | pattern | `GDR-CAND-20261010-G12-PAT-01` | [Pending-work reconciliation](selected-drafts/patterns/pending-work-reconciliation.md) | initial-author-draft-1 | `86ae847acc1e61514171d0f3fb33c1cd98cfbe9bf9c886daa2383e3df8f17030` |
+| G12 | pattern | `GDR-CAND-20261010-G12-PAT-02` | [Bounded delegation contract](selected-drafts/patterns/bounded-delegation-contract.md) | initial-author-draft-1 | `34405cfb4bed9f5d4520145cfdb40a7220043f15e5e64870306249a5888e3aac` |
+| G13 | genre | `GDR-CAND-20261010-G13-GEN-01` | [Colony simulation](selected-drafts/genres/colony-simulation.md) | initial-capture-1 | `6585b1d3f509e5b784549b95baa83086ba9e9195fc7e890876515ba4add47998` |
+| G13 | genre | `GDR-CAND-20261010-G13-GEN-02` | [Life simulation](selected-drafts/genres/life-simulation.md) | initial-capture-1 | `6d5f1669b19bcd2aab38302c43e026a93918b81eebe14f23e65e024ffab7360d` |
+| G13 | genre | `GDR-CAND-20261010-G13-GEN-03` | [Sandbox](selected-drafts/genres/sandbox.md) | initial-capture-1 | `d3b28b377e74db4a631f3d244a5e3c655309c35320761c5082defd2993524679` |
+| G13 | pattern | `GDR-CAND-20261010-G13-PAT-01` | [Scoped autonomous changes](selected-drafts/patterns/scoped-autonomous-changes.md) | initial-capture-1 | `aaa36b4f43e930ee4f1d909c2c1e1607c2b84b91c23c25dc21746d5ff3a4a5d6` |
+| G13 | pattern | `GDR-CAND-20261010-G13-PAT-02` | [Reversible experiment branch](selected-drafts/patterns/reversible-experiment-branch.md) | initial-capture-1 | `01c7750ad277ce1482bf85950eaf1f952ac1b8d70dc5111a5578ea101a467b4e` |
+| G14 | genre | `GDR-CAND-20261010-G14-GEN-01` | [Immersive simulation](selected-drafts/genres/immersive-simulation.md) | initial-draft-1 | `29bec2f6d613aec6a677874fda3cad47f0b391645c77669291c69569e079adec` |
+| G14 | genre | `GDR-CAND-20261010-G14-GEN-02` | [Stealth](selected-drafts/genres/stealth.md) | initial-draft-1 | `2f18a0b514cf717a5c86f87688dfb822050d63a81b502151ec2ad878e23f26c2` |
+| G14 | genre | `GDR-CAND-20261010-G14-GEN-03` | [Survival](selected-drafts/genres/survival.md) | initial-draft-1 | `10ccc276ee966745172fd8732adb17bd5a29ce13d617605763a103d053a4ed82` |
+| G14 | pattern | `GDR-CAND-20261010-G14-PAT-01` | [Evidence-bounded search and reacquisition](selected-drafts/patterns/evidence-bounded-search-and-reacquisition.md) | initial-draft-1 | `8f572bf92ac157488c045f16cc25d0e0026c8b870cc8a46d43c93f04c32f87d3` |
+| G14 | pattern | `GDR-CAND-20261010-G14-PAT-02` | [Expedition return reserve](selected-drafts/patterns/expedition-return-reserve.md) | initial-draft-1 | `681a1110bb3fb2fb535881e465ee7e059dc56a03b9ed8b3063292c2d2d35726e` |
+| G15 | genre | `GDR-CAND-20261010-G15-GEN-01` | [Survival crafting](selected-drafts/genres/survival-crafting.md) | initial-draft-1 | `078b4a6e8a59923f87a17ebad047be0e9a72d9799d334bafcbf99e285708dc37` |
+| G15 | genre | `GDR-CAND-20261010-G15-GEN-02` | [Soulslike](selected-drafts/genres/soulslike.md) | initial-draft-1 | `c94249d7a73be95f064cf6b1b9e5e58f3bb7722a7c18ffab0745901c75b1e2dd` |
+| G15 | pattern | `GDR-CAND-20261010-G15-PAT-01` | [Discovery-scoped resource survey](selected-drafts/patterns/discovery-scoped-resource-survey.md) | initial-draft-1 | `65b97e46f6bed13a3bbc4f30871104e40b6123e9f63deb77ab7d17458033c125` |
+| G16 | genre | `GDR-CAND-20261010-G16-GEN-01` | [Roguelike](selected-drafts/genres/roguelike.md) | independent-review-correction-1 | `c45a8e5f5b268492498c620d13e81260e0dbfe89325ef39707cc4cd73fb422b1` |
+| G16 | genre | `GDR-CAND-20261010-G16-GEN-02` | [Roguelite](selected-drafts/genres/roguelite.md) | initial-author-draft-1 | `154dea536741d695b71829100c236fe97fb1075d58bf3af6a1352b401a90e016` |
+| G16 | genre | `GDR-CAND-20261010-G16-GEN-03` | [Deckbuilder](selected-drafts/genres/deckbuilder.md) | initial-author-draft-1 | `6413c341b6ac99d7ed377bd3751cf37ff0bbd4ee905e6d1ae9f9aba8635f5580` |
+| G16 | pattern | `GDR-CAND-20261010-G16-PAT-01` | [Explicit run-state boundary](selected-drafts/patterns/explicit-run-state-boundary.md) | initial-author-draft-1 | `96051696f24a11427cbc0bb8d2b722dad8c53cff7a250bc698998d52c2daa2cd` |
+| G16 | pattern | `GDR-CAND-20261010-G16-PAT-02` | [Cycle-aware deck acquisition](selected-drafts/patterns/cycle-aware-deck-acquisition.md) | initial-author-draft-1 | `104ecc15ced437ecf16ebc7bb215a05c1fc0b29c8938083d9bf744ee64abd5a2` |
+| G17 | genre | `GDR-CAND-20261010-G17-GEN-01` | [Collectible card game](selected-drafts/genres/collectible-card-game.md) | initial-capture-1 | `3def1f0c06197916b347084faa43ab3d2612605fc024dd281bdc9c7129ca3191` |
+| G17 | genre | `GDR-CAND-20261010-G17-GEN-02` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md) | initial-capture-1 | `2be7470ed7daa5d9b2d0fc019f9658d61f7866a00d9762675c672b76db6c525d` |
+| G17 | pattern | `GDR-CAND-20261010-G17-PAT-01` | [Access-normalized trial pool](selected-drafts/patterns/access-normalized-trial-pool.md) | initial-capture-1 | `4014fd38c68474df6aa59022d9a8dc05673679af9c19c028e5b44a40168140b7` |
+| G17 | pattern | `GDR-CAND-20261010-G17-PAT-02` | [Information-bounded undo](selected-drafts/patterns/information-bounded-undo.md) | initial-capture-1 | `53ef4c46478fa9f4922b33e9adf16ba925bd581053c3597e6d261d7d9354f382` |
+| G18 | genre | `GDR-CAND-20261010-G18-GEN-01` | [Racing](selected-drafts/genres/racing.md) | initial-author-draft-1 | `389d2145a297785bb3ddc6e16da3ff8a357657d147c66ed2f297dff2ef17a78f` |
+| G18 | genre | `GDR-CAND-20261010-G18-GEN-02` | [Sports](selected-drafts/genres/sports.md) | initial-author-draft-1 | `ee254d7b5cd15b4b7a32b6148c5d606816af86d91792c0ad262e18c260f1c7c4` |
+| G18 | pattern | `GDR-CAND-20261010-G18-PAT-01` | [Versioned Performance Comparison](selected-drafts/patterns/versioned-performance-comparison.md) | initial-author-draft-1 | `9d15e9f67bdf938bd8d0df6e51fd299dc75c0dd3fc3fc595add7dba481efd211` |
+| G19 | genre | `GDR-CAND-20261010-G19-GEN-01` | [Rhythm](selected-drafts/genres/rhythm.md) | initial-draft-1 | `acbc4824c946488ed4b887f3834b78d65b630e5717afbc5c951fa1f01ac7b8ad` |
+| G19 | genre | `GDR-CAND-20261010-G19-GEN-02` | [Party](selected-drafts/genres/party.md) | initial-draft-1 | `2cae024e4fbbba240381de33d005badc19312a4441dbee2e04551cbd7e8c09eb` |
+| G19 | genre | `GDR-CAND-20261010-G19-GEN-03` | [Social deduction](selected-drafts/genres/social-deduction.md) | initial-draft-1 | `5b1294bea5cff7863da016e6555a5d562b2e28ce8cc63b0d2fb833f427bb48b3` |
+| G19 | pattern | `GDR-CAND-20261010-G19-PAT-01` | [Calibration–challenge separation](selected-drafts/patterns/calibration-challenge-separation.md) | initial-draft-1 | `5b1c2d5344054b0897b94972c55c70a1de7892e6b22a4bf2a193e6511318de53` |
+| G19 | pattern | `GDR-CAND-20261010-G19-PAT-02` | [Post-elimination participation contract](selected-drafts/patterns/post-elimination-participation-contract.md) | initial-draft-1 | `2f282473962631de8a6e2a0e4a12263bbb23d289d6870e48a4277bdd2b704f1f` |
+| G20 | genre | `GDR-CAND-20261010-G20-GEN-01` | [Cozy game](selected-drafts/genres/cozy-game.md) | initial-capture-1 | `3a5d62c27a0048827c23d88ca7219e307b5b0a741b043e3b3effd88fc0c828ca` |
+| G20 | genre | `GDR-CAND-20261010-G20-GEN-02` | [Educational game](selected-drafts/genres/educational-game.md) | initial-capture-1 | `0c313226fce31db796fbb8826f478c638bdc205a41c441ddd65ef8f894867f00` |
+| G20 | genre | `GDR-CAND-20261010-G20-GEN-03` | [Idle/incremental](selected-drafts/genres/idle-incremental.md) | initial-capture-1 | `41a1e6eb996d10a3c0f4202cb6d5f77aa79be8f96b10f9b5ab5bd787f818a0bd` |
+| G20 | pattern | `GDR-CAND-20261010-G20-PAT-01` | [Away-state reconciliation](selected-drafts/patterns/away-state-reconciliation.md) | initial-capture-1 | `373fd465d06b6b8d1febc90f79777414d17a00ee16502282612c77c4d9bbd25a` |
+| G21 | genre | `GDR-CAND-20261010-G21-GEN-01` | [MMO](selected-drafts/genres/mmo.md) | initial-authoring-1 | `6c56e35c80347825c685074cad9b68e1cbb6e6cdc633bfd1047d9fb2311b9bbf` |
+| G21 | genre | `GDR-CAND-20261010-G21-GEN-02` | [MOBA](selected-drafts/genres/moba.md) | initial-authoring-1 | `905dd82c4a9d8fcbb2903c82caa2ee64f8a737ae8a0305c77e5a015728fbcf06` |
+| G21 | genre | `GDR-CAND-20261010-G21-GEN-03` | [Battle royale](selected-drafts/genres/battle-royale.md) | initial-authoring-1 | `d809e6d9afa281250cc0c4128a7134efe8c809ec0204e31c682010e15be90686` |
+| G21 | pattern | `GDR-CAND-20261010-G21-PAT-01` | [Public pressure, private position](selected-drafts/patterns/public-pressure-private-position.md) | initial-authoring-1 | `2219a6cc401e9c3ef8397036d7c30d4721c87e43b264eb930d66d9b73a12d09f` |
+| G21 | pattern | `GDR-CAND-20261010-G21-PAT-02` | [Bounded return before final elimination](selected-drafts/patterns/bounded-return-before-final-elimination.md) | initial-authoring-1 | `a78017896041da8a42947ac3ee1099c8c6846bd8610b8089c0bf327f18412ff6` |
 | P01 | pattern | `GDR-CAND-20261010-P01-PAT-01` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md) | review-correction-1 | `6b560a8630dc9e7125dd17a7c8fc53918ca2852eb3efefce693fa9a67c52bca6` |
 | P01 | topic | `GDR-CAND-20261010-P01-TOP-01` | [Visual communication](selected-drafts/topics/visual-communication.md) | review-correction-1 | `b8e23ae234041fa0893295fdd36457eb08e0e77a60cca4229b7a77f0f13844b7` |
 | P01 | topic | `GDR-CAND-20261010-P01-TOP-02` | [Interface and information](selected-drafts/topics/interface-and-information.md) | review-correction-1 | `1381faf6c998295cd0b0472cf3905a28f87d9515d16bacb54ece423fe080595d` |

@@ -1,3 +1,25 @@
+# Final coordination and evidence-depth docket
+
+The full reviewed roster is present; its evidence depth and integration decisions remain open. [Independent full-run audit](reviews/coordination/full-run-coverage-and-integration-audit.md) supplies the exact roster and queue. It is a document/coordination review, not empirical validation.
+
+## Explicit holds and overlap decisions
+
+- G14 resource-plan PAT-02: standalone canonical promotion held; substantial F02 opportunity-cost overlap. Preserve ID/content while deciding genre adaptation or a shared core; no silent merge.
+- G08 standing orders/G12 bounded delegation/G13 autonomous changes: substantial shared policy/exception/termination concepts. Distinguish ongoing permission scope from delegated action; owner/core-versus-adaptation decision pending.
+- F06 re-entry/G20 away-state plus W02/W03/G03 recap queues: current facts, settled transitions, historical intent and spoiler/knowledge entitlement differ, but shared retrieval/revalidation requires one coordinated docket.
+- G11 narrative rereading/G13 experiment branches/G17 reversible trial proposals: preserve branch/world mutation and ownership boundaries; no automatic consolidation.
+- G19 post-elimination participation/G21 return-before-final-elimination: timing and eligibility differ; conditional distinctness is retained, not universal independent efficacy.
+- Existing P01/P02 cue overlap, G05/G04 correction-aware feedback overlap, G06/G04 resource recovery, G03/G02 gates and W04/G03 exit/evidence relationships remain queued.
+- G16 deck-cycle/ownership and run-boundary questions must preserve exact build/cycle/definition scope; genre labels are working boundaries, not canonical necessary-and-sufficient laws.
+
+## Evidence and source limits
+
+All complete per-batch reviews preserve representative/longitudinal/access/cultural/current-build gaps, abstract-only leads, uninspected passages, mutable-page provenance, source conflicts, hypothetical algorithms, cheaper alternatives and unperformed comparisons. No topic heading/file count closes those gaps. Repeated source IDs/URLs, publisher families, linked corrections and production lineage are not independent corroboration. Confirmed F06/F03 study identity and G08/G09 OldWorld alias remain linked without renumbering. Additional same-URL candidate groups in the audit need edition/locator/claim reconciliation, not automatic merging.
+
+## Earlier detailed gap record
+
+Historical unavailable-dependency statements below remain valid author-context records, not assertions that the current reviewed files are absent.
+
 # Current unresolved dependencies and evidence depth
 
 - F05 causal probes overlap pending F02 causal-choice questions; resolve conceptual owners centrally. Generation local compatibility/task feasibility is not player suitability, complete recoverability or deadline assurance. Corrections distinguish candidate distribution from actual fallback exposure and stop-budget logic. Validator completeness, runtime latency, rich simulation modalities, rights and longitudinal/representative benefits remain open.

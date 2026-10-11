@@ -1,6 +1,6 @@
 # Selected source identity inventory
 
-308 declared provisional source IDs; not independent works/studies. P04 source identities still mean corrected Origin B only. Historical/collision variants are not active lookup entries.
+535 declared provisional IDs, not unique works or independent studies. All earlier origin/edition restrictions persist. P04 bindings are corrected B only; P05 final-source mapping is preserved. No source or overlap merger is executed.
 
 | Source ID | Entries |
 |---|---|
@@ -11,13 +11,13 @@
 | `GDR-SRC-20261010-F01-05` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
 | `GDR-SRC-20261010-F01-06` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F01-07` | [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
-| `GDR-SRC-20261010-F01-08` | [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md); [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F01-08` | [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F01-09` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F01-10` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
 | `GDR-SRC-20261010-F01-11` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
 | `GDR-SRC-20261010-F01-12` | [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
 | `GDR-SRC-20261010-F01-13` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
-| `GDR-SRC-20261010-F01-14` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md); [State-validated re-entry brief](selected-drafts/patterns/state-validated-re-entry-brief.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F01-14` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [State-validated re-entry brief](selected-drafts/patterns/state-validated-re-entry-brief.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F02-001` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-002` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-003` | [Decision design](selected-drafts/topics/decision-design.md) |
@@ -26,10 +26,10 @@
 | `GDR-SRC-20261010-F02-006` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-007` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-008` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
-| `GDR-SRC-20261010-F02-009` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F02-009` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-010` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-011` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
-| `GDR-SRC-20261010-F02-012` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
+| `GDR-SRC-20261010-F02-012` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md); [Roguelite](selected-drafts/genres/roguelite.md); [Explicit run-state boundary](selected-drafts/patterns/explicit-run-state-boundary.md) |
 | `GDR-SRC-20261010-F03-001` | [Progression and rewards](selected-drafts/topics/progression-and-rewards.md) |
 | `GDR-SRC-20261010-F03-002` | [Progression and rewards](selected-drafts/topics/progression-and-rewards.md) |
 | `GDR-SRC-20261010-F03-003` | [Progression and rewards](selected-drafts/topics/progression-and-rewards.md) |
@@ -86,7 +86,7 @@
 | `GDR-SRC-20261010-F07-009` | [Legible commitment and safe exit](selected-drafts/patterns/legible-commitment-and-safe-exit.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-010` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-011` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
-| `GDR-SRC-20261010-F07-012` | [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F07-012` | [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-013` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-014` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md); [Theme and meaning](selected-drafts/topics/theme-and-meaning.md) |
 | `GDR-SRC-20261010-F07-015` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
@@ -184,6 +184,233 @@
 | `GDR-SRC-20261010-G06-013` | [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) |
 | `GDR-SRC-20261010-G06-014` | [Action RPG](selected-drafts/genres/action-rpg.md); [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) |
 | `GDR-SRC-20261010-G06-015` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G07-001` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md); [Consequence-preserving roster recovery](selected-drafts/patterns/consequence-preserving-roster-recovery.md) |
+| `GDR-SRC-20261010-G07-002` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md); [Consequence-preserving roster recovery](selected-drafts/patterns/consequence-preserving-roster-recovery.md) |
+| `GDR-SRC-20261010-G07-003` | [Tactics](selected-drafts/genres/tactics.md); [Tactical RPG](selected-drafts/genres/tactical-rpg.md) |
+| `GDR-SRC-20261010-G07-004` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md) |
+| `GDR-SRC-20261010-G07-005` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md); [Consequence-preserving roster recovery](selected-drafts/patterns/consequence-preserving-roster-recovery.md) |
+| `GDR-SRC-20261010-G07-006` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md); [Consequence-preserving roster recovery](selected-drafts/patterns/consequence-preserving-roster-recovery.md) |
+| `GDR-SRC-20261010-G07-007` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-008` | [Tactics](selected-drafts/genres/tactics.md); [Tactical RPG](selected-drafts/genres/tactical-rpg.md) |
+| `GDR-SRC-20261010-G07-009` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-010` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-011` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-012` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-013` | [Tactics](selected-drafts/genres/tactics.md) |
+| `GDR-SRC-20261010-G07-014` | [Tactical RPG](selected-drafts/genres/tactical-rpg.md) |
+| `GDR-SRC-20261010-G08-001` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md); [Shared activation budget](selected-drafts/patterns/shared-activation-budget.md) |
+| `GDR-SRC-20261010-G08-002` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md); [Bounded standing orders](selected-drafts/patterns/bounded-standing-orders.md) |
+| `GDR-SRC-20261010-G08-003` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md); [Bounded standing orders](selected-drafts/patterns/bounded-standing-orders.md) |
+| `GDR-SRC-20261010-G08-004` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md) |
+| `GDR-SRC-20261010-G08-005` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md); [Bounded standing orders](selected-drafts/patterns/bounded-standing-orders.md) |
+| `GDR-SRC-20261010-G08-006` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md); [Bounded standing orders](selected-drafts/patterns/bounded-standing-orders.md) |
+| `GDR-SRC-20261010-G08-007` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md) |
+| `GDR-SRC-20261010-G08-008` | [Strategy](selected-drafts/genres/strategy.md) |
+| `GDR-SRC-20261010-G08-009` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md); [Strategy](selected-drafts/genres/strategy.md) |
+| `GDR-SRC-20261010-G08-010` | [Real-time strategy](selected-drafts/genres/real-time-strategy.md) |
+| `GDR-SRC-20261010-G08-011` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md) |
+| `GDR-SRC-20261010-G08-012` | [Turn-based strategy](selected-drafts/genres/turn-based-strategy.md); [Strategy](selected-drafts/genres/strategy.md) |
+| `GDR-SRC-20261010-G08-013` | [Strategy](selected-drafts/genres/strategy.md) |
+| `GDR-SRC-20261010-G09-001` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-002` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-003` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-004` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-005` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-006` | [4X](selected-drafts/genres/4x.md) |
+| `GDR-SRC-20261010-G09-007` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-008` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-009` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-010` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-011` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-012` | [Tower defense](selected-drafts/genres/tower-defense.md) |
+| `GDR-SRC-20261010-G09-013` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-014` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-015` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-016` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-017` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-018` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-019` | [Auto-battler](selected-drafts/genres/auto-battler.md) |
+| `GDR-SRC-20261010-G09-020` | [Auto-battler](selected-drafts/genres/auto-battler.md); [Evidence-bounded resolution debrief](selected-drafts/patterns/evidence-bounded-resolution-debrief.md) |
+| `GDR-SRC-20261010-G09-021` | [Auto-battler](selected-drafts/genres/auto-battler.md); [Evidence-bounded resolution debrief](selected-drafts/patterns/evidence-bounded-resolution-debrief.md) |
+| `GDR-SRC-20261010-G10-001` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G10-002` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G10-003` | [Puzzle](selected-drafts/genres/puzzle.md); [Detective and mystery](selected-drafts/genres/detective-and-mystery.md); [Evidence-bounded solution acceptance](selected-drafts/patterns/evidence-bounded-solution-acceptance.md) |
+| `GDR-SRC-20261010-G10-004` | [Puzzle](selected-drafts/genres/puzzle.md); [Detective and mystery](selected-drafts/genres/detective-and-mystery.md); [Evidence-bounded solution acceptance](selected-drafts/patterns/evidence-bounded-solution-acceptance.md) |
+| `GDR-SRC-20261010-G10-005` | [Puzzle](selected-drafts/genres/puzzle.md); [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-006` | [Puzzle](selected-drafts/genres/puzzle.md); [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-007` | [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-008` | [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-009` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G10-010` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G10-011` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G10-012` | [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-013` | [Puzzle](selected-drafts/genres/puzzle.md); [Detective and mystery](selected-drafts/genres/detective-and-mystery.md) |
+| `GDR-SRC-20261010-G10-015` | [Puzzle](selected-drafts/genres/puzzle.md) |
+| `GDR-SRC-20261010-G11-001` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md) |
+| `GDR-SRC-20261010-G11-002` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md); [Intent-preserving parser repair](selected-drafts/patterns/intent-preserving-parser-repair.md) |
+| `GDR-SRC-20261010-G11-003` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md) |
+| `GDR-SRC-20261010-G11-004` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md); [Intent-preserving parser repair](selected-drafts/patterns/intent-preserving-parser-repair.md) |
+| `GDR-SRC-20261010-G11-005` | [Interactive fiction](selected-drafts/genres/interactive-fiction.md) |
+| `GDR-SRC-20261010-G11-006` | [Visual novel](selected-drafts/genres/visual-novel.md) |
+| `GDR-SRC-20261010-G11-007` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-008` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-009` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-010` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-011` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-012` | [Visual novel](selected-drafts/genres/visual-novel.md) |
+| `GDR-SRC-20261010-G11-013` | [Visual novel](selected-drafts/genres/visual-novel.md); [State-safe narrative rereading](selected-drafts/patterns/state-safe-narrative-rereading.md) |
+| `GDR-SRC-20261010-G11-014` | [Visual novel](selected-drafts/genres/visual-novel.md) |
+| `GDR-SRC-20261010-G11-015` | [Visual novel](selected-drafts/genres/visual-novel.md) |
+| `GDR-SRC-20261010-G12-001` | [Simulation](selected-drafts/genres/simulation.md) |
+| `GDR-SRC-20261010-G12-002` | [Simulation](selected-drafts/genres/simulation.md) |
+| `GDR-SRC-20261010-G12-003` | [Management](selected-drafts/genres/management.md); [Simulation](selected-drafts/genres/simulation.md); [Pending-work reconciliation](selected-drafts/patterns/pending-work-reconciliation.md) |
+| `GDR-SRC-20261010-G12-004` | [Simulation](selected-drafts/genres/simulation.md) |
+| `GDR-SRC-20261010-G12-005` | [Management](selected-drafts/genres/management.md); [Bounded delegation contract](selected-drafts/patterns/bounded-delegation-contract.md) |
+| `GDR-SRC-20261010-G12-006` | [Management](selected-drafts/genres/management.md); [Pending-work reconciliation](selected-drafts/patterns/pending-work-reconciliation.md); [Bounded delegation contract](selected-drafts/patterns/bounded-delegation-contract.md) |
+| `GDR-SRC-20261010-G12-007` | [Management](selected-drafts/genres/management.md); [Bounded delegation contract](selected-drafts/patterns/bounded-delegation-contract.md) |
+| `GDR-SRC-20261010-G12-008` | [City builder](selected-drafts/genres/city-builder.md) |
+| `GDR-SRC-20261010-G12-009` | [Management](selected-drafts/genres/management.md); [City builder](selected-drafts/genres/city-builder.md); [Bounded delegation contract](selected-drafts/patterns/bounded-delegation-contract.md) |
+| `GDR-SRC-20261010-G12-010` | [City builder](selected-drafts/genres/city-builder.md) |
+| `GDR-SRC-20261010-G12-011` | [City builder](selected-drafts/genres/city-builder.md) |
+| `GDR-SRC-20261010-G12-012` | [City builder](selected-drafts/genres/city-builder.md); [Simulation](selected-drafts/genres/simulation.md) |
+| `GDR-SRC-20261010-G12-013` | [Simulation](selected-drafts/genres/simulation.md) |
+| `GDR-SRC-20261010-G13-001` | [Colony simulation](selected-drafts/genres/colony-simulation.md) |
+| `GDR-SRC-20261010-G13-002` | [Colony simulation](selected-drafts/genres/colony-simulation.md) |
+| `GDR-SRC-20261010-G13-003` | [Colony simulation](selected-drafts/genres/colony-simulation.md) |
+| `GDR-SRC-20261010-G13-004` | [Colony simulation](selected-drafts/genres/colony-simulation.md) |
+| `GDR-SRC-20261010-G13-005` | [Colony simulation](selected-drafts/genres/colony-simulation.md) |
+| `GDR-SRC-20261010-G13-006` | [Colony simulation](selected-drafts/genres/colony-simulation.md); [Life simulation](selected-drafts/genres/life-simulation.md); [Scoped autonomous changes](selected-drafts/patterns/scoped-autonomous-changes.md) |
+| `GDR-SRC-20261010-G13-007` | [Life simulation](selected-drafts/genres/life-simulation.md); [Scoped autonomous changes](selected-drafts/patterns/scoped-autonomous-changes.md) |
+| `GDR-SRC-20261010-G13-008` | [Life simulation](selected-drafts/genres/life-simulation.md) |
+| `GDR-SRC-20261010-G13-009` | [Sandbox](selected-drafts/genres/sandbox.md) |
+| `GDR-SRC-20261010-G13-010` | [Sandbox](selected-drafts/genres/sandbox.md) |
+| `GDR-SRC-20261010-G13-011` | [Sandbox](selected-drafts/genres/sandbox.md) |
+| `GDR-SRC-20261010-G13-012` | [Sandbox](selected-drafts/genres/sandbox.md); [Reversible experiment branch](selected-drafts/patterns/reversible-experiment-branch.md) |
+| `GDR-SRC-20261010-G13-013` | [Sandbox](selected-drafts/genres/sandbox.md); [Reversible experiment branch](selected-drafts/patterns/reversible-experiment-branch.md) |
+| `GDR-SRC-20261010-G13-014` | [Sandbox](selected-drafts/genres/sandbox.md); [Reversible experiment branch](selected-drafts/patterns/reversible-experiment-branch.md) |
+| `GDR-SRC-20261010-G13-015` | [Life simulation](selected-drafts/genres/life-simulation.md) |
+| `GDR-SRC-20261010-G13-016` | [Life simulation](selected-drafts/genres/life-simulation.md) |
+| `GDR-SRC-20261010-G14-001` | [Immersive simulation](selected-drafts/genres/immersive-simulation.md) |
+| `GDR-SRC-20261010-G14-002` | [Stealth](selected-drafts/genres/stealth.md); [Evidence-bounded search and reacquisition](selected-drafts/patterns/evidence-bounded-search-and-reacquisition.md) |
+| `GDR-SRC-20261010-G14-003` | [Stealth](selected-drafts/genres/stealth.md); [Immersive simulation](selected-drafts/genres/immersive-simulation.md) |
+| `GDR-SRC-20261010-G14-004` | [Stealth](selected-drafts/genres/stealth.md) |
+| `GDR-SRC-20261010-G14-005` | [Survival](selected-drafts/genres/survival.md); [Expedition return reserve](selected-drafts/patterns/expedition-return-reserve.md) |
+| `GDR-SRC-20261010-G14-006` | [Survival](selected-drafts/genres/survival.md); [Expedition return reserve](selected-drafts/patterns/expedition-return-reserve.md) |
+| `GDR-SRC-20261010-G14-007` | [Survival](selected-drafts/genres/survival.md); [Expedition return reserve](selected-drafts/patterns/expedition-return-reserve.md) |
+| `GDR-SRC-20261010-G14-008` | [Immersive simulation](selected-drafts/genres/immersive-simulation.md) |
+| `GDR-SRC-20261010-G14-009` | [Stealth](selected-drafts/genres/stealth.md); [Immersive simulation](selected-drafts/genres/immersive-simulation.md); [Evidence-bounded search and reacquisition](selected-drafts/patterns/evidence-bounded-search-and-reacquisition.md) |
+| `GDR-SRC-20261010-G14-010` | [Stealth](selected-drafts/genres/stealth.md) |
+| `GDR-SRC-20261010-G14-011` | [Survival](selected-drafts/genres/survival.md) |
+| `GDR-SRC-20261010-G14-012` | [Stealth](selected-drafts/genres/stealth.md); [Evidence-bounded search and reacquisition](selected-drafts/patterns/evidence-bounded-search-and-reacquisition.md) |
+| `GDR-SRC-20261010-G15-001` | [Survival crafting](selected-drafts/genres/survival-crafting.md); [Discovery-scoped resource survey](selected-drafts/patterns/discovery-scoped-resource-survey.md) |
+| `GDR-SRC-20261010-G15-002` | [Survival crafting](selected-drafts/genres/survival-crafting.md) |
+| `GDR-SRC-20261010-G15-003` | [Survival crafting](selected-drafts/genres/survival-crafting.md) |
+| `GDR-SRC-20261010-G15-004` | [Survival crafting](selected-drafts/genres/survival-crafting.md); [Discovery-scoped resource survey](selected-drafts/patterns/discovery-scoped-resource-survey.md) |
+| `GDR-SRC-20261010-G15-005` | [Survival crafting](selected-drafts/genres/survival-crafting.md); [Discovery-scoped resource survey](selected-drafts/patterns/discovery-scoped-resource-survey.md) |
+| `GDR-SRC-20261010-G15-006` | [Survival crafting](selected-drafts/genres/survival-crafting.md) |
+| `GDR-SRC-20261010-G15-007` | [Survival crafting](selected-drafts/genres/survival-crafting.md) |
+| `GDR-SRC-20261010-G15-008` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-009` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-010` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-011` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-012` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-013` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-014` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-015` | [Soulslike](selected-drafts/genres/soulslike.md) |
+| `GDR-SRC-20261010-G15-016` | [Survival crafting](selected-drafts/genres/survival-crafting.md) |
+| `GDR-SRC-20261010-G16-001` | [Roguelite](selected-drafts/genres/roguelite.md); [Roguelike](selected-drafts/genres/roguelike.md) |
+| `GDR-SRC-20261010-G16-002` | [Roguelike](selected-drafts/genres/roguelike.md) |
+| `GDR-SRC-20261010-G16-003` | [Roguelike](selected-drafts/genres/roguelike.md); [Explicit run-state boundary](selected-drafts/patterns/explicit-run-state-boundary.md) |
+| `GDR-SRC-20261010-G16-004` | [Roguelike](selected-drafts/genres/roguelike.md) |
+| `GDR-SRC-20261010-G16-005` | [Roguelite](selected-drafts/genres/roguelite.md); [Explicit run-state boundary](selected-drafts/patterns/explicit-run-state-boundary.md) |
+| `GDR-SRC-20261010-G16-006` | [Roguelike](selected-drafts/genres/roguelike.md) |
+| `GDR-SRC-20261010-G16-007` | [Deckbuilder](selected-drafts/genres/deckbuilder.md) |
+| `GDR-SRC-20261010-G16-008` | [Deckbuilder](selected-drafts/genres/deckbuilder.md); [Cycle-aware deck acquisition](selected-drafts/patterns/cycle-aware-deck-acquisition.md) |
+| `GDR-SRC-20261010-G16-009` | [Deckbuilder](selected-drafts/genres/deckbuilder.md); [Cycle-aware deck acquisition](selected-drafts/patterns/cycle-aware-deck-acquisition.md) |
+| `GDR-SRC-20261010-G16-010` | [Deckbuilder](selected-drafts/genres/deckbuilder.md) |
+| `GDR-SRC-20261010-G16-011` | [Deckbuilder](selected-drafts/genres/deckbuilder.md); [Roguelite](selected-drafts/genres/roguelite.md); [Cycle-aware deck acquisition](selected-drafts/patterns/cycle-aware-deck-acquisition.md) |
+| `GDR-SRC-20261010-G16-012` | [Roguelite](selected-drafts/genres/roguelite.md); [Roguelike](selected-drafts/genres/roguelike.md) |
+| `GDR-SRC-20261010-G16-014` | [Deckbuilder](selected-drafts/genres/deckbuilder.md) |
+| `GDR-SRC-20261010-G16-015` | [Deckbuilder](selected-drafts/genres/deckbuilder.md); [Cycle-aware deck acquisition](selected-drafts/patterns/cycle-aware-deck-acquisition.md) |
+| `GDR-SRC-20261010-G17-001` | [Collectible card game](selected-drafts/genres/collectible-card-game.md) |
+| `GDR-SRC-20261010-G17-002` | [Collectible card game](selected-drafts/genres/collectible-card-game.md); [Access-normalized trial pool](selected-drafts/patterns/access-normalized-trial-pool.md) |
+| `GDR-SRC-20261010-G17-003` | [Collectible card game](selected-drafts/genres/collectible-card-game.md); [Access-normalized trial pool](selected-drafts/patterns/access-normalized-trial-pool.md) |
+| `GDR-SRC-20261010-G17-004` | [Collectible card game](selected-drafts/genres/collectible-card-game.md) |
+| `GDR-SRC-20261010-G17-005` | [Collectible card game](selected-drafts/genres/collectible-card-game.md) |
+| `GDR-SRC-20261010-G17-006` | [Collectible card game](selected-drafts/genres/collectible-card-game.md); [Access-normalized trial pool](selected-drafts/patterns/access-normalized-trial-pool.md) |
+| `GDR-SRC-20261010-G17-007` | [Collectible card game](selected-drafts/genres/collectible-card-game.md) |
+| `GDR-SRC-20261010-G17-008` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md); [Collectible card game](selected-drafts/genres/collectible-card-game.md) |
+| `GDR-SRC-20261010-G17-009` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md) |
+| `GDR-SRC-20261010-G17-010` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md); [Information-bounded undo](selected-drafts/patterns/information-bounded-undo.md) |
+| `GDR-SRC-20261010-G17-011` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md); [Information-bounded undo](selected-drafts/patterns/information-bounded-undo.md) |
+| `GDR-SRC-20261010-G17-012` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md) |
+| `GDR-SRC-20261010-G17-013` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md); [Information-bounded undo](selected-drafts/patterns/information-bounded-undo.md) |
+| `GDR-SRC-20261010-G17-014` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md) |
+| `GDR-SRC-20261010-G17-015` | [Board-game adaptation](selected-drafts/genres/board-game-adaptation.md) |
+| `GDR-SRC-20261010-G18-001` | [Racing](selected-drafts/genres/racing.md) |
+| `GDR-SRC-20261010-G18-004` | [Racing](selected-drafts/genres/racing.md); [Versioned Performance Comparison](selected-drafts/patterns/versioned-performance-comparison.md) |
+| `GDR-SRC-20261010-G18-005` | [Racing](selected-drafts/genres/racing.md) |
+| `GDR-SRC-20261010-G18-006` | [Racing](selected-drafts/genres/racing.md) |
+| `GDR-SRC-20261010-G18-007` | [Sports](selected-drafts/genres/sports.md); [Versioned Performance Comparison](selected-drafts/patterns/versioned-performance-comparison.md) |
+| `GDR-SRC-20261010-G18-008` | [Sports](selected-drafts/genres/sports.md) |
+| `GDR-SRC-20261010-G18-009` | [Sports](selected-drafts/genres/sports.md); [Versioned Performance Comparison](selected-drafts/patterns/versioned-performance-comparison.md) |
+| `GDR-SRC-20261010-G18-010` | [Sports](selected-drafts/genres/sports.md); [Versioned Performance Comparison](selected-drafts/patterns/versioned-performance-comparison.md) |
+| `GDR-SRC-20261010-G18-011` | [Sports](selected-drafts/genres/sports.md) |
+| `GDR-SRC-20261010-G18-012` | [Sports](selected-drafts/genres/sports.md) |
+| `GDR-SRC-20261010-G18-013` | [Sports](selected-drafts/genres/sports.md) |
+| `GDR-SRC-20261010-G18-014` | [Sports](selected-drafts/genres/sports.md); [Racing](selected-drafts/genres/racing.md) |
+| `GDR-SRC-20261010-G19-001` | [Rhythm](selected-drafts/genres/rhythm.md); [Calibration–challenge separation](selected-drafts/patterns/calibration-challenge-separation.md) |
+| `GDR-SRC-20261010-G19-002` | [Rhythm](selected-drafts/genres/rhythm.md); [Calibration–challenge separation](selected-drafts/patterns/calibration-challenge-separation.md) |
+| `GDR-SRC-20261010-G19-003` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-004` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-005` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-006` | [Rhythm](selected-drafts/genres/rhythm.md); [Calibration–challenge separation](selected-drafts/patterns/calibration-challenge-separation.md) |
+| `GDR-SRC-20261010-G19-007` | [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-008` | [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-009` | [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-010` | [Social deduction](selected-drafts/genres/social-deduction.md); [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-011` | [Social deduction](selected-drafts/genres/social-deduction.md); [Party](selected-drafts/genres/party.md); [Post-elimination participation contract](selected-drafts/patterns/post-elimination-participation-contract.md) |
+| `GDR-SRC-20261010-G19-012` | [Social deduction](selected-drafts/genres/social-deduction.md) |
+| `GDR-SRC-20261010-G19-013` | [Social deduction](selected-drafts/genres/social-deduction.md); [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-014` | [Social deduction](selected-drafts/genres/social-deduction.md); [Party](selected-drafts/genres/party.md); [Post-elimination participation contract](selected-drafts/patterns/post-elimination-participation-contract.md) |
+| `GDR-SRC-20261010-G19-015` | [Social deduction](selected-drafts/genres/social-deduction.md); [Post-elimination participation contract](selected-drafts/patterns/post-elimination-participation-contract.md) |
+| `GDR-SRC-20261010-G19-016` | [Social deduction](selected-drafts/genres/social-deduction.md); [Post-elimination participation contract](selected-drafts/patterns/post-elimination-participation-contract.md) |
+| `GDR-SRC-20261010-G19-017` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-018` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-019` | [Rhythm](selected-drafts/genres/rhythm.md) |
+| `GDR-SRC-20261010-G19-020` | [Social deduction](selected-drafts/genres/social-deduction.md); [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-021` | [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G19-022` | [Party](selected-drafts/genres/party.md) |
+| `GDR-SRC-20261010-G20-001` | [Cozy game](selected-drafts/genres/cozy-game.md) |
+| `GDR-SRC-20261010-G20-002` | [Cozy game](selected-drafts/genres/cozy-game.md) |
+| `GDR-SRC-20261010-G20-003` | [Cozy game](selected-drafts/genres/cozy-game.md) |
+| `GDR-SRC-20261010-G20-004` | [Cozy game](selected-drafts/genres/cozy-game.md) |
+| `GDR-SRC-20261010-G20-005` | [Educational game](selected-drafts/genres/educational-game.md) |
+| `GDR-SRC-20261010-G20-006` | [Educational game](selected-drafts/genres/educational-game.md) |
+| `GDR-SRC-20261010-G20-007` | [Idle/incremental](selected-drafts/genres/idle-incremental.md) |
+| `GDR-SRC-20261010-G20-008` | [Idle/incremental](selected-drafts/genres/idle-incremental.md) |
+| `GDR-SRC-20261010-G20-009` | [Idle/incremental](selected-drafts/genres/idle-incremental.md); [Away-state reconciliation](selected-drafts/patterns/away-state-reconciliation.md) |
+| `GDR-SRC-20261010-G20-010` | [Idle/incremental](selected-drafts/genres/idle-incremental.md) |
+| `GDR-SRC-20261010-G21-001` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-002` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-003` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-004` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-005` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-006` | [MOBA](selected-drafts/genres/moba.md) |
+| `GDR-SRC-20261010-G21-007` | [MOBA](selected-drafts/genres/moba.md) |
+| `GDR-SRC-20261010-G21-008` | [MOBA](selected-drafts/genres/moba.md) |
+| `GDR-SRC-20261010-G21-009` | [MOBA](selected-drafts/genres/moba.md) |
+| `GDR-SRC-20261010-G21-010` | [MOBA](selected-drafts/genres/moba.md); [Public pressure, private position](selected-drafts/patterns/public-pressure-private-position.md) |
+| `GDR-SRC-20261010-G21-011` | [Battle royale](selected-drafts/genres/battle-royale.md) |
+| `GDR-SRC-20261010-G21-012` | [Battle royale](selected-drafts/genres/battle-royale.md); [Public pressure, private position](selected-drafts/patterns/public-pressure-private-position.md) |
+| `GDR-SRC-20261010-G21-013` | [Battle royale](selected-drafts/genres/battle-royale.md); [Bounded return before final elimination](selected-drafts/patterns/bounded-return-before-final-elimination.md) |
+| `GDR-SRC-20261010-G21-014` | [Battle royale](selected-drafts/genres/battle-royale.md); [Bounded return before final elimination](selected-drafts/patterns/bounded-return-before-final-elimination.md) |
+| `GDR-SRC-20261010-G21-015` | [Battle royale](selected-drafts/genres/battle-royale.md); [Bounded return before final elimination](selected-drafts/patterns/bounded-return-before-final-elimination.md) |
+| `GDR-SRC-20261010-G21-016` | [Battle royale](selected-drafts/genres/battle-royale.md) |
+| `GDR-SRC-20261010-G21-017` | [Battle royale](selected-drafts/genres/battle-royale.md) |
+| `GDR-SRC-20261010-G21-018` | [Battle royale](selected-drafts/genres/battle-royale.md) |
+| `GDR-SRC-20261010-G21-019` | [MMO](selected-drafts/genres/mmo.md) |
+| `GDR-SRC-20261010-G21-020` | [MMO](selected-drafts/genres/mmo.md) |
 | `GDR-SRC-20261010-P01-01` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-02` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
 | `GDR-SRC-20261010-P01-03` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
@@ -257,8 +484,8 @@
 | `GDR-SRC-20261010-P05-011` | [Music design](selected-drafts/topics/music-design.md) |
 | `GDR-SRC-20261010-P05-012` | [Audio design](selected-drafts/topics/audio-design.md) |
 | `GDR-SRC-20261010-W01-01` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
-| `GDR-SRC-20261010-W01-02` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
-| `GDR-SRC-20261010-W01-03` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
+| `GDR-SRC-20261010-W01-02` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md); [Interactive fiction](selected-drafts/genres/interactive-fiction.md) |
+| `GDR-SRC-20261010-W01-03` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md); [Interactive fiction](selected-drafts/genres/interactive-fiction.md) |
 | `GDR-SRC-20261010-W01-04` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
 | `GDR-SRC-20261010-W01-05` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
 | `GDR-SRC-20261010-W01-06` | [Worldbuilding](selected-drafts/topics/worldbuilding.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
@@ -276,12 +503,12 @@
 | `GDR-SRC-20261010-W02-001` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-002` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-003` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
-| `GDR-SRC-20261010-W02-004` | [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
+| `GDR-SRC-20261010-W02-004` | [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Interactive fiction](selected-drafts/genres/interactive-fiction.md); [Visual novel](selected-drafts/genres/visual-novel.md) |
 | `GDR-SRC-20261010-W02-005` | [Reaction eligibility and repetition contract](selected-drafts/patterns/reaction-eligibility-and-repetition-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Narrative systems interfaces](selected-drafts/topics/narrative-systems-interfaces.md) |
-| `GDR-SRC-20261010-W02-006` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-W02-006` | [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
 | `GDR-SRC-20261010-W02-007` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-008` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
-| `GDR-SRC-20261010-W02-009` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md); [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-W02-009` | [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
 | `GDR-SRC-20261010-W02-010` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
 | `GDR-SRC-20261010-W02-011` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
 | `GDR-SRC-20261010-W02-012` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
