@@ -1,0 +1,19 @@
+# Preserved SHA256SUMS.txt
+
+Original payload SHA-256: `a3b2d23c04808d00275098c6fea45cf84cce9a1854f7fcd3c013e5e04cea683c`. Complete original record follows in Markdown.
+
+```text
+ae6771890d2e012bce64dd137a4543d5efbd9056124ec7907a4af7a1ad2088e1  earlier/animation-and-performance.md
+99055fce4f1aaf5f1fe18d49111f7068585853ac8a1ca5c0ba1d384a08b061d8  earlier/art-direction.md
+209cbc271c5d453793c554b4329dd4c21263a9f6041ef92a532dda1d05abe89d  earlier/full-run-20261010-p04-integrity-receipt.md
+6c4bb8d4577bde14b01ea4c5d67c59b3b4d26d8e97f1e647687534b590221e77  earlier/full-run-20261010-p04-review-packet.md
+7aa52677e620aac18e5ba2c7e45e39ecbd9795fa74fafc0cac3de660de74caa6  earlier/recognition-preserving-style-variation.md
+e2b5634516fc0abb9158b5e1fba4beb2a744c55b88360eda5411c72313fc35ac  earlier/state-aligned-animation-handoff.md
+580260c37316982e3f8588724fc065f5f317718e4d96b91a7961f81bf8a1f14f  later/action-phase-and-interruption-contract.md
+8da243d9ba61f7a397101383d33181d01d2ec6e65c858fa35d225f1d14c2bd78  later/animation-and-performance.md
+046dae78732fb9b9ec7e0c4d44c432ad3cf11478f002c7717864584e2e19316d  later/art-direction.md
+4e13c0f33da194d701a9b6900ec9d2e06843e1f9493dea618c8e986cfb65d6b8  later/full-run-20261010-p04-integrity-receipt.md
+b8f9604987b785962537f42ba442f10e50a17b0bf1e14f29a9b2f75394b14334  later/full-run-20261010-p04-review-packet.md
+909ab2c79d268bc091df81a7b9dd202383c800298bc9fa6a4f7422f11c8f107f  later/role-preserving-style-variation.md
+
+```

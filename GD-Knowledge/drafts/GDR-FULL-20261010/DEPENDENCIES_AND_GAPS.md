@@ -1,3 +1,24 @@
+# Cumulative dependencies and evidence gaps
+
+## Wave-4 unresolved integration
+
+- F04 response-feasible composition requires an information-valid branching policy; failure to find a witness is not a proof of infeasibility. Traversal marker predictions need invalid/unknown cases to discriminate. Neither corrected recipe is validated gameplay guidance.
+- F04 ownership/source relationships with G02 grace, P02 input/cues and W02 objective contracts remain open. F03 resource accounting provides compatible constraints, not empirical validation or full latest-dependency certification.
+- W04 usable recovery activities differ from F07 stopping and W01 consequence-preserving reconvergence. W04 occurrence/acknowledgment differs from W02 speech-act intent. Preserve distinctions rather than merge similar names.
+- W04 durable-evidence/supported-exit child proposal overlaps G03 dependency-gate and W02 outcome-contract work. Narrow or reconcile before allocating a child. Earlier recap/re-entry overlaps and P01/P02 cue-pattern overlap remain unresolved.
+- P04 Origin A/B collisions must stay origin-qualified in archival provenance. Selected B is not a claim that A is invalid or a verified hidden predecessor. Only B source bindings enter current source lookup.
+- G04 ownership/source/evidence conditions are preserved in its complete independent report and selection receipt. Availability of F04/W04/P04 counterparts is not silent cross-batch acceptance.
+
+G04 proposed owners remain Presentation for provisional-versus-confirmed impact feedback and Foundations for baseline re-entry loadouts. Recovery-window and later material participation are complementary. Evacuation topology overlaps W03/G03/W02/W04 route/exit work; nonvoice-team coordination and resource-budget children need explicit comparison, not automatic dispatch. Long-term assist fairness, tactical-TTK/nonvoice-team effects, extraction loss/churn/compulsion, current insurance/wipe/economy rules, transaction integrity, exit-camping comparisons and representative/build-specific evidence remain open.
+
+## Evidence-depth boundaries
+
+F04 comparative defense/cancellation/perception, runtime/spatial timing, broader traversal modalities, vehicles beyond bounded historical ground-driving contexts, representative/longitudinal and cultural outcomes remain open. W04 recovery/authoring benefit, tone/symbolism/cultural reception and real operational state behavior remain untested. P04 style/animation recipes preserve bounded document/study support rather than universal perception, performance, empathy or timing prescriptions. Full subfacet dispositions, source gaps and proposed studies are retained in the packets and reviews, not replaced by file-count completion.
+
+## Earlier cumulative gaps (historical availability statements)
+
+The earlier detailed gap record follows unchanged. New availability never automatically closes an evidence or owner decision.
+
 # Current unresolved dependencies and coverage
 
 Availability is not acceptance. Author-session “not supplied” statements remain historical evidence. The exact cumulative selections are in ENTRY_INVENTORY, not inferred from file recency.

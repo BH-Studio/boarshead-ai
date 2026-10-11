@@ -1,46 +1,25 @@
-# GD-Knowledge: cumulative waves 1–3 reviewed drafts
+# GD-Knowledge: waves 1–4 reviewed-draft checkpoint
 
-Checkpoint: 11 October 2026 UTC • GDR-FULL-20261010 • Markdown-only recovery package
+11 October 2026 UTC. **17 research batches drafted and independently document-reviewed: 33 topics, 11 genres and 30 patterns.** These 74 provisional entries do not establish complete taxonomy/subfacet coverage or release approval.
 
-**13 research batches are author-complete and separately reviewed. Four fourth-wave batches (F04, W04, P04, G04) are running; 20 remain unsubmitted.** These sum to the 37 planned research batches; C00 coordination is separate. Running status is coordinator-reported at packaging, not independently inspected here and not a claim of completed new research.
+Latest coordinator-reported dispatch checkpoint: 21 research batches submitted, including four fifth-wave batches running; 16 unsubmitted. This sums to the 37-batch plan. Running status is a dated operational report, not a completed research or host-test result. C00 coordination is separate.
 
-The single selected tree contains **26 topics, 8 genres and 22 patterns**: 56 provisional candidates. A drafted heading is not exhaustive subfacet coverage or acceptance. Overlapping patterns remain separately identified and unmerged. All selected research entries retain stable IDs, version 0.1.0, draft and null reviewer/approval metadata.
+## Selected content and navigation
 
-## Status matrix
+- [Entry inventory](ENTRY_INVENTORY.md): sole active selected tree under selected-drafts/topics, patterns, genres and reviews.
+- [Source inventory](SOURCE_INVENTORY.md): selected records only; P04 means corrected Origin B.
+- [Selection receipt](SELECTION_RECEIPT.md): corrections, exact-origin selection and historical hash exceptions.
+- [Dependencies and gaps](DEPENDENCIES_AND_GAPS.md): unresolved owners, overlaps, evidence depth and source identities.
+- [Verification](VERIFICATION.md) and [cumulative manifest](MANIFEST.md): combined local snapshot checks; not a host/release pass.
 
-| Batch | Topics | Genres | Patterns | State |
-|---|---:|---:|---:|---|
-| F01 | 3 | 0 | 1 | Drafted; separately reviewed |
-| F02 | 2 | 0 | 2 | Drafted; separately reviewed |
-| F03 | 2 | 0 | 2 | Drafted; separately reviewed |
-| F07 | 2 | 0 | 2 | Drafted; separately reviewed |
-| G01 | 0 | 2 | 1 | Drafted; separately reviewed |
-| G02 | 0 | 3 | 2 | Drafted; separately reviewed |
-| G03 | 0 | 3 | 2 | Drafted; separately reviewed |
-| P01 | 3 | 0 | 1 | Drafted; separately reviewed |
-| P02 | 3 | 0 | 2 | Drafted; separately reviewed |
-| P03 | 2 | 0 | 2 | Drafted; separately reviewed |
-| W01 | 3 | 0 | 1 | Drafted; separately reviewed |
-| W02 | 3 | 0 | 2 | Drafted; separately reviewed |
-| W03 | 3 | 0 | 2 | Drafted; separately reviewed |
-| F04 / W04 / P04 / G04 | — | — | — | Running; no outputs included |
-| Remaining 20 | — | — | — | Unsubmitted |
+Wave 4 adds F04 (2 topics, 2 patterns), W04 (3 topics, 2 patterns), P04 (2 topics, 2 patterns) and G04 (3 genres, 2 patterns). Earlier 13 batches remain selected unchanged. All IDs/version 0.1.0/draft/null approvals remain intact.
 
-## Navigation
+## P04 origin boundary
 
-- [Current entry inventory](ENTRY_INVENTORY.md): the single selected reading tree at `selected-drafts/topics`, `genres`, `patterns`, `reviews`.
-- [Source identity inventory](SOURCE_INVENTORY.md): entry-local records, locators and evidence limits.
-- [Current selection receipt](SELECTION_RECEIPT.md): corrected selection versus historical packet fingerprints.
-- [Dependencies and coverage gaps](DEPENDENCIES_AND_GAPS.md): unresolved overlap, owners and evidence depth.
-- [Verification](VERIFICATION.md) and [manifest](MANIFEST.md): static checks and exact file hashes.
-- `originals/`, `provenance/`, `corrections/`, `reviews/`: preserved source snapshots, full independent reports and correction records. JSON/diff audit data is wrapped in Markdown, never executable.
-- `checkpoint-wave1/`, `checkpoint-wave2/`, `planning-historical/`, `starter-historical/`: earlier counts, routing and phase statements are historical, not current status.
-- `dependencies/audio-pilot/`: prior audio provenance, excluded from the 56 selected wave-1–3 research entries.
+Only corrected Origin B belongs in active guidance. Origin A and uncorrected B are separately preserved under provenance/P04/origin-A and origin-B, with full variant mapping. Shared candidate/source IDs across origins do not establish equivalent content or lineage. Do not index A into active retrieval, concatenate the source registries, or reinterpret A IDs as B references. The correction predecessors are exact B files; supersedes remains null.
 
-## Evidence and workflow limits
+## Limits and recovery
 
-Authors produced bounded narrative research, not exhaustive systematic reviews. Separate model reviews are independent of authoring turns, not independent empirical replication or human acceptance. Source spot checks, text-only PDF limits and unverified passages are disclosed in the complete reports. Synthetic arithmetic assertions are not economy/gameplay simulations.
+Complete originals, separate reviews and correction/provenance receipts remain available outside selected guidance. Historical author packets may fingerprint predecessors; current receipts and inventory identify selected bytes. Earlier status/count records are historical. Separate model reviews are not empirical replication or human approval; spot-check and source-access limits remain in reports.
 
-No actual-host retrieval, game/player/participant test, canonical source or entry allocation, repository merge, Project-source upload, publication, release or game-adoption authority is supplied by this assembly. Proposed recipes/tests remain hypotheses. Formal content acceptance and Gates D/E remain open. No browser was used or operator approval changed here.
-
-Extract and preserve the directory hierarchy. Start with ENTRY_INVENTORY; retain originals, correction receipts and manifests before any future revision. Earlier ZIPs remain unchanged. Do not flatten files, silently resolve overlapping identities or infer complete topic coverage from file existence.
+No player/gameplay/engine/actual-host test, canonical allocation, source merge, Project-source change, release or acceptance follows from packaging or repository publication. Research recipes remain bounded hypotheses. Read the combined snapshot through its entry inventory and preserve directory structure. The wave-4 delivery is an increment over waves 1–3; prior files are required and are not redundantly redistributed.

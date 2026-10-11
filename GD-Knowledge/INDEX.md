@@ -28,8 +28,8 @@ Front matter and this index must agree. Coordination checks duplicate IDs, missi
 
 Start with the design question and constraints. Find a topic through title, aliases or problem tags. Open its applicable genre note and only the patterns relevant to the decision. Inspect limits, contradictions and sources, not just the recommendation. The [retrieval contract](RETRIEVAL_AND_DISTRIBUTION.md) defines the response and handoff requirements.
 
-## Reviewed research drafts: waves 1–3
+## Reviewed research drafts: waves 1–4
 
-[Browse the selected research inventory](drafts/GDR-FULL-20261010/ENTRY_INVENTORY.md): 26 topics, 8 genres and 22 patterns across 13 separately reviewed batches. These are provisional drafts, not released or formally accepted entries. [Publication checkpoint](drafts/GDR-FULL-20261010/REPOSITORY_CHECKPOINT.md) · [Review and provenance package](drafts/GDR-FULL-20261010/README.md).
+[Browse the selected research inventory](drafts/GDR-FULL-20261010/ENTRY_INVENTORY.md): 33 topics, 11 genres and 30 patterns across 17 separately reviewed batches. These are provisional drafts, not released or formally accepted entries. [Publication checkpoint](drafts/GDR-FULL-20261010/REPOSITORY_CHECKPOINT.md) · [Review and provenance package](drafts/GDR-FULL-20261010/README.md).
 
-The selected reading tree is under `drafts/GDR-FULL-20261010/selected-drafts/`. Original submissions, correction receipts and historical snapshots remain separate. Fourth-wave work is not part of this snapshot. Existing starter specifications and permanent-ID allocation rules remain unchanged.
+The selected reading tree is under `drafts/GDR-FULL-20261010/selected-drafts/`. Original submissions, correction receipts and historical snapshots remain separate. Wave 4 selects only corrected P04 Origin B; alternate originals remain separate provenance. Fifth-wave work is not part of this snapshot. Existing starter specifications and permanent-ID allocation rules remain unchanged.
