@@ -1,0 +1,16 @@
+# Preserved SHA256SUMS.txt
+
+Original payload SHA-256: `865e96ce3d338c3375e8394270210bf03dbab78baadaf8b49b3733a775ec06a7`. Complete text is preserved in the fenced Markdown wrapper.
+
+```text
+3ade738058167b2514d40d24c460b98d80c2cd38f1efd5c10d58aecbd7be4d85  CORRECTION_RECEIPT.md
+d8814d028ddf23bcae78f850ef9c15138904b665a477366144c77e53b299e231  independent-review.md
+56b2766c9c57dedc94493604efdb88f112c28c6178c3eef9c612b152ecebb844  inventory.json
+67fbc09b67261501154268c43f30ac29f132adf38bb8a38b4dbd6bb5ab23cef2  patterns/recoverable-camera-assistance.md
+cccb705e6b772aeb79430f345599ae0e6eb34e06248ba32abca84090705e61bd  patterns/task-preserving-context-profiles.md
+d72c2b912a0519957f646f67f7066d3462e9fe0a12b38783fe7b01f327ae6c6d  reviews/full-run-20261010-p03-review-packet.md
+422c8771d1909a2535d3c54b9f3721366044edea4c0e522380ca40c3f4d7272b  topics/camera-and-framing.md
+6a3552121f0b468739ab19042b09bf7a2d7fa97af66ffdc0d8c2242cbabe9959  topics/platform-and-display-context.md
+76609a5c96cf5f7b57304f241d355ffd8f3db3578afd744bb62a271217718245  verification.json
+
+```

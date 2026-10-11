@@ -1,0 +1,63 @@
+# Independent W02/G02 review
+
+Date: 2026-10-11 UTC. Separate assistant review, independent of the candidate-authoring turn; not independent empirical corroboration or human acceptance.
+
+## Disposition
+
+**Retain the ten research candidates as drafts; select the narrow W02 PAT-02 methodology correction for coordination review.** G02 needs no mandatory content correction from this audit. The evidence is generally carefully bounded and the genre documents genuinely differ. This review does not release entries or declare overall Gates C/D/E passed. No game/player/Project-host tests were performed.
+
+Read the complete Library-returned texts of all twelve files (ten candidates and two packets; no pagination remaining). All reconstructed UTF-8 sizes match Library metadata. All ten candidate SHA-256 values match their original packets. Parsed 57 W02 and 47 G02 local claims: no missing explicitly mentioned claim tokens or missing declared local source records; all candidates are 0.1.0/draft with null reviewer/approval fields. Inventory and hashes: `inventory_hashes.json`; structural checks: `static_review.json`. Review applied the previously inspected starter templates, evidence rules and gates. Originals remain untouched.
+
+## Narrow correction prepared
+
+**W02 PAT-02, Multi-route objective contract, original line 148:** “Confirm transfer on unfamiliar objectives whose deeper constraint differs from the taught example.” This can confound applying a learned rule with learning/adapting to a changed rule. The surrounding protocol does not specify which invariant is retained.
+
+Separate corrected copy: `corrected/multi-route-objective-contract.md`. It asks for the same outcome-and-means distinction in unfamiliar surface contexts at comparable difficulty; a changed underlying constraint becomes a separately reported adaptation/discrimination test. This preserves the recipe and clarifies its proposed validation, without claiming that far transfer is impossible.
+
+Candidate ID remains `GDR-CAND-20261010-W02-PAT-02`; version remains 0.1.0; draft/null reviewer and approvals preserved. Revision is `independent-review-correction-1`. Original hash `557950671f434878c95dd5b414bc1582d83d04dad85224072f5da66fff15241a`; corrected hash `2512fbee56b449df49c61ede24bd07ea9314084d8e75e7c6070ad58dc65c0702`.
+
+`revision_receipt.md`, `revision_receipt.json` and `correction.diff` document the exact change and provenance. The original packet's hash inventory still correctly describes the originals. Coordination must select the correction and update any future distribution manifest; no external replacement occurred.
+
+## Content assessment
+
+- **Dialogue and voice:** Separates expression, recognition, information and downstream consequence; makes the selected speech act distinct from persuasion success. Includes literal lines, intent labels, previews, fixed scenes, interruption repair, expiring barks and selective/no voice. The etiquette counterexample appropriately limits explicit labels. No unsupported voice budget, cooldown or universal option count.
+- **Quests and objectives:** Separates requester motive, protagonist reason, player incentive and completion criterion. Handles pre-completion, out-of-order discovery, invalidated actors, partial relief, refusal and terminal outcomes. The water-supply example distinguishes world result, means constraints and requester judgment; the repair assessment defeats a universal outcome-only recipe.
+- **Lore and continuity:** Separates approved facts, attributed testimony, exposure and player belief. Optionality is tied to later dependencies; a codex can be omitted. The attributed-record example preserves uncertain motives, while a decoding puzzle remains a legitimate knowledge gate. Authority is not inferred from filename recency or narrative confidence.
+- **Intent and response contract:** A sufficiently distinct application-level recipe, not merely a renamed branch pattern. Its loan inquiry versus acceptance example exposes hidden commitments; intentional misunderstanding is separated from an unselected protagonist threat. Benefits remain hypotheses.
+- **Multi-route objective contract:** Distinct accepted-outcome/means/aftermath audit with honest exits to method-essential tasks and fewer supported routes. No reward parity or limitless systemic freedom promised. Correct the transfer-test sentence above.
+- **Platformer:** Focuses on reading, choosing and executing traversal; camera/depth, momentum, required routes and optional expression are treated separately. The rooftop example isolates visibility from timing. It explicitly permits explorative traversal and does not define the genre by a jump button.
+- **Precision platformer:** Focuses on the unit of mastery, reset-state reproducibility, deliberate non-actions, practice versus full-chain achievement, fatigue and assists. It preserves demanding play with forgiveness and avoids equating failure count or progress with learning. The carriage example is not a copy of the platformer example.
+- **Metroidvania:** Focuses on capability-led reinterpretation of persistent connected space. Distinguishes ability, knowledge, skill, resource and narrative gates; physical reachability is not cognitive recovery or practical accessibility. Its canal loop allows acquisition before barrier exposure and retains forward-only alternatives. Jumping, mandatory bosses and automatic map markers are not treated as requirements.
+- **Bounded action grace:** Explicit eligibility, expiry, cancellation, context binding and single consumption; genuine stale-command and deliberate-cancellation countercases. The narrow Celeste basis is disclosed; no portable milliseconds, engine/network architecture or guaranteed accessibility.
+- **Recoverable ability-gate loop:** Separates deferred recognition, meaningful return, state reachability and information recovery. Includes supported-arrival audits and hint-overreach counterexamples. Neither every ability nor every exploration game must use it.
+
+Genre boundaries are proposed, overlapping research conventions, not a settled taxonomy. Shared access/production sections do not substitute for custom guidance: the three files use different research questions, loops, worked scenes and rejection criteria.
+
+## Selected primary-source checks
+
+Relevant passages were inspected, not every citation or entire public work; no source reproduction or gameplay observation implied.
+
+1. [Johanson et al. 2023](https://www.cjohanson.net/downloads/publications/2023%20-%20If%20at%20First%20You%20Dont%20Succeed.pdf), §§4.4–5.3/Table 1: confirms smallest-group assignment, 150 filtered participants/117 returners, adjusted checkpoint training difference 3.98 ± 0.64 SE and nonsignificant level-completion transfer/retention effects. G02 appropriately declines equivalence, universal delay and novice/access-population claims. Its account is more cautious than the article's abstract.
+2. [Celeste & Forgiveness](https://www.maddymakesgames.com/articles/celeste_and_forgiveness/index.html), items 1–2/conclusion: supports creator-described post-edge allowance and press-and-hold prelanding buffering. Expiry/cancellation recipe details are clearly G02 synthesis, not documented Celeste internals.
+3. [Celeste changelog](https://www.celestegame.com/changelog.html), V1.3.1.0 and V1.4.0.0: confirms initially unlocalized Dash Assist and reported reset/facing/assist soft-lock fixes. Drafts correctly describe documents, not reproduced bugs.
+4. [Doran/Parberry](https://ianparberry.com/pubs/pcg2011.pdf), Table 1 and conclusion: game counts sum to 753; corpus concerns historical quest descriptions and inferred NPC motivations. Handcrafted-quality equality remains unestablished, as W02 states.
+5. [Short's conversational analysis](https://emshort.blog/2009/08/08/conversational-analysis-studies/), lift-request/text-subtext discussion: directly supports intention-oriented options and the explicit exception for conversational-nuance gameplay.
+6. [Mask of the Rose creator account](https://emshort.blog/2023/11/22/dialogue-expressiveness-in-mask-of-the-rose/), traits/wardrobe and theory construction: supports filtered expression and distinction between exposure and understood conclusions. W02 does not promote these to measured player benefits.
+7. [Yarn saliency](https://docs.yarnspinner.dev/write-yarn-scripts/advanced-scripting/saliency), strategy/no-selection passage: confirms documented content selection and null output. W02's attention/expiry policy is its own inference; no tool implementation required.
+8. [Heaven's Vault creator explanation](https://medium.com/@inklestudios/why-does-translation-unlock-sites-in-heavens-vault-e05c4ccadf62), main body: confirms discovery/provenance drives plot access while translation changes understanding. Correctly used as a bounded counterexample, not a universal rejection of knowledge gates.
+9. [Mobius patch record](https://www.mobiusdigitalgames.com/news/patch-notes-for-all-platforms-patch-15-on-pc-xbox-and-playstation-and-patch-4-on-nintendo-switch), 1.1.15 sections: confirms Nomai child-writing **visual** consistency and ship-log display/localized-text fixes. Minor precision suggestion: retain “visual” beside writing consistency; this source does not establish a rewritten fictional history. Current ledger qualifies the documentary scope adequately.
+10. [Metroid Dread Report 3](https://www.nintendo.com/en-gb/News/2021/July/Metroid-Dread-Report-Vol-3-Seven-points-that-define-the-2D-saga-2007780.html), §§4–5, and [Team Cherry's Crossroads tour](https://www.teamcherry.com.au/blog/the-forgotten-crossroads-a-hollow-knight-tour): support differing prerelease exploration/map/shortcut offers. Neither proves marker superiority or pleasurable disorientation.
+11. [Axiom Verge prerelease account](https://blog.playstation.com/?p=350133) and [later interview highlights](https://limitedrungames.com/en-ca/blogs/news/limited-run-games-blog-that-axiom-urge): broader optional-boss phrasing versus interviewer framing of most bosses is real. G02 properly avoids asserting every shipped boss is optional or treating these as independent experiments.
+
+W02's reused Fendt/Cardona-Rivera summaries preserve the limitations independently checked during the preceding W01 audit; those papers were not re-opened for this second pass. No new fidelity defect was found in selected primary passages.
+
+## Coordination, cross-batch fit and gaps
+
+- **Flat-host routing remains unresolved:** Library has flat filenames while links assume topics/patterns/genres/reviews folders. Original local link-audit passes do not prove actual host navigation. No host tests executed here.
+- **Cross-batch dependencies:** W02's speech-act/quest promises extend W01's honest consequence and reconvergence distinctions; lore attribution aligns with W01 worldbuilding and G01 interpretation guidance. G02's optional recovery aligns with G01's distinction between reduced penalties and changed activities. Audio hypotheses are not imported as universal tension requirements. This conceptual comparison does not claim that the batch authors inspected reviewed dependency bytes.
+- **Owner decisions:** Bounded action grace needs Foundations action/movement and Presentation input ownership; recoverable ability-gate loop needs Worlds spatial/exploration plus Foundations progression and Presentation information. Avoid duplicating forthcoming F04/W03/P02/P03 guidance. W02 contracts remain narrative-owner recipes with reward/interface dependencies.
+- **Deduplicate sources:** W02 001/002 repeat W01 03/02 respectively; W02 IGDA recording guide repeats W01 15; XAG documents repeat across audio/G01/G02/P-domain work. Do not count reuse as independent support or allocate permanent IDs in this review.
+- **Coverage ceiling:** W02 lacks controlled bark/voice/localization/codex/continuity outcomes, live overlapping or sign/nonverbal dialogue, cooperative quest authority and live-service reset coverage. G02 lacks independent checkpoint-study replication, metroidvania navigation/access trials, live map observations, novice/disabled-player generalization, multiplayer/touch/VR and long-session evidence. These are explicit child-work/dependency gaps, not completed taxonomy cells.
+- **No fabricated testing:** Proposed protocols, illustrations and paper audits remain unperformed. Author packaging assertion counts are not independent experiments. Temporary IDs, hypothesis labels and null approvals remain intact. No repository, Project upload, new external submission or release occurred.
+
+Review complete for these bounded packets. No new research batches or permanent allocations were started.

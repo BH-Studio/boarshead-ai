@@ -1,0 +1,17 @@
+# Preserved SHA256SUMS.txt
+
+Original payload SHA-256: `57dfe8660569dd28c69fb7faf92ae5cbc1b2108a5cd37d0a1ccd56629ad20bf8`. Complete text is preserved in the fenced Markdown wrapper.
+
+```text
+b59fa309bf8ee98fcd4dc29526da956079b14aad1339aec859f985c2916e2bc8  CORRECTION_RECEIPT.md
+48bf346aec05d0394c24049822811f31fab7f91e27da77d42a18bd2f6a1169ba  independent-review.md
+d07c8addc9f3db05f12c16d99d07cd9464c6b7b730f0c9d53444a972d00c1f7a  inventory.json
+4fef0b813e6ae7caf6e36f0046fe4dc034b033c6c9f80cf7acb4285e2f762dd0  patterns/fact-preserving-cue-alternatives.md
+960e6ce66453ab73e1b860acc5fbd67f8c316228c5d4f76ae228e50403ee8094  patterns/recoverable-action-remapping.md
+259c2f894e65cadf5a026c7e9694d052f28ec4e0ae8476493be09a54f0c64276  reviews/full-run-20261010-p02-review-packet.md
+b9235153ba8b742c6df47e9e23844d9ab5da82e4212ebd22f04e314f6ccce21b  topics/controls-and-input.md
+6cf571a87946b9b40470cce966862219906f495b50c0b1db04e1ad7677ca4415  topics/feedback-and-game-feel.md
+f70cdda6a504b283b85bd1c565c10ef503d4aad7d9877c4b00707bb4f819bc2c  topics/multimodal-communication.md
+cbe353d7470fd615339a17f9a17c9f0f575b0e4590870b39064bf6f42f2e8d4c  verification.json
+
+```

@@ -1,0 +1,15 @@
+# Preserved provenance record: SHA256SUMS.txt
+
+Original record SHA-256: `f9693c009c1ad54df49ddf682b534cfaf3ad8a0e4098b8bd46909e4b43b43f3e`. The fenced payload preserves the complete original text; the wrapper is Markdown-only packaging.
+
+```text
+a233b5ecfefcbe70bd801e0c602d95387624ee9f182525ff970808258e818e88  CORRECTION_RECEIPT.md
+ff38f3eb0ccceeccaf3b8fc400335bfc00153e2dc403dcea1df333b838bf55e9  inventory.json
+6b560a8630dc9e7125dd17a7c8fc53918ca2852eb3efefce693fa9a67c52bca6  patterns/redundant-critical-state-cues.md
+20e6165fb21f7b9d10bc872d1f197e96441424b24e41e751a731776baa49ba79  reviews/full-run-20261010-p01-review-packet.md
+eab6276ce51dcea359cb599f24ffef603b6062a6d6f6badffa8c0e28a0e79d48  topics/accessibility-and-inclusive-interaction.md
+1381faf6c998295cd0b0472cf3905a28f87d9515d16bacb54ece423fe080595d  topics/interface-and-information.md
+b8e23ae234041fa0893295fdd36457eb08e0e77a60cca4229b7a77f0f13844b7  topics/visual-communication.md
+5ad2922616aa2e141e331ff026eab43d281093fee07e5a108aba4a33b1d64160  verification.json
+
+```
