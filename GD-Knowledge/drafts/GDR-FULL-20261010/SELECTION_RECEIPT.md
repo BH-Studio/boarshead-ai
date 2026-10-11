@@ -1,10 +1,10 @@
-# Wave-4 cumulative selection receipt
+# Current selection receipt
 
-This is a reviewed-draft selection record, not release approval.
+Base: published waves1–4 commit `3c0fd2eca5b043d4db7868f0c308fa2a114389e8`. Earlier selected bytes remain unchanged.
 
-- F04: select corrected combat and both patterns plus unchanged movement. Original author packet/integrity identify predecessors. [F04 correction receipt](selected-drafts/reviews/f04-local-revision-receipt.md) and ENTRY_INVENTORY supply current hashes.
-- W04/G04: select all five original research entries per batch, with complete separate reviews and selection receipts. Their historical packets remain unchanged.
-- P04: select corrected Origin B only, as established by [provenance receipt](corrections/P04/PROVENANCE_RECEIPT.md), [correction receipt](corrections/P04/CORRECTION_RECEIPT.md) and variant map. Original A/B bytes are separately archived outside active selected guidance. The corrected B packet/integrity are resealed. No A-only source or text enters active guidance.
-- Earlier F01/W02/F03 historical packets and F02 historical integrity receipts still describe predecessors; their retained correction receipts/current inventory identify current selected bytes. No old seal is silently asserted to cover corrections.
+- F05: corrected procedural topic and constraint-gated generation pattern, other two research originals unchanged. Original packet/integrity fingerprint predecessors. [Local correction receipt](selected-drafts/reviews/f05-local-revision-receipt.md) and current entry inventory identify selected bytes; no algorithm/runtime validation implied.
+- F06: four originals selected unchanged by final independent review and exact selection receipt. No author-final provenance or implementation efficacy inferred. F06-009/F03-009 are the same underlying DOI10.1145/3549489 study, not two corroborations; canonical-ID decision remains open.
+- G05/G06: all eight original research entries unchanged. Author self-review revision, where present, remains part of original history. Complete independent report and receipt provide later selection only.
+- P05: exact reviewed selected mapping retained, with two byte-identical original variants separately archived. Later [final-response provenance receipt](provenance/P05/FINAL_RESPONSE_PROVENANCE.md) resolves the packaging hold; earlier unverified statements remain historical. Audio metadata/locale topic/locale pattern and packet addendum corrections preserve IDs/version/draft/null approvals; music topic/pattern unchanged. Original packet seals describe original bytes; explicit overriding review addendum/current mapping identify the selection.
 
-All previous selected wave-1–3 bytes remain unchanged. This increment never retires IDs, changes semantic versions, merges patterns, grants approval or writes the repository. The publisher must use a verified repository base before any separately authorized commit.
+Prior F01/W02/F03/F04 historical packets and F02 original integrity retain predecessor fingerprints. P01/P02/P03/P04 corrected records retain their current seals. No historical fingerprint silently becomes a current seal; current ENTRY_INVENTORY hashes are authoritative for this draft assembly, not canonical release.

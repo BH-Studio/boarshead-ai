@@ -1,8 +1,8 @@
-# Selected source inventory
+# Selected source identity inventory
 
-240 declared provisional source IDs across the active selected tree, not globally unique works or independent studies. **All P04 source suffixes refer only to corrected Origin B.** Origin A is preserved outside active retrieval and must never be joined to B by bare ID. Its archival key is origin + artifact hash + original ID. Source deduplication remains pending.
+308 declared provisional source IDs; not independent works/studies. P04 source identities still mean corrected Origin B only. Historical/collision variants are not active lookup entries.
 
-| Source ID | Selected entries |
+| Source ID | Entries |
 |---|---|
 | `GDR-SRC-20261010-F01-01` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
 | `GDR-SRC-20261010-F01-02` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
@@ -11,13 +11,13 @@
 | `GDR-SRC-20261010-F01-05` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
 | `GDR-SRC-20261010-F01-06` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F01-07` | [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
-| `GDR-SRC-20261010-F01-08` | [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
+| `GDR-SRC-20261010-F01-08` | [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md); [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
 | `GDR-SRC-20261010-F01-09` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
 | `GDR-SRC-20261010-F01-10` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) |
 | `GDR-SRC-20261010-F01-11` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
 | `GDR-SRC-20261010-F01-12` | [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
 | `GDR-SRC-20261010-F01-13` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md) |
-| `GDR-SRC-20261010-F01-14` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md) |
+| `GDR-SRC-20261010-F01-14` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md); [Learning and onboarding](selected-drafts/topics/learning-and-onboarding.md); [Core loops and interaction structure](selected-drafts/topics/core-loops-and-interaction-structure.md); [State-validated re-entry brief](selected-drafts/patterns/state-validated-re-entry-brief.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
 | `GDR-SRC-20261010-F02-001` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-002` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-003` | [Decision design](selected-drafts/topics/decision-design.md) |
@@ -26,7 +26,7 @@
 | `GDR-SRC-20261010-F02-006` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-007` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-008` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
-| `GDR-SRC-20261010-F02-009` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
+| `GDR-SRC-20261010-F02-009` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
 | `GDR-SRC-20261010-F02-010` | [Decision design](selected-drafts/topics/decision-design.md) |
 | `GDR-SRC-20261010-F02-011` | [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
 | `GDR-SRC-20261010-F02-012` | [Bounded disclosed difficulty adaptation](selected-drafts/patterns/bounded-disclosed-difficulty-adaptation.md); [Challenge and difficulty](selected-drafts/topics/challenge-and-difficulty.md) |
@@ -54,6 +54,27 @@
 | `GDR-SRC-20261010-F04-011` | [State-conditioned traversal preview](selected-drafts/patterns/state-conditioned-traversal-preview.md); [Movement and traversal](selected-drafts/topics/movement-and-traversal.md); [Combat and conflict systems](selected-drafts/topics/combat-and-conflict-systems.md) |
 | `GDR-SRC-20261010-F04-012` | [Movement and traversal](selected-drafts/topics/movement-and-traversal.md) |
 | `GDR-SRC-20261010-F04-013` | [Movement and traversal](selected-drafts/topics/movement-and-traversal.md) |
+| `GDR-SRC-20261010-F05-001` | [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F05-002` | [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F05-003` | [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F05-004` | [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F05-005` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md); [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md); [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md); [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) |
+| `GDR-SRC-20261010-F05-006` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md); [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) |
+| `GDR-SRC-20261010-F05-007` | [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) |
+| `GDR-SRC-20261010-F05-008` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md); [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) |
+| `GDR-SRC-20261010-F05-009` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md); [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) |
+| `GDR-SRC-20261010-F05-010` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md); [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) |
+| `GDR-SRC-20261010-F06-001` | [Scoped shared-state permissions](selected-drafts/patterns/scoped-shared-state-permissions.md); [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-002` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-003` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-004` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-005` | [Scoped shared-state permissions](selected-drafts/patterns/scoped-shared-state-permissions.md); [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-006` | [Scoped shared-state permissions](selected-drafts/patterns/scoped-shared-state-permissions.md); [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-007` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
+| `GDR-SRC-20261010-F06-008` | [State-validated re-entry brief](selected-drafts/patterns/state-validated-re-entry-brief.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F06-009` | [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F06-010` | [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
+| `GDR-SRC-20261010-F06-011` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) |
 | `GDR-SRC-20261010-F07-001` | [Triangulated balance diagnosis](selected-drafts/patterns/triangulated-balance-diagnosis.md); [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md) |
 | `GDR-SRC-20261010-F07-002` | [Triangulated balance diagnosis](selected-drafts/patterns/triangulated-balance-diagnosis.md); [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md) |
 | `GDR-SRC-20261010-F07-003` | [Triangulated balance diagnosis](selected-drafts/patterns/triangulated-balance-diagnosis.md); [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md) |
@@ -65,7 +86,7 @@
 | `GDR-SRC-20261010-F07-009` | [Legible commitment and safe exit](selected-drafts/patterns/legible-commitment-and-safe-exit.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-010` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-011` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
-| `GDR-SRC-20261010-F07-012` | [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
+| `GDR-SRC-20261010-F07-012` | [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md); [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md); [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) |
 | `GDR-SRC-20261010-F07-013` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
 | `GDR-SRC-20261010-F07-014` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md); [Theme and meaning](selected-drafts/topics/theme-and-meaning.md) |
 | `GDR-SRC-20261010-F07-015` | [Ethical and sustainable design](selected-drafts/topics/ethical-and-sustainable-design.md) |
@@ -131,19 +152,51 @@
 | `GDR-SRC-20261010-G04-013` | [Extraction game](selected-drafts/genres/extraction-game.md); [Tactical shooter](selected-drafts/genres/tactical-shooter.md) |
 | `GDR-SRC-20261010-G04-014` | [Shooter](selected-drafts/genres/shooter.md) |
 | `GDR-SRC-20261010-G04-015` | [Tactical shooter](selected-drafts/genres/tactical-shooter.md) |
+| `GDR-SRC-20261010-G05-001` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-002` | [Fighting](selected-drafts/genres/fighting.md); [Replay-to-variant practice](selected-drafts/patterns/replay-to-variant-practice.md) |
+| `GDR-SRC-20261010-G05-003` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-004` | [Fighting](selected-drafts/genres/fighting.md); [Recoverable expenditure window](selected-drafts/patterns/recoverable-expenditure-window.md) |
+| `GDR-SRC-20261010-G05-005` | [Fighting](selected-drafts/genres/fighting.md); [Replay-to-variant practice](selected-drafts/patterns/replay-to-variant-practice.md) |
+| `GDR-SRC-20261010-G05-006` | [Fighting](selected-drafts/genres/fighting.md); [Replay-to-variant practice](selected-drafts/patterns/replay-to-variant-practice.md) |
+| `GDR-SRC-20261010-G05-007` | [Fighting](selected-drafts/genres/fighting.md); [Beat-em-up](selected-drafts/genres/beat-em-up.md) |
+| `GDR-SRC-20261010-G05-008` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-009` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-010` | [Beat-em-up](selected-drafts/genres/beat-em-up.md); [Recoverable expenditure window](selected-drafts/patterns/recoverable-expenditure-window.md) |
+| `GDR-SRC-20261010-G05-011` | [Beat-em-up](selected-drafts/genres/beat-em-up.md) |
+| `GDR-SRC-20261010-G05-012` | [Beat-em-up](selected-drafts/genres/beat-em-up.md) |
+| `GDR-SRC-20261010-G05-013` | [Beat-em-up](selected-drafts/genres/beat-em-up.md) |
+| `GDR-SRC-20261010-G05-014` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-015` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-016` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G05-017` | [Fighting](selected-drafts/genres/fighting.md) |
+| `GDR-SRC-20261010-G06-001` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G06-002` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G06-003` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G06-004` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G06-005` | [Role-playing](selected-drafts/genres/role-playing.md) |
+| `GDR-SRC-20261010-G06-006` | [Action RPG](selected-drafts/genres/action-rpg.md) |
+| `GDR-SRC-20261010-G06-007` | [Action RPG](selected-drafts/genres/action-rpg.md); [Dependency-complete loadout switch](selected-drafts/patterns/dependency-complete-loadout-switch.md) |
+| `GDR-SRC-20261010-G06-008` | [Action RPG](selected-drafts/genres/action-rpg.md); [Dependency-complete loadout switch](selected-drafts/patterns/dependency-complete-loadout-switch.md) |
+| `GDR-SRC-20261010-G06-009` | [Action RPG](selected-drafts/genres/action-rpg.md) |
+| `GDR-SRC-20261010-G06-010` | [Action RPG](selected-drafts/genres/action-rpg.md) |
+| `GDR-SRC-20261010-G06-011` | [Action RPG](selected-drafts/genres/action-rpg.md); [Dependency-complete loadout switch](selected-drafts/patterns/dependency-complete-loadout-switch.md) |
+| `GDR-SRC-20261010-G06-012` | [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) |
+| `GDR-SRC-20261010-G06-013` | [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) |
+| `GDR-SRC-20261010-G06-014` | [Action RPG](selected-drafts/genres/action-rpg.md); [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) |
+| `GDR-SRC-20261010-G06-015` | [Role-playing](selected-drafts/genres/role-playing.md) |
 | `GDR-SRC-20261010-P01-01` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-02` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
 | `GDR-SRC-20261010-P01-03` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
 | `GDR-SRC-20261010-P01-04` | [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
-| `GDR-SRC-20261010-P01-05` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Visual communication](selected-drafts/topics/visual-communication.md); [Role-preserving style variation](selected-drafts/patterns/role-preserving-style-variation.md); [Action-phase and interruption contract](selected-drafts/patterns/action-phase-and-interruption-contract.md); [Animation and performance](selected-drafts/topics/animation-and-performance.md); [Art direction](selected-drafts/topics/art-direction.md) |
+| `GDR-SRC-20261010-P01-05` | [Role-preserving style variation](selected-drafts/patterns/role-preserving-style-variation.md); [Action-phase and interruption contract](selected-drafts/patterns/action-phase-and-interruption-contract.md); [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Animation and performance](selected-drafts/topics/animation-and-performance.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Art direction](selected-drafts/topics/art-direction.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-06` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md) |
 | `GDR-SRC-20261010-P01-07` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md) |
 | `GDR-SRC-20261010-P01-08` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
 | `GDR-SRC-20261010-P01-09` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md) |
-| `GDR-SRC-20261010-P01-10` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md); [Animation and performance](selected-drafts/topics/animation-and-performance.md); [Art direction](selected-drafts/topics/art-direction.md) |
+| `GDR-SRC-20261010-P01-10` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Animation and performance](selected-drafts/topics/animation-and-performance.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md); [Art direction](selected-drafts/topics/art-direction.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-11` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-12` | [Visual communication](selected-drafts/topics/visual-communication.md) |
-| `GDR-SRC-20261010-P01-13` | [Visual communication](selected-drafts/topics/visual-communication.md); [Role-preserving style variation](selected-drafts/patterns/role-preserving-style-variation.md); [Art direction](selected-drafts/topics/art-direction.md) |
+| `GDR-SRC-20261010-P01-13` | [Role-preserving style variation](selected-drafts/patterns/role-preserving-style-variation.md); [Art direction](selected-drafts/topics/art-direction.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
 | `GDR-SRC-20261010-P01-14` | [Interface and information](selected-drafts/topics/interface-and-information.md) |
 | `GDR-SRC-20261010-P01-15` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md) |
 | `GDR-SRC-20261010-P01-16` | [Interface and information](selected-drafts/topics/interface-and-information.md); [Visual communication](selected-drafts/topics/visual-communication.md) |
@@ -151,11 +204,11 @@
 | `GDR-SRC-20261010-P01-18` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md); [Interface and information](selected-drafts/topics/interface-and-information.md) |
 | `GDR-SRC-20261010-P01-19` | [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
 | `GDR-SRC-20261010-P01-20` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md); [Accessibility and inclusive interaction](selected-drafts/topics/accessibility-and-inclusive-interaction.md) |
-| `GDR-SRC-20261010-P02-001` | [Recoverable action remapping](selected-drafts/patterns/recoverable-action-remapping.md); [Controls and input](selected-drafts/topics/controls-and-input.md); [Extraction game](selected-drafts/genres/extraction-game.md); [Tactical shooter](selected-drafts/genres/tactical-shooter.md); [Shooter](selected-drafts/genres/shooter.md); [Viable baseline re-entry loadout](selected-drafts/patterns/viable-baseline-re-entry-loadout.md) |
+| `GDR-SRC-20261010-P02-001` | [Extraction game](selected-drafts/genres/extraction-game.md); [Tactical shooter](selected-drafts/genres/tactical-shooter.md); [Shooter](selected-drafts/genres/shooter.md); [Recoverable action remapping](selected-drafts/patterns/recoverable-action-remapping.md); [Viable baseline re-entry loadout](selected-drafts/patterns/viable-baseline-re-entry-loadout.md); [Controls and input](selected-drafts/topics/controls-and-input.md) |
 | `GDR-SRC-20261010-P02-002` | [Recoverable action remapping](selected-drafts/patterns/recoverable-action-remapping.md); [Controls and input](selected-drafts/topics/controls-and-input.md) |
 | `GDR-SRC-20261010-P02-003` | [Controls and input](selected-drafts/topics/controls-and-input.md) |
 | `GDR-SRC-20261010-P02-004` | [Recoverable action remapping](selected-drafts/patterns/recoverable-action-remapping.md); [Controls and input](selected-drafts/topics/controls-and-input.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md) |
-| `GDR-SRC-20261010-P02-005` | [Fact-preserving cue alternatives](selected-drafts/patterns/fact-preserving-cue-alternatives.md); [Feedback and game feel](selected-drafts/topics/feedback-and-game-feel.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md); [Extraction game](selected-drafts/genres/extraction-game.md); [Tactical shooter](selected-drafts/genres/tactical-shooter.md); [Shooter](selected-drafts/genres/shooter.md); [Provisional-versus-confirmed impact feedback](selected-drafts/patterns/provisional-versus-confirmed-impact-feedback.md) |
+| `GDR-SRC-20261010-P02-005` | [Extraction game](selected-drafts/genres/extraction-game.md); [Tactical shooter](selected-drafts/genres/tactical-shooter.md); [Shooter](selected-drafts/genres/shooter.md); [Provisional-versus-confirmed impact feedback](selected-drafts/patterns/provisional-versus-confirmed-impact-feedback.md); [Fact-preserving cue alternatives](selected-drafts/patterns/fact-preserving-cue-alternatives.md); [Feedback and game feel](selected-drafts/topics/feedback-and-game-feel.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md) |
 | `GDR-SRC-20261010-P02-006` | [Fact-preserving cue alternatives](selected-drafts/patterns/fact-preserving-cue-alternatives.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md) |
 | `GDR-SRC-20261010-P02-007` | [Fact-preserving cue alternatives](selected-drafts/patterns/fact-preserving-cue-alternatives.md); [Feedback and game feel](selected-drafts/topics/feedback-and-game-feel.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md) |
 | `GDR-SRC-20261010-P02-008` | [Fact-preserving cue alternatives](selected-drafts/patterns/fact-preserving-cue-alternatives.md); [Feedback and game feel](selected-drafts/topics/feedback-and-game-feel.md); [Multimodal communication](selected-drafts/topics/multimodal-communication.md) |
@@ -191,6 +244,18 @@
 | `GDR-SRC-20261010-P04-010` | [Animation and performance](selected-drafts/topics/animation-and-performance.md) |
 | `GDR-SRC-20261010-P04-011` | [Animation and performance](selected-drafts/topics/animation-and-performance.md); [Art direction](selected-drafts/topics/art-direction.md) |
 | `GDR-SRC-20261010-P04-012` | [Art direction](selected-drafts/topics/art-direction.md) |
+| `GDR-SRC-20261010-P05-001` | [State-valid musical transition](selected-drafts/patterns/state-valid-musical-transition.md); [Music design](selected-drafts/topics/music-design.md); [Audio design](selected-drafts/topics/audio-design.md) |
+| `GDR-SRC-20261010-P05-002` | [Audio design](selected-drafts/topics/audio-design.md) |
+| `GDR-SRC-20261010-P05-003` | [Audio design](selected-drafts/topics/audio-design.md) |
+| `GDR-SRC-20261010-P05-004` | [State-valid musical transition](selected-drafts/patterns/state-valid-musical-transition.md); [Music design](selected-drafts/topics/music-design.md) |
+| `GDR-SRC-20261010-P05-005` | [Music design](selected-drafts/topics/music-design.md) |
+| `GDR-SRC-20261010-P05-006` | [Music design](selected-drafts/topics/music-design.md) |
+| `GDR-SRC-20261010-P05-007` | [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-P05-008` | [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-P05-009` | [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-P05-010` | [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-P05-011` | [Music design](selected-drafts/topics/music-design.md) |
+| `GDR-SRC-20261010-P05-012` | [Audio design](selected-drafts/topics/audio-design.md) |
 | `GDR-SRC-20261010-W01-01` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
 | `GDR-SRC-20261010-W01-02` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
 | `GDR-SRC-20261010-W01-03` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md); [Narrative structures](selected-drafts/topics/narrative-structures.md) |
@@ -212,12 +277,12 @@
 | `GDR-SRC-20261010-W02-002` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-003` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-004` | [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
-| `GDR-SRC-20261010-W02-005` | [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Reaction eligibility and repetition contract](selected-drafts/patterns/reaction-eligibility-and-repetition-contract.md); [Narrative systems interfaces](selected-drafts/topics/narrative-systems-interfaces.md) |
-| `GDR-SRC-20261010-W02-006` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
+| `GDR-SRC-20261010-W02-005` | [Reaction eligibility and repetition contract](selected-drafts/patterns/reaction-eligibility-and-repetition-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Narrative systems interfaces](selected-drafts/topics/narrative-systems-interfaces.md) |
+| `GDR-SRC-20261010-W02-006` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
 | `GDR-SRC-20261010-W02-007` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
 | `GDR-SRC-20261010-W02-008` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
-| `GDR-SRC-20261010-W02-009` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
-| `GDR-SRC-20261010-W02-010` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md) |
+| `GDR-SRC-20261010-W02-009` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md); [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
+| `GDR-SRC-20261010-W02-010` | [Intent and response contract](selected-drafts/patterns/intent-and-response-contract.md); [Lore delivery and continuity](selected-drafts/topics/lore-delivery-and-continuity.md); [Dialogue and voice](selected-drafts/topics/dialogue-and-voice.md); [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) |
 | `GDR-SRC-20261010-W02-011` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
 | `GDR-SRC-20261010-W02-012` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
 | `GDR-SRC-20261010-W02-013` | [Multi-route objective contract](selected-drafts/patterns/multi-route-objective-contract.md); [Quests and objectives](selected-drafts/topics/quests-and-objectives.md) |
@@ -244,3 +309,6 @@
 | `GDR-SRC-20261010-W04-006` | [Theme and meaning](selected-drafts/topics/theme-and-meaning.md) |
 | `GDR-SRC-20261010-W04-007` | [Theme and meaning](selected-drafts/topics/theme-and-meaning.md) |
 | `GDR-SRC-20261010-W04-008` | [Theme and meaning](selected-drafts/topics/theme-and-meaning.md) |
+| `SRC-0003` | [Audio design](selected-drafts/topics/audio-design.md) |
+| `SRC-0005` | [Localization and presentation](selected-drafts/topics/localization-and-presentation.md); [Music design](selected-drafts/topics/music-design.md); [Audio design](selected-drafts/topics/audio-design.md) |
+| `SRC-0007` | [State-valid musical transition](selected-drafts/patterns/state-valid-musical-transition.md); [Music design](selected-drafts/topics/music-design.md); [Audio design](selected-drafts/topics/audio-design.md) |

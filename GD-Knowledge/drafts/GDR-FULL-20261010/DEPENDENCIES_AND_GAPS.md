@@ -1,3 +1,15 @@
+# Current unresolved dependencies and evidence depth
+
+- F05 causal probes overlap pending F02 causal-choice questions; resolve conceptual owners centrally. Generation local compatibility/task feasibility is not player suitability, complete recoverability or deadline assurance. Corrections distinguish candidate distribution from actual fallback exposure and stop-budget logic. Validator completeness, runtime latency, rich simulation modalities, rights and longitudinal/representative benefits remain open.
+- F06 re-entry brief validates current state without selecting a player's goal or replaying old intent; it joins the existing W02/W03/G03 recap/re-entry overlap queue. Shared-state permission atomicity, consent freshness, migration, moderation capacity, localization/access/privacy and causal effects remain untested. Study F06-009 equals F03-009 by DOI10.1145/3549489; count it once as evidence, while retaining provisional source IDs pending canonical reconciliation.
+- G05 correction-aware outcome communication overlaps G04 provisional/confirmed feedback; reconcile before allocating a new child. Replay-to-variant practice is a provenance/restore specialization of F01, not proof of durable learning. Recoverable expenditure differs from W04 quiet/recovery and G04 later material participation. Only bounded creator evidence supports its recipe.
+- G06 saved-loadout switching validates present dependencies and allows explicit partial application; saved preferences need not be currently valid. Return-resource/mapping queues overlap F03/W03. No complete party/revival/generated-layout/current-build/access/long-term evidence is established.
+- P05 audio/music/localization adds scoped task-fact and grammatical/message-lifecycle guidance, not fear, hearing safety, device/emotional parity or translation quality guarantees. Locale feasibility is separated from willingness. P03/P04 dependencies and source aliases still need explicit integration; duplicate byte origins are not independent corroboration.
+
+Detailed subfacet maps, abstract-only leads, source conflicts, source-access limitations and proposed comparisons remain in complete packets/reviews. No queue is closed or duplicate merged by assembly.
+
+## Earlier detailed gaps and origin restrictions
+
 # Cumulative dependencies and evidence gaps
 
 ## Wave-4 unresolved integration

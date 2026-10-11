@@ -1,6 +1,6 @@
 # Repository publication checkpoint
 
-Current snapshot: waves 1–4, 2026-10-11 UTC; GDR-FULL-20261010. [Selected inventory](ENTRY_INVENTORY.md): **33 topics, 11 genres and 30 patterns across 17 separately reviewed batches**. All 74 research candidates remain provisional drafts; formal acceptance and release remain open.
+Current snapshot: 22 reviewed batches, 2026-10-11 UTC; GDR-FULL-20261010. [Selected inventory](ENTRY_INVENTORY.md): **40 topics, 16 genres and 39 patterns across 22 separately reviewed batches**. All 95 research candidates remain provisional drafts; formal acceptance and release remain open.
 
 ## Repository history
 
@@ -10,8 +10,16 @@ Current snapshot: waves 1–4, 2026-10-11 UTC; GDR-FULL-20261010. [Selected inve
 - Increment ZIP SHA-256: `44282fd8c7d6852df0ab4533c3e7f07b61ad9a40cbe07c03320bb6766de572a0`. Exact overlay preconditions and hashes: [increment manifest](provenance/wave4-increment/INCREMENT_MANIFEST.md). References in archived packaging receipts describe the package layout and branch state at preparation time.
 - Current [manifest](MANIFEST.md), [selection receipt](SELECTION_RECEIPT.md), and [verification](VERIFICATION.md) identify the combined research payload. Repository-only checkpoint and navigation additions are outside package payload counts.
 
+## Latest reviewed increment
+
+- Adds F05, F06, P05, G05 and G06: 7 topics, 5 genres and 9 patterns. All prior selected research bytes remain unchanged.
+- Base waves 1–4 commit: [3c0fd2e](https://github.com/BH-Studio/boarshead-ai/commit/3c0fd2eca5b043d4db7868f0c308fa2a114389e8), verified on main before integration.
+- Overlay: 98 additions and seven cumulative replacements, plus archived integration receipts and repository navigation/checkpoint updates.
+- Changes manifest SHA-256: `bf3b9aefa02f2bdc0fc35afcad53dccc7e078b9cd7d40859b6c20e1479254874`. [Exact increment preconditions](provenance/post-wave4-increment/INCREMENT_MANIFEST.md).
+- P05 final-origin clearance is recorded separately from content review. Original variants and their history remain preserved. Neither provenance clearance nor repository publication is formal research acceptance.
+
 ## Scope and status
 
-Only corrected P04 Origin B is selected. Origin A and uncorrected B remain separately archived; shared IDs across origins do not make their evidence interchangeable. Prior audio pilot reviewed candidate/audit trail remains under [dependencies/audio-pilot](dependencies/audio-pilot/README.md), outside the 74-entry count.
+Only corrected P04 Origin B is selected. Origin A and uncorrected B remain separately archived; shared IDs across origins do not make their evidence interchangeable. Prior audio pilot reviewed candidate/audit trail remains under [dependencies/audio-pilot](dependencies/audio-pilot/README.md), outside the 95-entry count.
 
-Repository publication does not authorize formal content acceptance, release, host retrieval validation, gameplay tests or game adoption. No permanent IDs are allocated and no harness or engine code changes are included. Existing starter files are preserved apart from index navigation. Fifth-wave outputs are excluded from this snapshot. Running/unsubmitted counts in research checkpoints are dated coordinator reports, not live monitoring.
+Repository publication does not authorize formal content acceptance, release, host retrieval validation, gameplay tests or game adoption. No permanent IDs are allocated and no harness or engine code changes are included. Existing starter files are preserved apart from index navigation. Unreviewed and held outputs are excluded from this snapshot. Running/unsubmitted counts in research checkpoints are dated coordinator reports, not live monitoring.

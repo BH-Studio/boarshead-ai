@@ -1,8 +1,8 @@
 # Current selected entry inventory
 
-74 provisional research candidates across 17 independently reviewed batches. All version 0.1.0/draft/null approvals. P04 rows are corrected Origin B only; Origin A is excluded from active lookup.
+Only cleared selections are listed. P05 final-origin and F06 review holds, if active, are excluded. All retain draft/null approval and version0.1.0.
 
-| Batch | Kind | ID | Selected entry | Revision | SHA-256 |
+| Batch | Kind | ID | Entry | Revision | SHA256 |
 |---|---|---|---|---|---|
 | F01 | pattern | `GDR-CAND-20261010-F01-PAT-01` | [Supported attempt and transfer check](selected-drafts/patterns/supported-attempt-and-transfer-check.md) | independent-review-correction-1 | `5bbbe570d8af2bd36865be6f970e8215261d3bc703094b6d3da33c08278ef6e1` |
 | F01 | topic | `GDR-CAND-20261010-F01-TOP-01` | [Player experience and motivation](selected-drafts/topics/player-experience-and-motivation.md) | original | `f3ffc7d53b6dc88756a915f177d7f6a31aaafd24802913077e9f42e913fd8e06` |
@@ -20,6 +20,14 @@
 | F04 | pattern | `GDR-CAND-20261010-F04-PAT-02` | [State-conditioned traversal preview](selected-drafts/patterns/state-conditioned-traversal-preview.md) | independent-review-correction-1 | `2befddf1a02794c4c4b95436407776ff9f63c8a3d508847ef0527864d0fd0e17` |
 | F04 | topic | `GDR-CAND-20261010-F04-TOP-01` | [Combat and conflict systems](selected-drafts/topics/combat-and-conflict-systems.md) | independent-review-correction-1 | `45621514be8fb1883e294c7b73cb7f42c788e074f00fa668de5ecff58ff62889` |
 | F04 | topic | `GDR-CAND-20261010-F04-TOP-02` | [Movement and traversal](selected-drafts/topics/movement-and-traversal.md) | initial-1 | `00cb14244cb5af12b09acce564891d505403b693ce223833ff87a38f9d190560` |
+| F05 | pattern | `GDR-CAND-20261010-F05-PAT-01` | [Bounded causal probe](selected-drafts/patterns/bounded-causal-probe.md) | initial-research-1 | `7bd7c82c51a2c6020e1f95a87c132315eff295ec5be74dd4812c5cb0c852deac` |
+| F05 | pattern | `GDR-CAND-20261010-F05-PAT-02` | [Constraint-gated generation with bounded fallback](selected-drafts/patterns/constraint-gated-generation-with-bounded-fallback.md) | independent-review-correction-1 | `31b6b2a0fab86d5361c0ca0a66446206a6d15d9d78c5e3c2135b31a8a7cc6fbe` |
+| F05 | topic | `GDR-CAND-20261010-F05-TOP-01` | [Simulation and systemic behavior](selected-drafts/topics/simulation-and-systemic-behavior.md) | initial-research-1 | `6e19182acfabd6a486f9406afd8eac74b87e49f9249acca7712707094f382f03` |
+| F05 | topic | `GDR-CAND-20261010-F05-TOP-02` | [Procedural and authored content](selected-drafts/topics/procedural-and-authored-content.md) | independent-review-correction-1 | `0b566192568b48b288dfec12f63b5e41afacd3c7c24847bd0e05246174f79ba4` |
+| F06 | pattern | `GDR-CAND-20261010-F06-PAT-01` | [Scoped shared-state permissions](selected-drafts/patterns/scoped-shared-state-permissions.md) | initial-draft-1 | `e60a218c06bcf897582f5b2becf60d00eaeb756bbecc7b6322ada88d8d70308a` |
+| F06 | pattern | `GDR-CAND-20261010-F06-PAT-02` | [State-validated re-entry brief](selected-drafts/patterns/state-validated-re-entry-brief.md) | initial-draft-1 | `b063d2d94b43c1a511ec1670e748b34a9007b2ebdfe1b12cf1a21a234ba7a9f1` |
+| F06 | topic | `GDR-CAND-20261010-F06-TOP-01` | [Multiplayer and social systems](selected-drafts/topics/multiplayer-and-social-systems.md) | initial-draft-1 | `f32782fff1009ed17f755bdf30966d1b2b6f44bcb0be3f8bbab743b286b0a5b4` |
+| F06 | topic | `GDR-CAND-20261010-F06-TOP-02` | [Session structure and retention](selected-drafts/topics/session-structure-and-retention.md) | initial-draft-1 | `6f1720b1a3ff54296a4585a3ae7e672460b75ae5809bc47380c4a82219f6b6a3` |
 | F07 | pattern | `GDR-CAND-20261010-F07-PAT-01` | [Triangulated balance diagnosis](selected-drafts/patterns/triangulated-balance-diagnosis.md) | initial-capture-1 | `657c3d90ba932cf9ba9828d07e41da0c06af4da72e4cb666aa80e25cc4098b3c` |
 | F07 | pattern | `GDR-CAND-20261010-F07-PAT-02` | [Legible commitment and safe exit](selected-drafts/patterns/legible-commitment-and-safe-exit.md) | initial-capture-1 | `85cffbbdb25c968e9c00f8ab5b3a230c420f24f0b83e19fbff49648e217b425a` |
 | F07 | topic | `GDR-CAND-20261010-F07-TOP-01` | [Evaluation and balancing](selected-drafts/topics/evaluation-and-balancing.md) | initial-capture-1 | `165879841257f88c0a5ecba1f6db5d8b36089dcb260570d7bed6bcd9496d38b8` |
@@ -42,6 +50,14 @@
 | G04 | genre | `GDR-CAND-20261010-G04-GEN-03` | [Extraction game](selected-drafts/genres/extraction-game.md) | initial-capture-1 | `786c17744e1df616c4abab24512f1d06346dba841b4a7dfc9cc9af39077461b1` |
 | G04 | pattern | `GDR-CAND-20261010-G04-PAT-01` | [Provisional-versus-confirmed impact feedback](selected-drafts/patterns/provisional-versus-confirmed-impact-feedback.md) | initial-capture-1 | `aab57bb0498e7a0a671764ce009d042bcec1b90259fb7311baa1b0b999ce85ed` |
 | G04 | pattern | `GDR-CAND-20261010-G04-PAT-02` | [Viable baseline re-entry loadout](selected-drafts/patterns/viable-baseline-re-entry-loadout.md) | initial-capture-1 | `01fbcfce9f34fb0c10b69fcd82104cf1c3d36f832056af19cd4acec79b5ef9b7` |
+| G05 | genre | `GDR-CAND-20261010-G05-GEN-01` | [Fighting](selected-drafts/genres/fighting.md) | author-self-review-1 | `9facb4e2777e61edf78dc4b34fdcc3a55728a93e8397a8818c82bb15082b30d4` |
+| G05 | genre | `GDR-CAND-20261010-G05-GEN-02` | [Beat-em-up](selected-drafts/genres/beat-em-up.md) | initial-capture-1 | `f188e3e79f7d80e3fc9bfe0f931acb580e315a267f97a370f162c3c2386c2e2e` |
+| G05 | pattern | `GDR-CAND-20261010-G05-PAT-01` | [Replay-to-variant practice](selected-drafts/patterns/replay-to-variant-practice.md) | initial-capture-1 | `069483f96e338b14a2ce6016147eaf7048ae73a9864162d4fdefcbdd4ffb58e3` |
+| G05 | pattern | `GDR-CAND-20261010-G05-PAT-02` | [Recoverable expenditure window](selected-drafts/patterns/recoverable-expenditure-window.md) | initial-capture-1 | `4bd0087081d8caa962dabcd48da1d5770d154a5e8a329563c162a87ff8407d62` |
+| G06 | genre | `GDR-CAND-20261010-G06-GEN-01` | [Role-playing](selected-drafts/genres/role-playing.md) | initial-research-1 | `77c70cbe2856eae65fe2e5bd368cfed1ee671d1ca4a91b0ae8d2b214039a54ec` |
+| G06 | genre | `GDR-CAND-20261010-G06-GEN-02` | [Action RPG](selected-drafts/genres/action-rpg.md) | initial-research-1 | `f3b5d7eb67a4daa4cc197393e1360a64cc99cef07f812a815a2cf8f2c136a316` |
+| G06 | genre | `GDR-CAND-20261010-G06-GEN-03` | [Dungeon crawler](selected-drafts/genres/dungeon-crawler.md) | initial-research-1 | `cd05a8bbe65fe49e8cf6a6712d82900a56d94913a57144d90ffb30f4019a07cd` |
+| G06 | pattern | `GDR-CAND-20261010-G06-PAT-01` | [Dependency-complete loadout switch](selected-drafts/patterns/dependency-complete-loadout-switch.md) | initial-research-1 | `a3d6c6b62f0958190ee4f59f46e3bccf9b63e835f78e86e7a9441e31dfad3d6b` |
 | P01 | pattern | `GDR-CAND-20261010-P01-PAT-01` | [Redundant critical-state cues](selected-drafts/patterns/redundant-critical-state-cues.md) | review-correction-1 | `6b560a8630dc9e7125dd17a7c8fc53918ca2852eb3efefce693fa9a67c52bca6` |
 | P01 | topic | `GDR-CAND-20261010-P01-TOP-01` | [Visual communication](selected-drafts/topics/visual-communication.md) | review-correction-1 | `b8e23ae234041fa0893295fdd36457eb08e0e77a60cca4229b7a77f0f13844b7` |
 | P01 | topic | `GDR-CAND-20261010-P01-TOP-02` | [Interface and information](selected-drafts/topics/interface-and-information.md) | review-correction-1 | `1381faf6c998295cd0b0472cf3905a28f87d9515d16bacb54ece423fe080595d` |
@@ -59,6 +75,11 @@
 | P04 | pattern | `GDR-CAND-20261010-P04-PAT-02` | [Action-phase and interruption contract](selected-drafts/patterns/action-phase-and-interruption-contract.md) | review-correction-1 | `c917338694f14d87a7dc8678652e55c9c17150bb3f5c4d8317c6acab016af654` |
 | P04 | topic | `GDR-CAND-20261010-P04-TOP-01` | [Art direction](selected-drafts/topics/art-direction.md) | review-correction-1 | `6ba12c20e84e0783f149fa48bd3fa6156badda8c81b1e91ac62efe1109d9d6c3` |
 | P04 | topic | `GDR-CAND-20261010-P04-TOP-02` | [Animation and performance](selected-drafts/topics/animation-and-performance.md) | review-correction-1 | `f8355641553a51f8362496b370b2c4c9a3cc69c1e7da992a3a240eee47ca69f9` |
+| P05 | pattern | `GDR-CAND-20261010-P05-PAT-01` | [State-valid musical transition](selected-drafts/patterns/state-valid-musical-transition.md) | initial-author-draft | `4fdab8a3c3e450f3156e83c9cdec9cdd61775ea6a2b22aed77f078d7e755cfe3` |
+| P05 | pattern | `GDR-CAND-20261010-P05-PAT-02` | [Locale-resilient message unit](selected-drafts/patterns/locale-resilient-message-unit.md) | independent-review-correction-1 | `e222813ca2bcaf016a019f024a93b643b9456c474d563178a9aeca7544fe765a` |
+| P05 | topic | `GDR-CAND-20261010-P05-TOP-01` | [Audio design](selected-drafts/topics/audio-design.md) | independent-review-correction-1 | `d21d9012df3dba75cec6818a55d1d02d2e7656407fb65a69cf302dc12bde8ef1` |
+| P05 | topic | `GDR-CAND-20261010-P05-TOP-02` | [Music design](selected-drafts/topics/music-design.md) | initial-author-draft | `78394bd8ce2663f944231f94a464f18065cf8d3025b10ffde8b9ce31217e75c5` |
+| P05 | topic | `GDR-CAND-20261010-P05-TOP-03` | [Localization and presentation](selected-drafts/topics/localization-and-presentation.md) | independent-review-correction-1 | `8b85a286f3aa49a7054f902f7f9a4249bbff3fae740888ac6f312e724ff5e2f5` |
 | W01 | pattern | `GDR-CAND-20261010-W01-PAT-01` | [Consequence-preserving reconvergence](selected-drafts/patterns/consequence-preserving-reconvergence.md) | initial | `1f0fc708986db46376e5be6c632f125dc8f684ed7fce831df8a2ccf2a448bcc6` |
 | W01 | topic | `GDR-CAND-20261010-W01-TOP-01` | [Narrative structures](selected-drafts/topics/narrative-structures.md) | initial | `9bac355072317ed9db0c299d926d293cd70052426ceb8db9cae98beaee1d15c7` |
 | W01 | topic | `GDR-CAND-20261010-W01-TOP-02` | [Worldbuilding](selected-drafts/topics/worldbuilding.md) | initial | `bba4640f8ecc1ba4ea7e36bbfd54667614e3efe449ef46d17f3f0615eab252ce` |
