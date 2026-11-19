@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1.0",
+  "id": "ronin.water_carrier",
+  "name": "Water Carrier",
+  "civil_ai_job": "Water Carrier",
+  "workplace_type": "VillageWellDistrict",
+  "targeting": {"mode": "nearest_eligible", "resource_type": "Water", "require_available_stock": true, "require_reachable": true},
+  "steps": ["locate_source", "reserve_stock", "interact_collect", "pickup_cargo", "locate_destination", "dropoff_cargo", "confirm_delivery"],
+  "economy": {"input_resource": "Water", "output_resource": "Water", "units_per_trip": 1, "destination_type": "WaterStorage", "exactly_once_delivery": true},
+  "prefab": {"name": "WaterWell", "resource_node": true, "persistent_instance_id": "editor_or_spawn_assigned"},
+  "tests": ["duplicate_prefab_ids", "depleted_well", "competing_workers", "interrupted_delivery", "save_load_in_transit"]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1.0",
+  "id": "ronin.fisherman",
+  "name": "Fisherman",
+  "civil_ai_job": "Fisherman",
+  "workplace_type": "FishingDock",
+  "targeting": {"mode": "nearest_eligible", "resource_type": "Fish", "require_available_stock": true, "require_reachable": true},
+  "steps": ["acquire_tool", "locate_source", "reserve_stock", "interact_collect", "pickup_cargo", "locate_destination", "dropoff_cargo", "confirm_delivery"],
+  "economy": {"input_resource": "Fish", "output_resource": "RawFish", "units_per_trip": 2, "destination_type": "FishStorage", "exactly_once_delivery": true},
+  "prefab": {"name": "FishingSpot", "resource_node": true, "persistent_instance_id": "editor_or_spawn_assigned"},
+  "tests": ["duplicate_prefab_ids", "depleted_resource", "competing_workers", "interrupted_delivery", "save_load_in_transit"]
+}
